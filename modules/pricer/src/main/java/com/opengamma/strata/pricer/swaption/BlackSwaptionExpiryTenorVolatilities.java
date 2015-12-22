@@ -1,21 +1,20 @@
 /**
  * Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
- * 
+ *
  * Please see distribution for license.
  */
 package com.opengamma.strata.pricer.swaption;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.joda.beans.Bean;
 import org.joda.beans.BeanBuilder;
@@ -30,42 +29,41 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.currency.Currency;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Doubles;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.collect.tuple.DoublesPair;
-import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivity;
+import com.opengamma.strata.market.sensitivity.SwaptionSensitivity;
 import com.opengamma.strata.market.surface.NodalSurface;
-import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivities;
 import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
 import com.opengamma.strata.market.surface.SurfaceMetadata;
 import com.opengamma.strata.market.surface.SurfaceParameterMetadata;
 import com.opengamma.strata.market.surface.meta.SwaptionSurfaceExpiryTenorNodeMetadata;
-import com.opengamma.strata.pricer.impl.option.SabrInterestRateParameters;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConvention;
 
 /**
- * Volatility environment for swaptions in SABR model. 
- * <p>
- * The volatility is represented in terms of SABR model parameters.
+ * Volatility environment for swaptions in the log-normal or Black model. 
+ * The volatility is represented by a surface on the expiry and swap tenor dimensions.
  */
 @BeanDefinition(builderScope = "private")
-public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
+public final class BlackSwaptionExpiryTenorVolatilities
+    implements BlackSwaptionVolatilities, ImmutableBean, Serializable {
 
   /** 
-   * The SABR model parameters. 
+   * The Black volatility surface. 
    * <p>
-   * Each model parameter of SABR model is a surface in the expiry/swap tenor dimensions. 
+   * The order of the dimensions is expiry/swap tenor. 
    */
   @PropertyDefinition(validate = "notNull")
-  private final SabrInterestRateParameters parameters;
+  private final NodalSurface surface;
   /** 
    * The swap convention. 
    * <p>
    * The data must valid in terms of this swap convention. 
    */
-  @PropertyDefinition(validate = "notNull")
+  @PropertyDefinition(validate = "notNull", overrideGet = true)
   private final FixedIborSwapConvention convention;
   /** 
    * The day count applicable to the model. 
@@ -77,93 +75,58 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
    * <p>
    * All data items in this environment are calibrated for this date-time. 
    */
-  @PropertyDefinition(validate = "notNull")
+  @PropertyDefinition(validate = "notNull", overrideGet = true)
   private final ZonedDateTime valuationDateTime;
 
   //-------------------------------------------------------------------------
   /**
-   * Creates a provider from the SABR model parameters and the date-time for which it is valid.
+   * Creates a provider from the implied volatility surface and the date-time for which it is valid.
    * 
-   * @param parameters  the SABR model parameters
+   * @param surface  the implied volatility surface
    * @param convention  the swap convention for which the data is valid
-   * @param dayCount  the day count applicable to the model
    * @param valuationDateTime  the valuation date-time
+   * @param dayCount  the day count applicable to the model
    * @return the provider
    */
-  public static SabrVolatilitySwaptionProvider of(
-      SabrInterestRateParameters parameters,
+  public static BlackSwaptionExpiryTenorVolatilities of(
+      NodalSurface surface,
       FixedIborSwapConvention convention,
-      DayCount dayCount,
-      ZonedDateTime valuationDateTime) {
+      ZonedDateTime valuationDateTime,
+      DayCount dayCount) {
 
-    return new SabrVolatilitySwaptionProvider(parameters, convention, dayCount, valuationDateTime);
+    return new BlackSwaptionExpiryTenorVolatilities(surface, convention, dayCount, valuationDateTime);
   }
 
   /**
-   * Creates a provider from the SABR model parameters and the date, time and zone for which it is valid.
+   * Creates a provider from the implied volatility surface and the date, time and zone for which it is valid.
    * 
-   * @param parameters  the SABR model parameters
+   * @param surface  the implied volatility surface
    * @param convention  the swap convention for which the data is valid
-   * @param dayCount  the day count applicable to the model
    * @param valuationDate  the valuation date
    * @param valuationTime  the valuation time
    * @param valuationZone  the valuation time zone
+   * @param dayCount  the day count applicable to the model
    * @return the provider
    */
-  public static SabrVolatilitySwaptionProvider of(
-      SabrInterestRateParameters parameters,
+  public static BlackSwaptionExpiryTenorVolatilities of(
+      NodalSurface surface,
       FixedIborSwapConvention convention,
-      DayCount dayCount,
       LocalDate valuationDate,
       LocalTime valuationTime,
-      ZoneId valuationZone) {
+      ZoneId valuationZone,
+      DayCount dayCount) {
 
-    return of(parameters, convention, dayCount, valuationDate.atTime(valuationTime).atZone(valuationZone));
-  }
-
-  /**
-   * Creates a provider from the SABR model parameters and the date. 
-   * <p>
-   * The valuation time and zone are defaulted to noon UTC.
-   * 
-   * @param parameters  the SABR model parameters
-   * @param convention  the swap convention for which the data is valid
-   * @param dayCount  the day count applicable to the model
-   * @param valuationDate  the valuation date
-   * @return the provider
-   */
-  public static SabrVolatilitySwaptionProvider of(
-      SabrInterestRateParameters parameters,
-      FixedIborSwapConvention convention,
-      DayCount dayCount,
-      LocalDate valuationDate) {
-
-    return of(parameters, convention, dayCount, valuationDate.atTime(LocalTime.NOON).atZone(ZoneOffset.UTC));
+    return of(surface, convention, valuationDate.atTime(valuationTime).atZone(valuationZone), dayCount);
   }
 
   //-------------------------------------------------------------------------
-  /**
-   * Returns the Black volatility.
-   * 
-   * @param expiryDate  the option expiry
-   * @param tenor  the swaption tenor in years
-   * @param strike  the option strike rate
-   * @param forwardRate  the forward rate of the underlying swap
-   * @return the volatility
-   */
-  public double getVolatility(ZonedDateTime expiryDate, double tenor, double strike, double forwardRate) {
+  @Override
+  public double volatility(ZonedDateTime expiryDate, double tenor, double strike, double forwardRate) {
     double expiryTime = relativeTime(expiryDate);
-    return parameters.getVolatility(expiryTime, tenor, strike, forwardRate);
+    return surface.zValue(expiryTime, tenor);
   }
 
-  /**
-   * Converts a time and date to a relative year fraction. 
-   * <p>
-   * When the date is after the valuation date (and potentially time), the returned number is negative.
-   * 
-   * @param dateTime  the date/time to find the relative year fraction of
-   * @return the relative year fraction
-   */
+  @Override
   public double relativeTime(ZonedDateTime dateTime) {
     ArgChecker.notNull(dateTime, "dateTime");
     LocalDate valuationDate = valuationDateTime.toLocalDate();
@@ -175,52 +138,29 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     return dayCount.yearFraction(valuationDate, date);
   }
 
-  /**
-   * Returns the tenor of the swap based on its start date and end date.
-   * 
-   * @param startDate  the start date
-   * @param endDate  the end date
-   * @return the tenor
-   */
+  @Override
   public double tenor(LocalDate startDate, LocalDate endDate) {
     // rounded number of months. the rounding is to ensure that an integer number of year even with holidays/leap year
     return Math.round((endDate.toEpochDay() - startDate.toEpochDay()) / 365.25 * 12) / 12;
   }
 
-  /**
-   * Computes the sensitivity to the nodes of the underlying volatility objects 
-   * <p>
-   * The underlying object is typically curve, surface or cube. 
-   * 
-   * @param sensitivity  the point sensitivity
-   * @return the node sensitivity
-   */
-  public SurfaceCurrencyParameterSensitivities surfaceCurrencyParameterSensitivity(SwaptionSabrSensitivity sensitivity) {
-    ArgChecker.isTrue(sensitivity.getConvention().equals(convention),
-        "Swap convention of provider should be the same as swap convention of swaption sensitivity");
-    double expiry = relativeTime(sensitivity.getExpiry());
-    double tenor = sensitivity.getTenor();
-    DoublesPair expiryTenor = DoublesPair.of(expiry, tenor);
-    SurfaceCurrencyParameterSensitivity alphaSensi = surfaceCurrencyParameterSensitivity(
-        parameters.getAlphaSurface(), sensitivity.getCurrency(), sensitivity.getAlphaSensitivity(), expiryTenor);
-    SurfaceCurrencyParameterSensitivity betaSensi = surfaceCurrencyParameterSensitivity(
-        parameters.getBetaSurface(), sensitivity.getCurrency(), sensitivity.getBetaSensitivity(), expiryTenor);
-    SurfaceCurrencyParameterSensitivity rhoSensi = surfaceCurrencyParameterSensitivity(
-        parameters.getRhoSurface(), sensitivity.getCurrency(), sensitivity.getRhoSensitivity(), expiryTenor);
-    SurfaceCurrencyParameterSensitivity nuSensi = surfaceCurrencyParameterSensitivity(
-        parameters.getNuSurface(), sensitivity.getCurrency(), sensitivity.getNuSensitivity(), expiryTenor);
-    return SurfaceCurrencyParameterSensitivities.of(alphaSensi, betaSensi, rhoSensi, nuSensi);
+  @Override
+  public SurfaceCurrencyParameterSensitivity surfaceCurrencyParameterSensitivity(SwaptionSensitivity point) {
+    ArgChecker.isTrue(point.getConvention().equals(convention),
+        "Swap convention of provider must be the same as swap convention of swaption sensitivity");
+    double expiry = relativeTime(point.getExpiry());
+    double tenor = point.getTenor();
+    // copy to ImmutableMap to lock order (keySet and values used separately but must match)
+    Map<DoublesPair, Double> result = ImmutableMap.copyOf(surface.zValueParameterSensitivity(expiry, tenor));
+    SurfaceCurrencyParameterSensitivity parameterSensi = SurfaceCurrencyParameterSensitivity.of(
+        updateSurfaceMetadata(result.keySet()),
+        point.getCurrency(),
+        DoubleArray.copyOf(Doubles.toArray(result.values())));
+    return parameterSensi.multipliedBy(point.getSensitivity());
   }
 
-  private SurfaceCurrencyParameterSensitivity surfaceCurrencyParameterSensitivity(
-      NodalSurface surface, Currency currency, double factor, DoublesPair expiryTenor) {
-    Map<DoublesPair, Double> sensiMap = surface.zValueParameterSensitivity(expiryTenor);
-    return SurfaceCurrencyParameterSensitivity.of(
-        updateSurfaceMetadata(surface.getMetadata(), sensiMap.keySet()), currency,
-        DoubleArray.copyOf(sensiMap.values().parallelStream().map((p) -> (p) * factor).collect(Collectors.toList())));
-  }
-
-  private SurfaceMetadata updateSurfaceMetadata(SurfaceMetadata surfaceMetadata, Set<DoublesPair> pairs) {
+  private SurfaceMetadata updateSurfaceMetadata(Set<DoublesPair> pairs) {
+    SurfaceMetadata surfaceMetadata = surface.getMetadata();
     List<SurfaceParameterMetadata> sortedMetaList = new ArrayList<SurfaceParameterMetadata>();
     if (surfaceMetadata.getParameterMetadata().isPresent()) {
       List<SurfaceParameterMetadata> metaList =
@@ -229,7 +169,7 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
         metadataLoop:
         for (SurfaceParameterMetadata parameterMetadata : metaList) {
           ArgChecker.isTrue(parameterMetadata instanceof SwaptionSurfaceExpiryTenorNodeMetadata,
-              "surface parameter metadata must be instance of SwaptionVolatilitySurfaceExpiryTenorNodeMetadata");
+              "Surface parameter metadata must be instance of SwaptionVolatilitySurfaceExpiryTenorNodeMetadata");
           SwaptionSurfaceExpiryTenorNodeMetadata casted =
               (SwaptionSurfaceExpiryTenorNodeMetadata) parameterMetadata;
           if (pair.getFirst() == casted.getYearFraction() && pair.getSecond() == casted.getTenor()) {
@@ -239,7 +179,7 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
           }
         }
       }
-      ArgChecker.isTrue(metaList.size() == 0, "mismatch between surface parameter metadata list and doubles pair list");
+      ArgChecker.isTrue(metaList.size() == 0, "Mismatch between surface parameter metadata list and doubles pair list");
     } else {
       for (DoublesPair pair : pairs) {
         SwaptionSurfaceExpiryTenorNodeMetadata parameterMetadata =
@@ -253,35 +193,40 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
   //------------------------- AUTOGENERATED START -------------------------
   ///CLOVER:OFF
   /**
-   * The meta-bean for {@code SabrVolatilitySwaptionProvider}.
+   * The meta-bean for {@code BlackSwaptionExpiryTenorVolatilities}.
    * @return the meta-bean, not null
    */
-  public static SabrVolatilitySwaptionProvider.Meta meta() {
-    return SabrVolatilitySwaptionProvider.Meta.INSTANCE;
+  public static BlackSwaptionExpiryTenorVolatilities.Meta meta() {
+    return BlackSwaptionExpiryTenorVolatilities.Meta.INSTANCE;
   }
 
   static {
-    JodaBeanUtils.registerMetaBean(SabrVolatilitySwaptionProvider.Meta.INSTANCE);
+    JodaBeanUtils.registerMetaBean(BlackSwaptionExpiryTenorVolatilities.Meta.INSTANCE);
   }
 
-  private SabrVolatilitySwaptionProvider(
-      SabrInterestRateParameters parameters,
+  /**
+   * The serialization version id.
+   */
+  private static final long serialVersionUID = 1L;
+
+  private BlackSwaptionExpiryTenorVolatilities(
+      NodalSurface surface,
       FixedIborSwapConvention convention,
       DayCount dayCount,
       ZonedDateTime valuationDateTime) {
-    JodaBeanUtils.notNull(parameters, "parameters");
+    JodaBeanUtils.notNull(surface, "surface");
     JodaBeanUtils.notNull(convention, "convention");
     JodaBeanUtils.notNull(dayCount, "dayCount");
     JodaBeanUtils.notNull(valuationDateTime, "valuationDateTime");
-    this.parameters = parameters;
+    this.surface = surface;
     this.convention = convention;
     this.dayCount = dayCount;
     this.valuationDateTime = valuationDateTime;
   }
 
   @Override
-  public SabrVolatilitySwaptionProvider.Meta metaBean() {
-    return SabrVolatilitySwaptionProvider.Meta.INSTANCE;
+  public BlackSwaptionExpiryTenorVolatilities.Meta metaBean() {
+    return BlackSwaptionExpiryTenorVolatilities.Meta.INSTANCE;
   }
 
   @Override
@@ -296,13 +241,13 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the SABR model parameters.
+   * Gets the Black volatility surface.
    * <p>
-   * Each model parameter of SABR model is a surface in the expiry/swap tenor dimensions.
+   * The order of the dimensions is expiry/swap tenor.
    * @return the value of the property, not null
    */
-  public SabrInterestRateParameters getParameters() {
-    return parameters;
+  public NodalSurface getSurface() {
+    return surface;
   }
 
   //-----------------------------------------------------------------------
@@ -312,6 +257,7 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
    * The data must valid in terms of this swap convention.
    * @return the value of the property, not null
    */
+  @Override
   public FixedIborSwapConvention getConvention() {
     return convention;
   }
@@ -332,6 +278,7 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
    * All data items in this environment are calibrated for this date-time.
    * @return the value of the property, not null
    */
+  @Override
   public ZonedDateTime getValuationDateTime() {
     return valuationDateTime;
   }
@@ -343,8 +290,8 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
       return true;
     }
     if (obj != null && obj.getClass() == this.getClass()) {
-      SabrVolatilitySwaptionProvider other = (SabrVolatilitySwaptionProvider) obj;
-      return JodaBeanUtils.equal(parameters, other.parameters) &&
+      BlackSwaptionExpiryTenorVolatilities other = (BlackSwaptionExpiryTenorVolatilities) obj;
+      return JodaBeanUtils.equal(surface, other.surface) &&
           JodaBeanUtils.equal(convention, other.convention) &&
           JodaBeanUtils.equal(dayCount, other.dayCount) &&
           JodaBeanUtils.equal(valuationDateTime, other.valuationDateTime);
@@ -355,7 +302,7 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
   @Override
   public int hashCode() {
     int hash = getClass().hashCode();
-    hash = hash * 31 + JodaBeanUtils.hashCode(parameters);
+    hash = hash * 31 + JodaBeanUtils.hashCode(surface);
     hash = hash * 31 + JodaBeanUtils.hashCode(convention);
     hash = hash * 31 + JodaBeanUtils.hashCode(dayCount);
     hash = hash * 31 + JodaBeanUtils.hashCode(valuationDateTime);
@@ -365,8 +312,8 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
   @Override
   public String toString() {
     StringBuilder buf = new StringBuilder(160);
-    buf.append("SabrVolatilitySwaptionProvider{");
-    buf.append("parameters").append('=').append(parameters).append(',').append(' ');
+    buf.append("BlackSwaptionExpiryTenorVolatilities{");
+    buf.append("surface").append('=').append(surface).append(',').append(' ');
     buf.append("convention").append('=').append(convention).append(',').append(' ');
     buf.append("dayCount").append('=').append(dayCount).append(',').append(' ');
     buf.append("valuationDateTime").append('=').append(JodaBeanUtils.toString(valuationDateTime));
@@ -376,7 +323,7 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
 
   //-----------------------------------------------------------------------
   /**
-   * The meta-bean for {@code SabrVolatilitySwaptionProvider}.
+   * The meta-bean for {@code BlackSwaptionExpiryTenorVolatilities}.
    */
   public static final class Meta extends DirectMetaBean {
     /**
@@ -385,31 +332,31 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     static final Meta INSTANCE = new Meta();
 
     /**
-     * The meta-property for the {@code parameters} property.
+     * The meta-property for the {@code surface} property.
      */
-    private final MetaProperty<SabrInterestRateParameters> parameters = DirectMetaProperty.ofImmutable(
-        this, "parameters", SabrVolatilitySwaptionProvider.class, SabrInterestRateParameters.class);
+    private final MetaProperty<NodalSurface> surface = DirectMetaProperty.ofImmutable(
+        this, "surface", BlackSwaptionExpiryTenorVolatilities.class, NodalSurface.class);
     /**
      * The meta-property for the {@code convention} property.
      */
     private final MetaProperty<FixedIborSwapConvention> convention = DirectMetaProperty.ofImmutable(
-        this, "convention", SabrVolatilitySwaptionProvider.class, FixedIborSwapConvention.class);
+        this, "convention", BlackSwaptionExpiryTenorVolatilities.class, FixedIborSwapConvention.class);
     /**
      * The meta-property for the {@code dayCount} property.
      */
     private final MetaProperty<DayCount> dayCount = DirectMetaProperty.ofImmutable(
-        this, "dayCount", SabrVolatilitySwaptionProvider.class, DayCount.class);
+        this, "dayCount", BlackSwaptionExpiryTenorVolatilities.class, DayCount.class);
     /**
      * The meta-property for the {@code valuationDateTime} property.
      */
     private final MetaProperty<ZonedDateTime> valuationDateTime = DirectMetaProperty.ofImmutable(
-        this, "valuationDateTime", SabrVolatilitySwaptionProvider.class, ZonedDateTime.class);
+        this, "valuationDateTime", BlackSwaptionExpiryTenorVolatilities.class, ZonedDateTime.class);
     /**
      * The meta-properties.
      */
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
-        "parameters",
+        "surface",
         "convention",
         "dayCount",
         "valuationDateTime");
@@ -423,8 +370,8 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     @Override
     protected MetaProperty<?> metaPropertyGet(String propertyName) {
       switch (propertyName.hashCode()) {
-        case 458736106:  // parameters
-          return parameters;
+        case -1853231955:  // surface
+          return surface;
         case 2039569265:  // convention
           return convention;
         case 1905311443:  // dayCount
@@ -436,13 +383,13 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     }
 
     @Override
-    public BeanBuilder<? extends SabrVolatilitySwaptionProvider> builder() {
-      return new SabrVolatilitySwaptionProvider.Builder();
+    public BeanBuilder<? extends BlackSwaptionExpiryTenorVolatilities> builder() {
+      return new BlackSwaptionExpiryTenorVolatilities.Builder();
     }
 
     @Override
-    public Class<? extends SabrVolatilitySwaptionProvider> beanType() {
-      return SabrVolatilitySwaptionProvider.class;
+    public Class<? extends BlackSwaptionExpiryTenorVolatilities> beanType() {
+      return BlackSwaptionExpiryTenorVolatilities.class;
     }
 
     @Override
@@ -452,11 +399,11 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
 
     //-----------------------------------------------------------------------
     /**
-     * The meta-property for the {@code parameters} property.
+     * The meta-property for the {@code surface} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<SabrInterestRateParameters> parameters() {
-      return parameters;
+    public MetaProperty<NodalSurface> surface() {
+      return surface;
     }
 
     /**
@@ -487,14 +434,14 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     @Override
     protected Object propertyGet(Bean bean, String propertyName, boolean quiet) {
       switch (propertyName.hashCode()) {
-        case 458736106:  // parameters
-          return ((SabrVolatilitySwaptionProvider) bean).getParameters();
+        case -1853231955:  // surface
+          return ((BlackSwaptionExpiryTenorVolatilities) bean).getSurface();
         case 2039569265:  // convention
-          return ((SabrVolatilitySwaptionProvider) bean).getConvention();
+          return ((BlackSwaptionExpiryTenorVolatilities) bean).getConvention();
         case 1905311443:  // dayCount
-          return ((SabrVolatilitySwaptionProvider) bean).getDayCount();
+          return ((BlackSwaptionExpiryTenorVolatilities) bean).getDayCount();
         case -949589828:  // valuationDateTime
-          return ((SabrVolatilitySwaptionProvider) bean).getValuationDateTime();
+          return ((BlackSwaptionExpiryTenorVolatilities) bean).getValuationDateTime();
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -512,11 +459,11 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
 
   //-----------------------------------------------------------------------
   /**
-   * The bean-builder for {@code SabrVolatilitySwaptionProvider}.
+   * The bean-builder for {@code BlackSwaptionExpiryTenorVolatilities}.
    */
-  private static final class Builder extends DirectFieldsBeanBuilder<SabrVolatilitySwaptionProvider> {
+  private static final class Builder extends DirectFieldsBeanBuilder<BlackSwaptionExpiryTenorVolatilities> {
 
-    private SabrInterestRateParameters parameters;
+    private NodalSurface surface;
     private FixedIborSwapConvention convention;
     private DayCount dayCount;
     private ZonedDateTime valuationDateTime;
@@ -531,8 +478,8 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     @Override
     public Object get(String propertyName) {
       switch (propertyName.hashCode()) {
-        case 458736106:  // parameters
-          return parameters;
+        case -1853231955:  // surface
+          return surface;
         case 2039569265:  // convention
           return convention;
         case 1905311443:  // dayCount
@@ -547,8 +494,8 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     @Override
     public Builder set(String propertyName, Object newValue) {
       switch (propertyName.hashCode()) {
-        case 458736106:  // parameters
-          this.parameters = (SabrInterestRateParameters) newValue;
+        case -1853231955:  // surface
+          this.surface = (NodalSurface) newValue;
           break;
         case 2039569265:  // convention
           this.convention = (FixedIborSwapConvention) newValue;
@@ -590,9 +537,9 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     }
 
     @Override
-    public SabrVolatilitySwaptionProvider build() {
-      return new SabrVolatilitySwaptionProvider(
-          parameters,
+    public BlackSwaptionExpiryTenorVolatilities build() {
+      return new BlackSwaptionExpiryTenorVolatilities(
+          surface,
           convention,
           dayCount,
           valuationDateTime);
@@ -602,8 +549,8 @@ public final class SabrVolatilitySwaptionProvider implements ImmutableBean {
     @Override
     public String toString() {
       StringBuilder buf = new StringBuilder(160);
-      buf.append("SabrVolatilitySwaptionProvider.Builder{");
-      buf.append("parameters").append('=').append(JodaBeanUtils.toString(parameters)).append(',').append(' ');
+      buf.append("BlackSwaptionExpiryTenorVolatilities.Builder{");
+      buf.append("surface").append('=').append(JodaBeanUtils.toString(surface)).append(',').append(' ');
       buf.append("convention").append('=').append(JodaBeanUtils.toString(convention)).append(',').append(' ');
       buf.append("dayCount").append('=').append(JodaBeanUtils.toString(dayCount)).append(',').append(' ');
       buf.append("valuationDateTime").append('=').append(JodaBeanUtils.toString(valuationDateTime));

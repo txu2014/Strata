@@ -12,6 +12,8 @@ import static com.opengamma.strata.basics.index.IborIndices.EUR_EURIBOR_6M;
 import static com.opengamma.strata.basics.index.IborIndices.USD_LIBOR_3M;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -167,10 +169,11 @@ public class SwaptionSabrRateVolatilityDataSet {
    * @param shift  nonzero shift if true, zero shift otherwise
    * @return the volatility provider
    */
-  public static SabrVolatilitySwaptionProvider getVolatilityProviderUsd(LocalDate valuationDate, boolean shift) {
+  public static SabrSwaptionVolatilities getVolatilitiesUsd(LocalDate valuationDate, boolean shift) {
+    ZonedDateTime dateTime = valuationDate.atStartOfDay(ZoneOffset.UTC);
     return shift ?
-        SabrVolatilitySwaptionProvider.of(SABR_PARAM_SHIFT_USD, SWAP_CONVENTION_USD, ACT_ACT_ISDA, valuationDate) :
-        SabrVolatilitySwaptionProvider.of(SABR_PARAM_USD, SWAP_CONVENTION_USD, ACT_ACT_ISDA, valuationDate);
+        SabrSwaptionVolatilities.of(SABR_PARAM_SHIFT_USD, SWAP_CONVENTION_USD, dateTime, ACT_ACT_ISDA) :
+        SabrSwaptionVolatilities.of(SABR_PARAM_USD, SWAP_CONVENTION_USD, dateTime, ACT_ACT_ISDA);
   }
 
   /*
@@ -269,9 +272,10 @@ public class SwaptionSabrRateVolatilityDataSet {
    * @param shift  nonzero shift if true, zero shift otherwise
    * @return the volatility provider
    */
-  public static SabrVolatilitySwaptionProvider getVolatilityProviderEur(LocalDate valuationDate, boolean shift) {
+  public static SabrSwaptionVolatilities getVolatilitiesEur(LocalDate valuationDate, boolean shift) {
+    ZonedDateTime dateTime = valuationDate.atStartOfDay(ZoneOffset.UTC);
     return shift ?
-        SabrVolatilitySwaptionProvider.of(SABR_PARAM_SHIFT_EUR, SWAP_CONVENTION_EUR, ACT_ACT_ISDA, valuationDate) :
-        SabrVolatilitySwaptionProvider.of(SABR_PARAM_EUR, SWAP_CONVENTION_EUR, ACT_ACT_ISDA, valuationDate);
+        SabrSwaptionVolatilities.of(SABR_PARAM_SHIFT_EUR, SWAP_CONVENTION_EUR, dateTime, ACT_ACT_ISDA) :
+        SabrSwaptionVolatilities.of(SABR_PARAM_EUR, SWAP_CONVENTION_EUR, dateTime, ACT_ACT_ISDA);
   }
 }
