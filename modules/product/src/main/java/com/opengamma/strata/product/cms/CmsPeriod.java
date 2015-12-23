@@ -1,3 +1,8 @@
+/**
+ * Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+ *
+ * Please see distribution for license.
+ */
 package com.opengamma.strata.product.cms;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -31,6 +36,19 @@ import com.opengamma.strata.product.swap.SwapIndex;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConvention;
 import com.opengamma.strata.product.swap.type.IborRateSwapLegConvention;
 
+/**
+ * A period over which a CMS coupon or CMS caplet/floorlet payoff is paid.
+ * <p>
+ * A single payment period within a CMS swap leg.
+ * This class specifies the data necessary to calculate the value of the period.
+ * The payment period contains the unique accrual period. 
+ * It is typically based on the observed value of {@code SwapIndex}.
+ * <p>
+ * The payment is a CMS coupon, CMS caplet or CMS floorlet. 
+ * If {@code caplet} ({@code floorlet}) is not null, the payment a caplet (floorlet). 
+ * If both of {@code caplet} and {@code floorlet} are null, this class represents a CMS coupon payment.
+ * Thus at least one of the fields must be null.
+ */
 @BeanDefinition
 public final class CmsPeriod
     implements ImmutableBean, Serializable {
@@ -50,7 +68,7 @@ public final class CmsPeriod
    * The currency of the notional is specified by {@code currency}.
    */
   @PropertyDefinition
-  private final double notional; // TODO signed in expand()
+  private final double notional;
   /**
    * The start date of the payment period.
    * <p>
@@ -94,23 +112,50 @@ public final class CmsPeriod
    */
   @PropertyDefinition(validate = "ArgChecker.notNegative")
   private final double yearFraction;
-
+  /**
+   * The date that payment occurs.
+   * <p>
+   * If the schedule adjusts for business days, then this is the adjusted date.
+   */
   @PropertyDefinition(validate = "notNull")
   private final LocalDate paymentDate;
-
+  /**
+   * The date of the index fixing.
+   * <p>
+   * This is an adjusted date with any business day applied.
+   */
   @PropertyDefinition(validate = "notNull")
   private final LocalDate fixingDate;
-
+  /**
+   * The caplet strike. 
+   * <p>
+   * This defines the strike value of a caplet. 
+   * If the payment is not a caplet, this filed must be null. 
+   */
   @PropertyDefinition(get = "optional")
-  private final Double cap;
-
+  private final Double caplet;
+  /**
+   * The floorlet strike. 
+   * <p>
+   * This defines the strike value of a floorlet. 
+   * If the payment is not a floorlet, this field must be null.
+   */
   @PropertyDefinition(get = "optional")
-  private final Double floor;
-
+  private final Double floorlet;
+  /**
+   * The swap index.
+   * <p>
+   * The swap rate to be paid is based on this index. 
+   */
   @PropertyDefinition(validate = "notNull")
   private final SwapIndex index;
-
-  private final Swap underlyingSwap;   // not a property, derived and cached from input data
+  /**
+   * The underlying swap. 
+   * <p>
+   * The interest rate swap for which the swap rate is referred. 
+   * This is not a property, derived and cached from input data. 
+   */
+  private final Swap underlyingSwap;
 
   //-------------------------------------------------------------------------
   @ImmutableConstructor
@@ -124,8 +169,8 @@ public final class CmsPeriod
       double yearFraction,
       LocalDate paymentDate,
       LocalDate fixingDate,
-      Double cap,
-      Double floor,
+      Double caplet,
+      Double floorlet,
       SwapIndex index) {
     this.index = ArgChecker.notNull(index, "index");
     IborRateSwapLegConvention floatingLeg = index.getTemplate().getConvention().getFloatingLeg();
@@ -139,13 +184,13 @@ public final class CmsPeriod
     this.paymentDate = paymentDate;
     this.fixingDate = fixingDate != null ? fixingDate :
         floatingLeg.getIndex().calculateFixingFromEffective(startDate);
-    this.cap = cap;
-    this.floor = floor;
+    this.caplet = caplet;
+    this.floorlet = floorlet;
     this.underlyingSwap = createUnderlyingSwap();
     ArgChecker.inOrderNotEqual(this.startDate, this.endDate, "startDate", "endDate");
     ArgChecker.inOrderNotEqual(
         this.unadjustedStartDate, this.unadjustedEndDate, "unadjustedStartDate", "unadjustedEndDate");
-    ArgChecker.isFalse(this.getCap().isPresent() && this.getFloor().isPresent(),
+    ArgChecker.isFalse(this.getCaplet().isPresent() && this.getFloorlet().isPresent(),
         "At least one of cap and floor should be null");
   }
 
@@ -156,8 +201,30 @@ public final class CmsPeriod
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Obtains the underlying swap.
+   * 
+   * @return the underlying swap
+   */
   public Swap getUnderlyingSwap() {
     return underlyingSwap;
+  }
+
+  /**
+   * Obtains the type of the CMS period. 
+   * <p>
+   * The period type is caplet, floorlet or coupon.
+   * 
+   * @return the CMS period type
+   */
+  public CmsPeriodType getCmsPeriodType() {
+    if (getCaplet().isPresent()) {
+      return CmsPeriodType.CAPLET;
+    }
+    if (getFloorlet().isPresent()) {
+      return CmsPeriodType.FLOORLET;
+    }
+    return CmsPeriodType.COUPON;
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -291,7 +358,9 @@ public final class CmsPeriod
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the paymentDate.
+   * Gets the date that payment occurs.
+   * <p>
+   * If the schedule adjusts for business days, then this is the adjusted date.
    * @return the value of the property, not null
    */
   public LocalDate getPaymentDate() {
@@ -300,7 +369,9 @@ public final class CmsPeriod
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the fixingDate.
+   * Gets the date of the index fixing.
+   * <p>
+   * This is an adjusted date with any business day applied.
    * @return the value of the property, not null
    */
   public LocalDate getFixingDate() {
@@ -309,25 +380,33 @@ public final class CmsPeriod
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the cap.
+   * Gets the caplet strike.
+   * <p>
+   * This defines the strike value of a caplet.
+   * If the payment is not a caplet, this filed must be null.
    * @return the optional value of the property, not null
    */
-  public OptionalDouble getCap() {
-    return cap != null ? OptionalDouble.of(cap) : OptionalDouble.empty();
+  public OptionalDouble getCaplet() {
+    return caplet != null ? OptionalDouble.of(caplet) : OptionalDouble.empty();
   }
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the floor.
+   * Gets the floorlet strike.
+   * <p>
+   * This defines the strike value of a floorlet.
+   * If the payment is not a floorlet, this field must be null.
    * @return the optional value of the property, not null
    */
-  public OptionalDouble getFloor() {
-    return floor != null ? OptionalDouble.of(floor) : OptionalDouble.empty();
+  public OptionalDouble getFloorlet() {
+    return floorlet != null ? OptionalDouble.of(floorlet) : OptionalDouble.empty();
   }
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the index.
+   * Gets the swap index.
+   * <p>
+   * The swap rate to be paid is based on this index.
    * @return the value of the property, not null
    */
   public SwapIndex getIndex() {
@@ -359,8 +438,8 @@ public final class CmsPeriod
           JodaBeanUtils.equal(yearFraction, other.yearFraction) &&
           JodaBeanUtils.equal(paymentDate, other.paymentDate) &&
           JodaBeanUtils.equal(fixingDate, other.fixingDate) &&
-          JodaBeanUtils.equal(cap, other.cap) &&
-          JodaBeanUtils.equal(floor, other.floor) &&
+          JodaBeanUtils.equal(caplet, other.caplet) &&
+          JodaBeanUtils.equal(floorlet, other.floorlet) &&
           JodaBeanUtils.equal(index, other.index);
     }
     return false;
@@ -378,8 +457,8 @@ public final class CmsPeriod
     hash = hash * 31 + JodaBeanUtils.hashCode(yearFraction);
     hash = hash * 31 + JodaBeanUtils.hashCode(paymentDate);
     hash = hash * 31 + JodaBeanUtils.hashCode(fixingDate);
-    hash = hash * 31 + JodaBeanUtils.hashCode(cap);
-    hash = hash * 31 + JodaBeanUtils.hashCode(floor);
+    hash = hash * 31 + JodaBeanUtils.hashCode(caplet);
+    hash = hash * 31 + JodaBeanUtils.hashCode(floorlet);
     hash = hash * 31 + JodaBeanUtils.hashCode(index);
     return hash;
   }
@@ -397,8 +476,8 @@ public final class CmsPeriod
     buf.append("yearFraction").append('=').append(yearFraction).append(',').append(' ');
     buf.append("paymentDate").append('=').append(paymentDate).append(',').append(' ');
     buf.append("fixingDate").append('=').append(fixingDate).append(',').append(' ');
-    buf.append("cap").append('=').append(cap).append(',').append(' ');
-    buf.append("floor").append('=').append(floor).append(',').append(' ');
+    buf.append("caplet").append('=').append(caplet).append(',').append(' ');
+    buf.append("floorlet").append('=').append(floorlet).append(',').append(' ');
     buf.append("index").append('=').append(JodaBeanUtils.toString(index));
     buf.append('}');
     return buf.toString();
@@ -460,15 +539,15 @@ public final class CmsPeriod
     private final MetaProperty<LocalDate> fixingDate = DirectMetaProperty.ofImmutable(
         this, "fixingDate", CmsPeriod.class, LocalDate.class);
     /**
-     * The meta-property for the {@code cap} property.
+     * The meta-property for the {@code caplet} property.
      */
-    private final MetaProperty<Double> cap = DirectMetaProperty.ofImmutable(
-        this, "cap", CmsPeriod.class, Double.class);
+    private final MetaProperty<Double> caplet = DirectMetaProperty.ofImmutable(
+        this, "caplet", CmsPeriod.class, Double.class);
     /**
-     * The meta-property for the {@code floor} property.
+     * The meta-property for the {@code floorlet} property.
      */
-    private final MetaProperty<Double> floor = DirectMetaProperty.ofImmutable(
-        this, "floor", CmsPeriod.class, Double.class);
+    private final MetaProperty<Double> floorlet = DirectMetaProperty.ofImmutable(
+        this, "floorlet", CmsPeriod.class, Double.class);
     /**
      * The meta-property for the {@code index} property.
      */
@@ -488,8 +567,8 @@ public final class CmsPeriod
         "yearFraction",
         "paymentDate",
         "fixingDate",
-        "cap",
-        "floor",
+        "caplet",
+        "floorlet",
         "index");
 
     /**
@@ -519,10 +598,10 @@ public final class CmsPeriod
           return paymentDate;
         case 1255202043:  // fixingDate
           return fixingDate;
-        case 98258:  // cap
-          return cap;
-        case 97526796:  // floor
-          return floor;
+        case -1367656183:  // caplet
+          return caplet;
+        case 2022994575:  // floorlet
+          return floorlet;
         case 100346066:  // index
           return index;
       }
@@ -618,19 +697,19 @@ public final class CmsPeriod
     }
 
     /**
-     * The meta-property for the {@code cap} property.
+     * The meta-property for the {@code caplet} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<Double> cap() {
-      return cap;
+    public MetaProperty<Double> caplet() {
+      return caplet;
     }
 
     /**
-     * The meta-property for the {@code floor} property.
+     * The meta-property for the {@code floorlet} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<Double> floor() {
-      return floor;
+    public MetaProperty<Double> floorlet() {
+      return floorlet;
     }
 
     /**
@@ -663,10 +742,10 @@ public final class CmsPeriod
           return ((CmsPeriod) bean).getPaymentDate();
         case 1255202043:  // fixingDate
           return ((CmsPeriod) bean).getFixingDate();
-        case 98258:  // cap
-          return ((CmsPeriod) bean).cap;
-        case 97526796:  // floor
-          return ((CmsPeriod) bean).floor;
+        case -1367656183:  // caplet
+          return ((CmsPeriod) bean).caplet;
+        case 2022994575:  // floorlet
+          return ((CmsPeriod) bean).floorlet;
         case 100346066:  // index
           return ((CmsPeriod) bean).getIndex();
       }
@@ -699,8 +778,8 @@ public final class CmsPeriod
     private double yearFraction;
     private LocalDate paymentDate;
     private LocalDate fixingDate;
-    private Double cap;
-    private Double floor;
+    private Double caplet;
+    private Double floorlet;
     private SwapIndex index;
 
     /**
@@ -723,8 +802,8 @@ public final class CmsPeriod
       this.yearFraction = beanToCopy.getYearFraction();
       this.paymentDate = beanToCopy.getPaymentDate();
       this.fixingDate = beanToCopy.getFixingDate();
-      this.cap = beanToCopy.cap;
-      this.floor = beanToCopy.floor;
+      this.caplet = beanToCopy.caplet;
+      this.floorlet = beanToCopy.floorlet;
       this.index = beanToCopy.getIndex();
     }
 
@@ -750,10 +829,10 @@ public final class CmsPeriod
           return paymentDate;
         case 1255202043:  // fixingDate
           return fixingDate;
-        case 98258:  // cap
-          return cap;
-        case 97526796:  // floor
-          return floor;
+        case -1367656183:  // caplet
+          return caplet;
+        case 2022994575:  // floorlet
+          return floorlet;
         case 100346066:  // index
           return index;
         default:
@@ -791,11 +870,11 @@ public final class CmsPeriod
         case 1255202043:  // fixingDate
           this.fixingDate = (LocalDate) newValue;
           break;
-        case 98258:  // cap
-          this.cap = (Double) newValue;
+        case -1367656183:  // caplet
+          this.caplet = (Double) newValue;
           break;
-        case 97526796:  // floor
-          this.floor = (Double) newValue;
+        case 2022994575:  // floorlet
+          this.floorlet = (Double) newValue;
           break;
         case 100346066:  // index
           this.index = (SwapIndex) newValue;
@@ -842,8 +921,8 @@ public final class CmsPeriod
           yearFraction,
           paymentDate,
           fixingDate,
-          cap,
-          floor,
+          caplet,
+          floorlet,
           index);
     }
 
@@ -949,7 +1028,9 @@ public final class CmsPeriod
     }
 
     /**
-     * Sets the paymentDate.
+     * Sets the date that payment occurs.
+     * <p>
+     * If the schedule adjusts for business days, then this is the adjusted date.
      * @param paymentDate  the new value, not null
      * @return this, for chaining, not null
      */
@@ -960,7 +1041,9 @@ public final class CmsPeriod
     }
 
     /**
-     * Sets the fixingDate.
+     * Sets the date of the index fixing.
+     * <p>
+     * This is an adjusted date with any business day applied.
      * @param fixingDate  the new value, not null
      * @return this, for chaining, not null
      */
@@ -971,27 +1054,35 @@ public final class CmsPeriod
     }
 
     /**
-     * Sets the cap.
-     * @param cap  the new value
+     * Sets the caplet strike.
+     * <p>
+     * This defines the strike value of a caplet.
+     * If the payment is not a caplet, this filed must be null.
+     * @param caplet  the new value
      * @return this, for chaining, not null
      */
-    public Builder cap(Double cap) {
-      this.cap = cap;
+    public Builder caplet(Double caplet) {
+      this.caplet = caplet;
       return this;
     }
 
     /**
-     * Sets the floor.
-     * @param floor  the new value
+     * Sets the floorlet strike.
+     * <p>
+     * This defines the strike value of a floorlet.
+     * If the payment is not a floorlet, this field must be null.
+     * @param floorlet  the new value
      * @return this, for chaining, not null
      */
-    public Builder floor(Double floor) {
-      this.floor = floor;
+    public Builder floorlet(Double floorlet) {
+      this.floorlet = floorlet;
       return this;
     }
 
     /**
-     * Sets the index.
+     * Sets the swap index.
+     * <p>
+     * The swap rate to be paid is based on this index.
      * @param index  the new value, not null
      * @return this, for chaining, not null
      */
@@ -1015,8 +1106,8 @@ public final class CmsPeriod
       buf.append("yearFraction").append('=').append(JodaBeanUtils.toString(yearFraction)).append(',').append(' ');
       buf.append("paymentDate").append('=').append(JodaBeanUtils.toString(paymentDate)).append(',').append(' ');
       buf.append("fixingDate").append('=').append(JodaBeanUtils.toString(fixingDate)).append(',').append(' ');
-      buf.append("cap").append('=').append(JodaBeanUtils.toString(cap)).append(',').append(' ');
-      buf.append("floor").append('=').append(JodaBeanUtils.toString(floor)).append(',').append(' ');
+      buf.append("caplet").append('=').append(JodaBeanUtils.toString(caplet)).append(',').append(' ');
+      buf.append("floorlet").append('=').append(JodaBeanUtils.toString(floorlet)).append(',').append(' ');
       buf.append("index").append('=').append(JodaBeanUtils.toString(index));
       buf.append('}');
       return buf.toString();

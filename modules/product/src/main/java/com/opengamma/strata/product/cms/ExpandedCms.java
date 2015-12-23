@@ -1,14 +1,20 @@
+/**
+ * Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+ *
+ * Please see distribution for license.
+ */
 package com.opengamma.strata.product.cms;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 
 import org.joda.beans.Bean;
 import org.joda.beans.BeanDefinition;
 import org.joda.beans.ImmutableBean;
+import org.joda.beans.ImmutableValidator;
 import org.joda.beans.JodaBeanUtils;
 import org.joda.beans.MetaProperty;
 import org.joda.beans.Property;
@@ -18,20 +24,54 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.google.common.collect.ImmutableList;
+import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.product.swap.ExpandedSwapLeg;
-import com.opengamma.strata.product.swap.RatePaymentPeriod;
+import com.opengamma.strata.product.swap.SwapIndex;
+import com.opengamma.strata.product.swap.SwapLeg;
 
+/**
+ * The class defines a constant maturity swap (CMS) or CMS cap/floor. 
+ * <p>
+ * The CMS product consists of two legs: CMS leg and pay leg. 
+ * The CMS leg of CMS periodically pays coupons based on swap rate, the observed value of {@linkplain SwapIndex swap index},  
+ * CMS cap/floor is a set of call/put options on successive swap rates, i.e., CMS caplets/floorlets. 
+ * The other leg of the swap is the same as a swap leg of the standard interest rate swap. See {@link SwapLeg}.
+ * <p>
+ * However, the pay leg is absent for certain CMS products. Instead the premium is paid upfront. See {@link CmsTrade}.
+ */
 @BeanDefinition
 public final class ExpandedCms
     implements CmsProduct, ImmutableBean, Serializable {
 
+  /**
+   * The CMS leg of the product.
+   * <p>
+   * This is associated with periodic payments based on swap rate. 
+   * The payments are CMS coupons, CMS caplets or CMS floors. 
+   */
   @PropertyDefinition(validate = "notNull")
   private final ExpandedCmsLeg cmsLeg;
+  /**
+   * The pay leg of the product. 
+   * <p>
+   * Typically this is associated with periodic fixed or Ibor rate payments without compounding or notioanl exchange. 
+   * <p>
+   * For certain CMS products, these periodic payments are not made over the lifetime of the product. Instead the 
+   * premium is paid upfront. See {@link CmsTrade}.
+   */
+  @PropertyDefinition(get = "optional")
+  private final ExpandedSwapLeg payLeg;
 
-  @PropertyDefinition(validate = "notNull")
-  private final ExpandedSwapLeg paymentLeg;
+  //-------------------------------------------------------------------------
+  @ImmutableValidator
+  private void validate() {
+    if (getPayLeg().isPresent()) {
+      ArgChecker.isFalse(payLeg.getPayReceive().equals(cmsLeg.getPayReceive()),
+          "Two legs should have different Pay/Receive flags");
+    }
+  }
 
+  //-------------------------------------------------------------------------
   @Override
   public ExpandedCms expand() {
     return this;
@@ -66,11 +106,11 @@ public final class ExpandedCms
 
   private ExpandedCms(
       ExpandedCmsLeg cmsLeg,
-      ExpandedSwapLeg paymentLeg) {
+      ExpandedSwapLeg payLeg) {
     JodaBeanUtils.notNull(cmsLeg, "cmsLeg");
-    JodaBeanUtils.notNull(paymentLeg, "paymentLeg");
     this.cmsLeg = cmsLeg;
-    this.paymentLeg = paymentLeg;
+    this.payLeg = payLeg;
+    validate();
   }
 
   @Override
@@ -90,7 +130,10 @@ public final class ExpandedCms
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the cmsLeg.
+   * Gets the CMS leg of the product.
+   * <p>
+   * This is associated with periodic payments based on swap rate.
+   * The payments are CMS coupons, CMS caplets or CMS floors.
    * @return the value of the property, not null
    */
   public ExpandedCmsLeg getCmsLeg() {
@@ -99,11 +142,16 @@ public final class ExpandedCms
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the paymentLeg.
-   * @return the value of the property, not null
+   * Gets the pay leg of the product.
+   * <p>
+   * Typically this is associated with periodic fixed or Ibor rate payments without compounding or notioanl exchange.
+   * <p>
+   * For certain CMS products, these periodic payments are not made over the lifetime of the product. Instead the
+   * premium is paid upfront. See {@link CmsTrade}.
+   * @return the optional value of the property, not null
    */
-  public ExpandedSwapLeg getPaymentLeg() {
-    return paymentLeg;
+  public Optional<ExpandedSwapLeg> getPayLeg() {
+    return Optional.ofNullable(payLeg);
   }
 
   //-----------------------------------------------------------------------
@@ -123,7 +171,7 @@ public final class ExpandedCms
     if (obj != null && obj.getClass() == this.getClass()) {
       ExpandedCms other = (ExpandedCms) obj;
       return JodaBeanUtils.equal(cmsLeg, other.cmsLeg) &&
-          JodaBeanUtils.equal(paymentLeg, other.paymentLeg);
+          JodaBeanUtils.equal(payLeg, other.payLeg);
     }
     return false;
   }
@@ -132,7 +180,7 @@ public final class ExpandedCms
   public int hashCode() {
     int hash = getClass().hashCode();
     hash = hash * 31 + JodaBeanUtils.hashCode(cmsLeg);
-    hash = hash * 31 + JodaBeanUtils.hashCode(paymentLeg);
+    hash = hash * 31 + JodaBeanUtils.hashCode(payLeg);
     return hash;
   }
 
@@ -141,7 +189,7 @@ public final class ExpandedCms
     StringBuilder buf = new StringBuilder(96);
     buf.append("ExpandedCms{");
     buf.append("cmsLeg").append('=').append(cmsLeg).append(',').append(' ');
-    buf.append("paymentLeg").append('=').append(JodaBeanUtils.toString(paymentLeg));
+    buf.append("payLeg").append('=').append(JodaBeanUtils.toString(payLeg));
     buf.append('}');
     return buf.toString();
   }
@@ -162,17 +210,17 @@ public final class ExpandedCms
     private final MetaProperty<ExpandedCmsLeg> cmsLeg = DirectMetaProperty.ofImmutable(
         this, "cmsLeg", ExpandedCms.class, ExpandedCmsLeg.class);
     /**
-     * The meta-property for the {@code paymentLeg} property.
+     * The meta-property for the {@code payLeg} property.
      */
-    private final MetaProperty<ExpandedSwapLeg> paymentLeg = DirectMetaProperty.ofImmutable(
-        this, "paymentLeg", ExpandedCms.class, ExpandedSwapLeg.class);
+    private final MetaProperty<ExpandedSwapLeg> payLeg = DirectMetaProperty.ofImmutable(
+        this, "payLeg", ExpandedCms.class, ExpandedSwapLeg.class);
     /**
      * The meta-properties.
      */
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
         "cmsLeg",
-        "paymentLeg");
+        "payLeg");
 
     /**
      * Restricted constructor.
@@ -185,8 +233,8 @@ public final class ExpandedCms
       switch (propertyName.hashCode()) {
         case -1356515323:  // cmsLeg
           return cmsLeg;
-        case 1612870184:  // paymentLeg
-          return paymentLeg;
+        case -995239866:  // payLeg
+          return payLeg;
       }
       return super.metaPropertyGet(propertyName);
     }
@@ -216,11 +264,11 @@ public final class ExpandedCms
     }
 
     /**
-     * The meta-property for the {@code paymentLeg} property.
+     * The meta-property for the {@code payLeg} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<ExpandedSwapLeg> paymentLeg() {
-      return paymentLeg;
+    public MetaProperty<ExpandedSwapLeg> payLeg() {
+      return payLeg;
     }
 
     //-----------------------------------------------------------------------
@@ -229,8 +277,8 @@ public final class ExpandedCms
       switch (propertyName.hashCode()) {
         case -1356515323:  // cmsLeg
           return ((ExpandedCms) bean).getCmsLeg();
-        case 1612870184:  // paymentLeg
-          return ((ExpandedCms) bean).getPaymentLeg();
+        case -995239866:  // payLeg
+          return ((ExpandedCms) bean).payLeg;
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -253,7 +301,7 @@ public final class ExpandedCms
   public static final class Builder extends DirectFieldsBeanBuilder<ExpandedCms> {
 
     private ExpandedCmsLeg cmsLeg;
-    private ExpandedSwapLeg paymentLeg;
+    private ExpandedSwapLeg payLeg;
 
     /**
      * Restricted constructor.
@@ -267,7 +315,7 @@ public final class ExpandedCms
      */
     private Builder(ExpandedCms beanToCopy) {
       this.cmsLeg = beanToCopy.getCmsLeg();
-      this.paymentLeg = beanToCopy.getPaymentLeg();
+      this.payLeg = beanToCopy.payLeg;
     }
 
     //-----------------------------------------------------------------------
@@ -276,8 +324,8 @@ public final class ExpandedCms
       switch (propertyName.hashCode()) {
         case -1356515323:  // cmsLeg
           return cmsLeg;
-        case 1612870184:  // paymentLeg
-          return paymentLeg;
+        case -995239866:  // payLeg
+          return payLeg;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
       }
@@ -289,8 +337,8 @@ public final class ExpandedCms
         case -1356515323:  // cmsLeg
           this.cmsLeg = (ExpandedCmsLeg) newValue;
           break;
-        case 1612870184:  // paymentLeg
-          this.paymentLeg = (ExpandedSwapLeg) newValue;
+        case -995239866:  // payLeg
+          this.payLeg = (ExpandedSwapLeg) newValue;
           break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
@@ -326,12 +374,15 @@ public final class ExpandedCms
     public ExpandedCms build() {
       return new ExpandedCms(
           cmsLeg,
-          paymentLeg);
+          payLeg);
     }
 
     //-----------------------------------------------------------------------
     /**
-     * Sets the cmsLeg.
+     * Sets the CMS leg of the product.
+     * <p>
+     * This is associated with periodic payments based on swap rate.
+     * The payments are CMS coupons, CMS caplets or CMS floors.
      * @param cmsLeg  the new value, not null
      * @return this, for chaining, not null
      */
@@ -342,13 +393,17 @@ public final class ExpandedCms
     }
 
     /**
-     * Sets the paymentLeg.
-     * @param paymentLeg  the new value, not null
+     * Sets the pay leg of the product.
+     * <p>
+     * Typically this is associated with periodic fixed or Ibor rate payments without compounding or notioanl exchange.
+     * <p>
+     * For certain CMS products, these periodic payments are not made over the lifetime of the product. Instead the
+     * premium is paid upfront. See {@link CmsTrade}.
+     * @param payLeg  the new value
      * @return this, for chaining, not null
      */
-    public Builder paymentLeg(ExpandedSwapLeg paymentLeg) {
-      JodaBeanUtils.notNull(paymentLeg, "paymentLeg");
-      this.paymentLeg = paymentLeg;
+    public Builder payLeg(ExpandedSwapLeg payLeg) {
+      this.payLeg = payLeg;
       return this;
     }
 
@@ -358,7 +413,7 @@ public final class ExpandedCms
       StringBuilder buf = new StringBuilder(96);
       buf.append("ExpandedCms.Builder{");
       buf.append("cmsLeg").append('=').append(JodaBeanUtils.toString(cmsLeg)).append(',').append(' ');
-      buf.append("paymentLeg").append('=').append(JodaBeanUtils.toString(paymentLeg));
+      buf.append("payLeg").append('=').append(JodaBeanUtils.toString(payLeg));
       buf.append('}');
       return buf.toString();
     }
