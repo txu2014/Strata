@@ -30,13 +30,15 @@ import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.CalculationTarget;
 import com.opengamma.strata.calc.config.Measure;
 import com.opengamma.strata.collect.Guavate;
+import org.joda.beans.BeanBuilder;
 
 /**
- * Default implementation of {@link PricingRules} that contains a list of {@link PricingRule} instances.
+ * Pricing rules that combine a list of individual rules.
  * <p>
- * When a function is requested the individual rules are tried in order until a function group is found.
+ * These rules combine a list of individual {@link PricingRule} instances.
+ * It returns the first valid configuration found in the underlying list of rules.
  */
-@BeanDefinition
+@BeanDefinition(builderScope = "private")
 public final class DefaultPricingRules implements PricingRules, ImmutableBean {
 
   /**
@@ -47,26 +49,28 @@ public final class DefaultPricingRules implements PricingRules, ImmutableBean {
   @PropertyDefinition(validate = "notNull")
   private final ImmutableList<PricingRule<?>> rules;
 
+  //-------------------------------------------------------------------------
   /**
-   * Returns a set of pricing rules containing the specified individual rules.
-   *
-   * @param rules  the array of pricing rules
-   * @return a set of pricing rules containing the specified individual rules
+   * Obtains an instance based on the specified individual rules.
+   * 
+   * @param rules  the individual rules
+   * @return the combined rules
    */
   public static DefaultPricingRules of(PricingRule<?>... rules) {
     return new DefaultPricingRules(ImmutableList.copyOf(rules));
   }
 
   /**
-   * Returns a set of pricing rules containing the specified individual rules.
+   * Obtains an instance based on the specified individual rules.
    *
-   * @param rules  the list of pricing rules
-   * @return a set of pricing rules containing the specified individual rules
+   * @param rules  the individual rules
+   * @return the combined rules
    */
   public static DefaultPricingRules of(List<PricingRule<?>> rules) {
     return new DefaultPricingRules(rules);
   }
 
+  //-------------------------------------------------------------------------
   @Override
   public Optional<ConfiguredFunctionGroup> functionGroup(CalculationTarget target, Measure measure) {
     return rules.stream()
@@ -94,14 +98,6 @@ public final class DefaultPricingRules implements PricingRules, ImmutableBean {
 
   static {
     JodaBeanUtils.registerMetaBean(DefaultPricingRules.Meta.INSTANCE);
-  }
-
-  /**
-   * Returns a builder used to create an instance of the bean.
-   * @return the builder, not null
-   */
-  public static DefaultPricingRules.Builder builder() {
-    return new DefaultPricingRules.Builder();
   }
 
   private DefaultPricingRules(
@@ -137,14 +133,6 @@ public final class DefaultPricingRules implements PricingRules, ImmutableBean {
   }
 
   //-----------------------------------------------------------------------
-  /**
-   * Returns a builder that allows this bean to be mutated.
-   * @return the mutable builder, not null
-   */
-  public Builder toBuilder() {
-    return new Builder(this);
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (obj == this) {
@@ -212,7 +200,7 @@ public final class DefaultPricingRules implements PricingRules, ImmutableBean {
     }
 
     @Override
-    public DefaultPricingRules.Builder builder() {
+    public BeanBuilder<? extends DefaultPricingRules> builder() {
       return new DefaultPricingRules.Builder();
     }
 
@@ -260,7 +248,7 @@ public final class DefaultPricingRules implements PricingRules, ImmutableBean {
   /**
    * The bean-builder for {@code DefaultPricingRules}.
    */
-  public static final class Builder extends DirectFieldsBeanBuilder<DefaultPricingRules> {
+  private static final class Builder extends DirectFieldsBeanBuilder<DefaultPricingRules> {
 
     private List<PricingRule<?>> rules = ImmutableList.of();
 
@@ -268,14 +256,6 @@ public final class DefaultPricingRules implements PricingRules, ImmutableBean {
      * Restricted constructor.
      */
     private Builder() {
-    }
-
-    /**
-     * Restricted copy constructor.
-     * @param beanToCopy  the bean to copy from, not null
-     */
-    private Builder(DefaultPricingRules beanToCopy) {
-      this.rules = beanToCopy.getRules();
     }
 
     //-----------------------------------------------------------------------
@@ -330,30 +310,6 @@ public final class DefaultPricingRules implements PricingRules, ImmutableBean {
     public DefaultPricingRules build() {
       return new DefaultPricingRules(
           rules);
-    }
-
-    //-----------------------------------------------------------------------
-    /**
-     * Sets the individual rules that make up this set of pricing rules.
-     * <p>
-     * The rules are checked in order and the first matching rule is used.
-     * @param rules  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder rules(List<PricingRule<?>> rules) {
-      JodaBeanUtils.notNull(rules, "rules");
-      this.rules = rules;
-      return this;
-    }
-
-    /**
-     * Sets the {@code rules} property in the builder
-     * from an array of objects.
-     * @param rules  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder rules(PricingRule<?>... rules) {
-      return rules(ImmutableList.copyOf(rules));
     }
 
     //-----------------------------------------------------------------------

@@ -7,20 +7,21 @@ package com.opengamma.strata.calc.config;
 
 import java.util.Optional;
 
-import com.google.common.collect.ImmutableList;
 import com.opengamma.strata.basics.CalculationTarget;
 import com.opengamma.strata.basics.currency.Currency;
 
 /**
- * A set of rules that decide how calculation results should be reported.
+ * Reporting rules specify how calculation results should be reported.
+ * <p>
+ * For example, the rules can be use to request output in a specific currency.
  */
 public interface ReportingRules {
 
   /**
-   * Returns a rule that tries each of the delegate rules in turn and returns the first currency it finds.
+   * Returns a rule set that tries each of the specified rule sets in turn and returns the first currency it finds.
    *
-   * @param rules  the delegate rules
-   * @return a rule that tries each of the rules in turn and returns the first currency it finds
+   * @param rules  the rule sets
+   * @return a rule set that tries each of the rule sets in turn and returns the first currency it finds
    */
   public static ReportingRules of(ReportingRules... rules) {
     switch (rules.length) {
@@ -29,7 +30,7 @@ public interface ReportingRules {
       case 1:
         return rules[0];
       default:
-        return CompositeReportingRules.builder().rules(ImmutableList.copyOf(rules)).build();
+        return CompositeReportingRules.of(rules);
     }
   }
 
@@ -40,24 +41,6 @@ public interface ReportingRules {
    */
   public static ReportingRules empty() {
     return EmptyReportingRules.INSTANCE;
-  }
-
-  /**
-   * Returns the currency which should be used when reporting calculation results for the target.
-   *
-   * @param target  a target
-   * @return the currency which should be used when reporting calculation results for the target
-   */
-  public abstract Optional<Currency> reportingCurrency(CalculationTarget target);
-
-  /**
-   * Returns a rule that returns a currency from this rule if available, otherwise returning one from the other rule.
-   *
-   * @param rule  a reporting rule
-   * @return a rule that returns a currency from this rule if available, otherwise returning one from the other rule
-   */
-  public default ReportingRules composedWith(ReportingRules rule) {
-    return of(this, rule);
   }
 
   /**
@@ -96,4 +79,28 @@ public interface ReportingRules {
   public static ReportingRules receiveLegCurrency() {
     throw new UnsupportedOperationException("receiveLeg not implemented");
   }
+
+  //-------------------------------------------------------------------------
+  /**
+   * Returns the currency which should be used when reporting calculation results for the target.
+   *
+   * @param target  the target
+   * @return the currency which should be used when reporting calculation results for the target
+   */
+  public abstract Optional<Currency> reportingCurrency(CalculationTarget target);
+
+  //-------------------------------------------------------------------------
+  /**
+   * Combines these rules with the specified rules.
+   * <p>
+   * The resulting rules will return mappings from this rule if available,
+   * otherwise mappings will be returned from the other rule.
+   *
+   * @param otherRules  the other rules
+   * @return the combined rules
+   */
+  public default ReportingRules composedWith(ReportingRules otherRules) {
+    return CompositeReportingRules.of(this, otherRules);
+  }
+
 }

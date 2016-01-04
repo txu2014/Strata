@@ -11,6 +11,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 import org.joda.beans.Bean;
+import org.joda.beans.BeanBuilder;
 import org.joda.beans.BeanDefinition;
 import org.joda.beans.ImmutableBean;
 import org.joda.beans.JodaBeanUtils;
@@ -25,6 +26,7 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 import com.google.common.collect.ImmutableMap;
 import com.opengamma.strata.basics.CalculationTarget;
 import com.opengamma.strata.calc.marketdata.mapping.MarketDataMappings;
+import com.opengamma.strata.calc.runner.CalculationTask;
 import com.opengamma.strata.calc.runner.function.CalculationSingleFunction;
 
 /**
@@ -33,52 +35,71 @@ import com.opengamma.strata.calc.runner.function.CalculationSingleFunction;
  * It contains the target, configuration for the function that performs the calculation, and
  * mappings that specify the market data that is used in the calculation.
  */
-@BeanDefinition
+@BeanDefinition(builderScope = "private")
 @SuppressWarnings("rawtypes")
 public final class CalculationTaskConfig implements ImmutableBean, Serializable {
 
-  /** The target for which the value will be calculated. */
+  /**
+   * The target for which the value will be calculated.
+   * This is typically a trade.
+   */
   @PropertyDefinition(validate = "notNull")
   private final CalculationTarget target;
-
-  /** The row index of the value in the results grid. */
+  /**
+   * The measure to be calculated.
+   */
+  @PropertyDefinition(validate = "notNull")
+  private final Measure measure;
+  /**
+   * The row index of the value in the results grid.
+   */
   @PropertyDefinition
   private final int rowIndex;
-
-  /** The column index of the value in the results grid. */
+  /**
+   * The column index of the value in the results grid.
+   */
   @PropertyDefinition
   private final int columnIndex;
-
-  /** Configuration of the function that will calculate the value. */
+  /**
+   * Configuration of the function that will calculate the value.
+   */
   @PropertyDefinition(validate = "notNull")
   private final FunctionConfig functionConfig;
-
-  /** The constructor arguments from the pricing rules, used when creating the function instance. */
+  /**
+   * The constructor arguments from the pricing rules, used when creating the function instance.
+   */
   @PropertyDefinition(validate = "notNull")
   private final ImmutableMap<String, Object> functionArguments;
-
-  /** Mappings that specify the market data that should be used in the calculation. */
+  /**
+   * Mappings that specify the market data that should be used in the calculation.
+   */
   @PropertyDefinition(validate = "notNull")
   private final MarketDataMappings marketDataMappings;
-
-  /** The rules for reporting the calculated values. */
+  /**
+   * The rules for reporting the calculated values.
+   */
   @PropertyDefinition(validate = "notNull")
   private final ReportingRules reportingRules;
 
+  //-------------------------------------------------------------------------
   /**
-   * Returns configuration for a task that will calculate a value for a target.
+   * Obtains configuration for a task that will calculate a value for a target.
+   * <p>
+   * This specifies the configuration of a single target, including the rules and cell index.
    *
    * @param target  the target for which the value will be calculated
+   * @param measure  the measure being calculated
    * @param rowIndex  the row index of the value in the results grid
    * @param columnIndex  the column index of the value in the results grid
-   * @param functionConfig  configuration of the function that will calculate the value
-   * @param functionArguments  constructor arguments from the pricing rules, used when creating the function instance
-   * @param marketDataMappings  mappings that specify the market data that should be used in the calculation
+   * @param functionConfig  the configuration of the function that will calculate the value
+   * @param functionArguments  the constructor arguments from the pricing rules, used when creating the function instance
+   * @param marketDataMappings  the mappings that specify the market data that should be used in the calculation
    * @param reportingRules  the reporting rules to control the output
-   * @return configuration for a task that will calculate the value of a measure for a target
+   * @return the configuration for a task that will calculate the value of a measure for a target
    */
   public static CalculationTaskConfig of(
       CalculationTarget target,
+      Measure measure,
       int rowIndex,
       int columnIndex,
       FunctionConfig functionConfig,
@@ -88,6 +109,7 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
 
     return new CalculationTaskConfig(
         target,
+        measure,
         rowIndex,
         columnIndex,
         functionConfig,
@@ -96,14 +118,31 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
         reportingRules);
   }
 
+  //-------------------------------------------------------------------------
   /**
-   * Returns the function instance that performs the calculation.
+   * Creates the function instance that performs the calculation.
    *
    * @return the function instance that performs the calculation
    */
   @SuppressWarnings("unchecked")
   public CalculationSingleFunction<?, ?> createFunction() {
     return functionConfig.createFunction(functionArguments);
+  }
+
+  /**
+   * Creates the task instance that defines the calculation.
+   *
+   * @return the task instance that defines the calculation
+   */
+  public CalculationTask createTask() {
+    return CalculationTask.of(
+        target,
+        measure,
+        rowIndex,
+        columnIndex,
+        createFunction(),
+        marketDataMappings,
+        reportingRules);
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -125,16 +164,9 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
    */
   private static final long serialVersionUID = 1L;
 
-  /**
-   * Returns a builder used to create an instance of the bean.
-   * @return the builder, not null
-   */
-  public static CalculationTaskConfig.Builder builder() {
-    return new CalculationTaskConfig.Builder();
-  }
-
   private CalculationTaskConfig(
       CalculationTarget target,
+      Measure measure,
       int rowIndex,
       int columnIndex,
       FunctionConfig functionConfig,
@@ -142,11 +174,13 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
       MarketDataMappings marketDataMappings,
       ReportingRules reportingRules) {
     JodaBeanUtils.notNull(target, "target");
+    JodaBeanUtils.notNull(measure, "measure");
     JodaBeanUtils.notNull(functionConfig, "functionConfig");
     JodaBeanUtils.notNull(functionArguments, "functionArguments");
     JodaBeanUtils.notNull(marketDataMappings, "marketDataMappings");
     JodaBeanUtils.notNull(reportingRules, "reportingRules");
     this.target = target;
+    this.measure = measure;
     this.rowIndex = rowIndex;
     this.columnIndex = columnIndex;
     this.functionConfig = functionConfig;
@@ -173,10 +207,20 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
   //-----------------------------------------------------------------------
   /**
    * Gets the target for which the value will be calculated.
+   * This is typically a trade.
    * @return the value of the property, not null
    */
   public CalculationTarget getTarget() {
     return target;
+  }
+
+  //-----------------------------------------------------------------------
+  /**
+   * Gets the measure to be calculated.
+   * @return the value of the property, not null
+   */
+  public Measure getMeasure() {
+    return measure;
   }
 
   //-----------------------------------------------------------------------
@@ -234,14 +278,6 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
   }
 
   //-----------------------------------------------------------------------
-  /**
-   * Returns a builder that allows this bean to be mutated.
-   * @return the mutable builder, not null
-   */
-  public Builder toBuilder() {
-    return new Builder(this);
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (obj == this) {
@@ -250,6 +286,7 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
     if (obj != null && obj.getClass() == this.getClass()) {
       CalculationTaskConfig other = (CalculationTaskConfig) obj;
       return JodaBeanUtils.equal(target, other.target) &&
+          JodaBeanUtils.equal(measure, other.measure) &&
           (rowIndex == other.rowIndex) &&
           (columnIndex == other.columnIndex) &&
           JodaBeanUtils.equal(functionConfig, other.functionConfig) &&
@@ -264,6 +301,7 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
   public int hashCode() {
     int hash = getClass().hashCode();
     hash = hash * 31 + JodaBeanUtils.hashCode(target);
+    hash = hash * 31 + JodaBeanUtils.hashCode(measure);
     hash = hash * 31 + JodaBeanUtils.hashCode(rowIndex);
     hash = hash * 31 + JodaBeanUtils.hashCode(columnIndex);
     hash = hash * 31 + JodaBeanUtils.hashCode(functionConfig);
@@ -275,9 +313,10 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(256);
+    StringBuilder buf = new StringBuilder(288);
     buf.append("CalculationTaskConfig{");
     buf.append("target").append('=').append(target).append(',').append(' ');
+    buf.append("measure").append('=').append(measure).append(',').append(' ');
     buf.append("rowIndex").append('=').append(rowIndex).append(',').append(' ');
     buf.append("columnIndex").append('=').append(columnIndex).append(',').append(' ');
     buf.append("functionConfig").append('=').append(functionConfig).append(',').append(' ');
@@ -303,6 +342,11 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
      */
     private final MetaProperty<CalculationTarget> target = DirectMetaProperty.ofImmutable(
         this, "target", CalculationTaskConfig.class, CalculationTarget.class);
+    /**
+     * The meta-property for the {@code measure} property.
+     */
+    private final MetaProperty<Measure> measure = DirectMetaProperty.ofImmutable(
+        this, "measure", CalculationTaskConfig.class, Measure.class);
     /**
      * The meta-property for the {@code rowIndex} property.
      */
@@ -340,6 +384,7 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
         "target",
+        "measure",
         "rowIndex",
         "columnIndex",
         "functionConfig",
@@ -358,6 +403,8 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
       switch (propertyName.hashCode()) {
         case -880905839:  // target
           return target;
+        case 938321246:  // measure
+          return measure;
         case 23238424:  // rowIndex
           return rowIndex;
         case -855241956:  // columnIndex
@@ -375,7 +422,7 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
     }
 
     @Override
-    public CalculationTaskConfig.Builder builder() {
+    public BeanBuilder<? extends CalculationTaskConfig> builder() {
       return new CalculationTaskConfig.Builder();
     }
 
@@ -396,6 +443,14 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
      */
     public MetaProperty<CalculationTarget> target() {
       return target;
+    }
+
+    /**
+     * The meta-property for the {@code measure} property.
+     * @return the meta-property, not null
+     */
+    public MetaProperty<Measure> measure() {
+      return measure;
     }
 
     /**
@@ -452,6 +507,8 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
       switch (propertyName.hashCode()) {
         case -880905839:  // target
           return ((CalculationTaskConfig) bean).getTarget();
+        case 938321246:  // measure
+          return ((CalculationTaskConfig) bean).getMeasure();
         case 23238424:  // rowIndex
           return ((CalculationTaskConfig) bean).getRowIndex();
         case -855241956:  // columnIndex
@@ -483,9 +540,10 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
   /**
    * The bean-builder for {@code CalculationTaskConfig}.
    */
-  public static final class Builder extends DirectFieldsBeanBuilder<CalculationTaskConfig> {
+  private static final class Builder extends DirectFieldsBeanBuilder<CalculationTaskConfig> {
 
     private CalculationTarget target;
+    private Measure measure;
     private int rowIndex;
     private int columnIndex;
     private FunctionConfig functionConfig;
@@ -499,26 +557,14 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
     private Builder() {
     }
 
-    /**
-     * Restricted copy constructor.
-     * @param beanToCopy  the bean to copy from, not null
-     */
-    private Builder(CalculationTaskConfig beanToCopy) {
-      this.target = beanToCopy.getTarget();
-      this.rowIndex = beanToCopy.getRowIndex();
-      this.columnIndex = beanToCopy.getColumnIndex();
-      this.functionConfig = beanToCopy.getFunctionConfig();
-      this.functionArguments = beanToCopy.getFunctionArguments();
-      this.marketDataMappings = beanToCopy.getMarketDataMappings();
-      this.reportingRules = beanToCopy.getReportingRules();
-    }
-
     //-----------------------------------------------------------------------
     @Override
     public Object get(String propertyName) {
       switch (propertyName.hashCode()) {
         case -880905839:  // target
           return target;
+        case 938321246:  // measure
+          return measure;
         case 23238424:  // rowIndex
           return rowIndex;
         case -855241956:  // columnIndex
@@ -542,6 +588,9 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
       switch (propertyName.hashCode()) {
         case -880905839:  // target
           this.target = (CalculationTarget) newValue;
+          break;
+        case 938321246:  // measure
+          this.measure = (Measure) newValue;
           break;
         case 23238424:  // rowIndex
           this.rowIndex = (Integer) newValue;
@@ -595,6 +644,7 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
     public CalculationTaskConfig build() {
       return new CalculationTaskConfig(
           target,
+          measure,
           rowIndex,
           columnIndex,
           functionConfig,
@@ -604,87 +654,12 @@ public final class CalculationTaskConfig implements ImmutableBean, Serializable 
     }
 
     //-----------------------------------------------------------------------
-    /**
-     * Sets the target for which the value will be calculated.
-     * @param target  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder target(CalculationTarget target) {
-      JodaBeanUtils.notNull(target, "target");
-      this.target = target;
-      return this;
-    }
-
-    /**
-     * Sets the row index of the value in the results grid.
-     * @param rowIndex  the new value
-     * @return this, for chaining, not null
-     */
-    public Builder rowIndex(int rowIndex) {
-      this.rowIndex = rowIndex;
-      return this;
-    }
-
-    /**
-     * Sets the column index of the value in the results grid.
-     * @param columnIndex  the new value
-     * @return this, for chaining, not null
-     */
-    public Builder columnIndex(int columnIndex) {
-      this.columnIndex = columnIndex;
-      return this;
-    }
-
-    /**
-     * Sets configuration of the function that will calculate the value.
-     * @param functionConfig  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder functionConfig(FunctionConfig functionConfig) {
-      JodaBeanUtils.notNull(functionConfig, "functionConfig");
-      this.functionConfig = functionConfig;
-      return this;
-    }
-
-    /**
-     * Sets the constructor arguments from the pricing rules, used when creating the function instance.
-     * @param functionArguments  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder functionArguments(Map<String, Object> functionArguments) {
-      JodaBeanUtils.notNull(functionArguments, "functionArguments");
-      this.functionArguments = functionArguments;
-      return this;
-    }
-
-    /**
-     * Sets mappings that specify the market data that should be used in the calculation.
-     * @param marketDataMappings  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder marketDataMappings(MarketDataMappings marketDataMappings) {
-      JodaBeanUtils.notNull(marketDataMappings, "marketDataMappings");
-      this.marketDataMappings = marketDataMappings;
-      return this;
-    }
-
-    /**
-     * Sets the rules for reporting the calculated values.
-     * @param reportingRules  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder reportingRules(ReportingRules reportingRules) {
-      JodaBeanUtils.notNull(reportingRules, "reportingRules");
-      this.reportingRules = reportingRules;
-      return this;
-    }
-
-    //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(256);
+      StringBuilder buf = new StringBuilder(288);
       buf.append("CalculationTaskConfig.Builder{");
       buf.append("target").append('=').append(JodaBeanUtils.toString(target)).append(',').append(' ');
+      buf.append("measure").append('=').append(JodaBeanUtils.toString(measure)).append(',').append(' ');
       buf.append("rowIndex").append('=').append(JodaBeanUtils.toString(rowIndex)).append(',').append(' ');
       buf.append("columnIndex").append('=').append(JodaBeanUtils.toString(columnIndex)).append(',').append(' ');
       buf.append("functionConfig").append('=').append(JodaBeanUtils.toString(functionConfig)).append(',').append(' ');

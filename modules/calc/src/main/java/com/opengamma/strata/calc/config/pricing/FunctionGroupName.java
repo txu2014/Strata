@@ -12,7 +12,7 @@ import org.joda.convert.FromString;
 import com.opengamma.strata.collect.type.TypedString;
 
 /**
- * The name of a {@link FunctionGroup}.
+ * The name of a function group.
  */
 public final class FunctionGroupName
     extends TypedString<FunctionGroupName> {
@@ -27,7 +27,7 @@ public final class FunctionGroupName
 
   //-------------------------------------------------------------------------
   /**
-   * Obtains a {@code FunctionGroupName} by name.
+   * Obtains an instance from the specified name.
    * <p>
    * Group names must only contains the characters A-Z, a-z, 0-9 and -.
    *
