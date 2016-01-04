@@ -53,7 +53,7 @@ import com.opengamma.strata.product.swap.type.IborRateSwapLegConvention;
  * {@code capSchedule} is used to represent strike values of individual caplets, whereas {@code floorSchedule} is used 
  * to represent strike values of individual floorlets. 
  * Thus at least one of {@code capSchedule} and {@code floorSchedule} must be empty. 
- * If both the fields are null, the periodic payments are CMS coupons. 
+ * If both the fields are null, the periodic payments in this leg are CMS coupons. 
  */
 @BeanDefinition
 public final class CmsLeg
@@ -64,8 +64,7 @@ public final class CmsLeg
    * <p>
    * A value of 'Pay' implies that the resulting amount is paid to the counterparty.
    * A value of 'Receive' implies that the resulting amount is received from the counterparty.
-   * Note that negative swap rates can result in a payment in the opposite
-   * direction to that implied by this indicator.
+   * Note that negative swap rates can result in a payment in the opposite direction to that implied by this indicator.
    */
   @PropertyDefinition(validate = "notNull")
   private final PayReceive payReceive;
@@ -80,7 +79,7 @@ public final class CmsLeg
   /**
    * The swap index.
    * <p>
-   * The swap rate to be paid is based on this index. 
+   * The swap rate to be paid is the observed value of this index. 
    */
   @PropertyDefinition(validate = "notNull")
   private final SwapIndex index;
@@ -113,7 +112,7 @@ public final class CmsLeg
   /**
    * The offset of payment from the base calculation period date.
    * <p>
-   * The offset is applied to the unadjusted end date of each payment period.
+   * The offset is applied to the adjusted end date of each payment period.
    * Offset can be based on calendar days or business days.
    * <p>
    * When building, this will default to the payment offset of the swap convention in the swap index if not specified.
@@ -135,7 +134,7 @@ public final class CmsLeg
    * This defines the strike value of a cap as an initial value and a list of adjustments. 
    * Thus individual caplets may have different strike values. 
    * <p>
-   * If the CMS product is not a cap, this filed must be null. 
+   * If the CMS product is not a cap, this field must be null. 
    */
   @PropertyDefinition(get = "optional")
   private final ValueSchedule capSchedule;
@@ -306,8 +305,7 @@ public final class CmsLeg
    * <p>
    * A value of 'Pay' implies that the resulting amount is paid to the counterparty.
    * A value of 'Receive' implies that the resulting amount is received from the counterparty.
-   * Note that negative swap rates can result in a payment in the opposite
-   * direction to that implied by this indicator.
+   * Note that negative swap rates can result in a payment in the opposite direction to that implied by this indicator.
    * @return the value of the property, not null
    */
   public PayReceive getPayReceive() {
@@ -330,7 +328,7 @@ public final class CmsLeg
   /**
    * Gets the swap index.
    * <p>
-   * The swap rate to be paid is based on this index.
+   * The swap rate to be paid is the observed value of this index.
    * @return the value of the property, not null
    */
   public SwapIndex getIndex() {
@@ -379,7 +377,7 @@ public final class CmsLeg
   /**
    * Gets the offset of payment from the base calculation period date.
    * <p>
-   * The offset is applied to the unadjusted end date of each payment period.
+   * The offset is applied to the adjusted end date of each payment period.
    * Offset can be based on calendar days or business days.
    * <p>
    * When building, this will default to the payment offset of the swap convention in the swap index if not specified.
@@ -409,7 +407,7 @@ public final class CmsLeg
    * This defines the strike value of a cap as an initial value and a list of adjustments.
    * Thus individual caplets may have different strike values.
    * <p>
-   * If the CMS product is not a cap, this filed must be null.
+   * If the CMS product is not a cap, this field must be null.
    * @return the optional value of the property, not null
    */
   public Optional<ValueSchedule> getCapSchedule() {
@@ -892,8 +890,7 @@ public final class CmsLeg
      * <p>
      * A value of 'Pay' implies that the resulting amount is paid to the counterparty.
      * A value of 'Receive' implies that the resulting amount is received from the counterparty.
-     * Note that negative swap rates can result in a payment in the opposite
-     * direction to that implied by this indicator.
+     * Note that negative swap rates can result in a payment in the opposite direction to that implied by this indicator.
      * @param payReceive  the new value, not null
      * @return this, for chaining, not null
      */
@@ -920,7 +917,7 @@ public final class CmsLeg
     /**
      * Sets the swap index.
      * <p>
-     * The swap rate to be paid is based on this index.
+     * The swap rate to be paid is the observed value of this index.
      * @param index  the new value, not null
      * @return this, for chaining, not null
      */
@@ -977,7 +974,7 @@ public final class CmsLeg
     /**
      * Sets the offset of payment from the base calculation period date.
      * <p>
-     * The offset is applied to the unadjusted end date of each payment period.
+     * The offset is applied to the adjusted end date of each payment period.
      * Offset can be based on calendar days or business days.
      * <p>
      * When building, this will default to the payment offset of the swap convention in the swap index if not specified.
@@ -1011,7 +1008,7 @@ public final class CmsLeg
      * This defines the strike value of a cap as an initial value and a list of adjustments.
      * Thus individual caplets may have different strike values.
      * <p>
-     * If the CMS product is not a cap, this filed must be null.
+     * If the CMS product is not a cap, this field must be null.
      * @param capSchedule  the new value
      * @return this, for chaining, not null
      */

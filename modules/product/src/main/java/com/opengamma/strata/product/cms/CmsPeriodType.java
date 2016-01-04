@@ -15,7 +15,7 @@ import com.opengamma.strata.collect.ArgChecker;
  * A CMS payment period type.
  * <p>
  * A CMS payment period is a CMS coupon, CMS caplet or CMS floorlet. 
- * All of these payments are defined in unified manner by a single object, {@link CmsPeriod}.
+ * All of these payments are defined in a unified manner by {@link CmsPeriod}.
  */
 public enum CmsPeriodType {
 

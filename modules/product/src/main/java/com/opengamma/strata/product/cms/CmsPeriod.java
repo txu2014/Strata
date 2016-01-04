@@ -39,10 +39,10 @@ import com.opengamma.strata.product.swap.type.IborRateSwapLegConvention;
 /**
  * A period over which a CMS coupon or CMS caplet/floorlet payoff is paid.
  * <p>
- * A single payment period within a CMS swap leg.
+ * A single payment period within a CMS leg.
  * This class specifies the data necessary to calculate the value of the period.
  * The payment period contains the unique accrual period. 
- * It is typically based on the observed value of {@code SwapIndex}.
+ * The value of the period is based on the observed value of {@code SwapIndex}.
  * <p>
  * The payment is a CMS coupon, CMS caplet or CMS floorlet. 
  * If {@code caplet} ({@code floorlet}) is not null, the payment a caplet (floorlet). 
@@ -145,7 +145,7 @@ public final class CmsPeriod
   /**
    * The swap index.
    * <p>
-   * The swap rate to be paid is based on this index. 
+   * The swap rate to be paid is the observed value of this index. 
    */
   @PropertyDefinition(validate = "notNull")
   private final SwapIndex index;
@@ -405,7 +405,7 @@ public final class CmsPeriod
   /**
    * Gets the swap index.
    * <p>
-   * The swap rate to be paid is based on this index.
+   * The swap rate to be paid is the observed value of this index.
    * @return the value of the property, not null
    */
   public SwapIndex getIndex() {
@@ -1081,7 +1081,7 @@ public final class CmsPeriod
     /**
      * Sets the swap index.
      * <p>
-     * The swap rate to be paid is based on this index.
+     * The swap rate to be paid is the observed value of this index.
      * @param index  the new value, not null
      * @return this, for chaining, not null
      */
