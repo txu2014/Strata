@@ -57,11 +57,10 @@ public final class CmsTrade
   /**
    * The premium of the product. 
    * <p>
-   * For certain CMS products, periodic fixed payments are not made over the lifetime of the product. Instead the 
-   * premium is paid upfront. 
+   * For certain CMS products, periodic payments based on fixed or Ibor rates are not made over the lifetime of the 
+   * product. Instead the premium is paid upfront. 
    * <p>
    * The premium sign should be compatible with the product Pay/Receive flag. 
-   * This means that the premium is negative for receive and positive for pay.
    */
   @PropertyDefinition(get = "optional")
   private final Payment premium;
@@ -153,11 +152,10 @@ public final class CmsTrade
   /**
    * Gets the premium of the product.
    * <p>
-   * For certain CMS products, periodic fixed payments are not made over the lifetime of the product. Instead the
-   * premium is paid upfront.
+   * For certain CMS products, periodic payments based on fixed or Ibor rates are not made over the lifetime of the
+   * product. Instead the premium is paid upfront.
    * <p>
    * The premium sign should be compatible with the product Pay/Receive flag.
-   * This means that the premium is negative for receive and positive for pay.
    * @return the optional value of the property, not null
    */
   public Optional<Payment> getPremium() {
@@ -446,11 +444,10 @@ public final class CmsTrade
     /**
      * Sets the premium of the product.
      * <p>
-     * For certain CMS products, periodic fixed payments are not made over the lifetime of the product. Instead the
-     * premium is paid upfront.
+     * For certain CMS products, periodic payments based on fixed or Ibor rates are not made over the lifetime of the
+     * product. Instead the premium is paid upfront.
      * <p>
      * The premium sign should be compatible with the product Pay/Receive flag.
-     * This means that the premium is negative for receive and positive for pay.
      * @param premium  the new value
      * @return this, for chaining, not null
      */

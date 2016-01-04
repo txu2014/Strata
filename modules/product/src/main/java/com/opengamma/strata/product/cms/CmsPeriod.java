@@ -181,9 +181,8 @@ public final class CmsPeriod
     this.unadjustedStartDate = firstNonNull(unadjustedStartDate, startDate);
     this.unadjustedEndDate = firstNonNull(unadjustedEndDate, endDate);
     this.yearFraction = ArgChecker.notNegative(yearFraction, "yearFraction");
-    this.paymentDate = paymentDate;
-    this.fixingDate = fixingDate != null ? fixingDate :
-        floatingLeg.getIndex().calculateFixingFromEffective(startDate);
+    this.paymentDate = paymentDate != null ? paymentDate : floatingLeg.getPaymentDateOffset().adjust(endDate);
+    this.fixingDate = fixingDate != null ? fixingDate : floatingLeg.getFixingDateOffset().adjust(startDate);
     this.caplet = caplet;
     this.floorlet = floorlet;
     this.underlyingSwap = createUnderlyingSwap();

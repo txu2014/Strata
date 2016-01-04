@@ -57,7 +57,7 @@ public final class ExpandedCms
    * Typically this is associated with periodic fixed or Ibor rate payments without compounding or notioanl exchange. 
    * <p>
    * For certain CMS products, these periodic payments are not made over the lifetime of the product. Instead the 
-   * premium is paid upfront. See {@link CmsTrade}.
+   * premium is paid upfront. 
    */
   @PropertyDefinition(get = "optional")
   private final ExpandedSwapLeg payLeg;
@@ -147,7 +147,7 @@ public final class ExpandedCms
    * Typically this is associated with periodic fixed or Ibor rate payments without compounding or notioanl exchange.
    * <p>
    * For certain CMS products, these periodic payments are not made over the lifetime of the product. Instead the
-   * premium is paid upfront. See {@link CmsTrade}.
+   * premium is paid upfront.
    * @return the optional value of the property, not null
    */
   public Optional<ExpandedSwapLeg> getPayLeg() {
@@ -398,7 +398,7 @@ public final class ExpandedCms
      * Typically this is associated with periodic fixed or Ibor rate payments without compounding or notioanl exchange.
      * <p>
      * For certain CMS products, these periodic payments are not made over the lifetime of the product. Instead the
-     * premium is paid upfront. See {@link CmsTrade}.
+     * premium is paid upfront.
      * @param payLeg  the new value
      * @return this, for chaining, not null
      */

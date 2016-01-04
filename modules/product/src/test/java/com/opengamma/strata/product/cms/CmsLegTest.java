@@ -93,6 +93,31 @@ public class CmsLegTest {
     assertEquals(test.getPaymentDateOffset(), PAYMENT_OFFSET);
  }
 
+  public void test_builder_full_coupon() {
+    CmsLeg test = CmsLeg.builder()
+        .currency(GBP)
+        .dayCount(ACT_365_ACTUAL)
+        .fixingDateOffset(FIXING_OFFSET)
+        .paymentDateOffset(PAYMENT_OFFSET)
+        .index(INDEX)
+        .notional(NOTIONAL)
+        .payReceive(PAY)
+        .periodicSchedule(SCHEDULE)
+        .build();
+    assertEquals(test.getPayReceive(), PAY);
+    assertFalse(test.getCapSchedule().isPresent());
+    assertFalse(test.getFloorSchedule().isPresent());
+    assertEquals(test.getCurrency(), GBP);
+    assertEquals(test.getNotional(), NOTIONAL);
+    assertEquals(test.getDayCount(), ACT_365_ACTUAL);
+    assertEquals(test.getStartDate(), START);
+    assertEquals(test.getEndDate(), SCHEDULE.getAdjustedEndDate());
+    assertEquals(test.getIndex(), INDEX);
+    assertEquals(test.getPeriodicSchedule(), SCHEDULE);
+    assertEquals(test.getFixingDateOffset(), FIXING_OFFSET);
+    assertEquals(test.getPaymentDateOffset(), PAYMENT_OFFSET);
+  }
+
   public void test_builder_min() {
     CmsLeg test = CmsLeg.builder()
         .capSchedule(CAP)
@@ -103,6 +128,27 @@ public class CmsLegTest {
         .build();
     assertEquals(test.getPayReceive(), RECEIVE);
     assertEquals(test.getCapSchedule().get(), CAP);
+    assertFalse(test.getFloorSchedule().isPresent());
+    assertEquals(test.getCurrency(), EUR_EURIBOR_6M.getCurrency());
+    assertEquals(test.getNotional(), NOTIONAL);
+    assertEquals(test.getDayCount(), EUR_EURIBOR_6M.getDayCount());
+    assertEquals(test.getStartDate(), START);
+    assertEquals(test.getEndDate(), SCHEDULE_EUR.getAdjustedEndDate());
+    assertEquals(test.getIndex(), INDEX);
+    assertEquals(test.getPeriodicSchedule(), SCHEDULE_EUR);
+    assertEquals(test.getFixingDateOffset(), EUR_EURIBOR_6M.getFixingDateOffset());
+    assertEquals(test.getPaymentDateOffset(), DaysAdjustment.NONE);
+  }
+
+  public void test_builder_min_coupon() {
+    CmsLeg test = CmsLeg.builder()
+        .index(INDEX)
+        .notional(NOTIONAL)
+        .payReceive(RECEIVE)
+        .periodicSchedule(SCHEDULE_EUR)
+        .build();
+    assertEquals(test.getPayReceive(), RECEIVE);
+    assertFalse(test.getCapSchedule().isPresent());
     assertFalse(test.getFloorSchedule().isPresent());
     assertEquals(test.getCurrency(), EUR_EURIBOR_6M.getCurrency());
     assertEquals(test.getNotional(), NOTIONAL);
@@ -185,6 +231,7 @@ public class CmsLegTest {
         .notional(NOTIONAL)
         .payReceive(PAY)
         .periodicSchedule(SCHEDULE_EUR)
+        .paymentDateOffset(PAYMENT_OFFSET)
         .build();
     ExpandedCmsLeg expandCap = baseCap.expand();
     CmsPeriod periodCap1 = CmsPeriod.builder()
@@ -197,7 +244,7 @@ public class CmsLegTest {
         .unadjustedStartDate(START)
         .unadjustedEndDate(end1)
         .fixingDate(EUR_EURIBOR_6M.calculateFixingFromEffective(START))
-        .paymentDate(end1)
+        .paymentDate(PAYMENT_OFFSET.adjust(end1))
         .yearFraction(EUR_EURIBOR_6M.getDayCount().yearFraction(START, end1))
         .build();
     CmsPeriod periodCap2 = CmsPeriod.builder()
@@ -210,7 +257,7 @@ public class CmsLegTest {
         .unadjustedStartDate(end1)
         .unadjustedEndDate(END)
         .fixingDate(EUR_EURIBOR_6M.calculateFixingFromEffective(end1))
-        .paymentDate(SCHEDULE_EUR.getAdjustedEndDate())
+        .paymentDate(PAYMENT_OFFSET.adjust(SCHEDULE_EUR.getAdjustedEndDate()))
         .yearFraction(EUR_EURIBOR_6M.getDayCount().yearFraction(end1, SCHEDULE_EUR.getAdjustedEndDate()))
         .build();
     assertEquals(expandCap.getCurrency(), EUR);
@@ -256,4 +303,5 @@ public class CmsLegTest {
         .build();
     assertSerialization(test);
   }
+
 }
