@@ -22,7 +22,9 @@ import com.opengamma.strata.pricer.impl.volatility.smile.function.SabrHaganVolat
 import com.opengamma.strata.pricer.impl.volatility.smile.function.VolatilityFunctionProvider;
 
 /**
- * Pricing function in the SABR model with Hagan et al. volatility function and controlled extrapolation for large strikes by extrapolation on call prices.
+ * Pricing function in the SABR model with Hagan et al. volatility function and controlled extrapolation 
+ * for large strikes by extrapolation on call prices.
+ * <p>
  * The form of the extrapolation as a function of the strike is
  * \begin{equation*}
  * f(K) = K^{-\mu} \exp\left( a + \frac{b}{K} + \frac{c}{K^2} \right).
@@ -66,21 +68,13 @@ public class SabrExtrapolationRightFunction {
    * <p>
    * Those parameters are computed only when and if required.
    */
-  private double[] parameterDerivativeForward = new double[3];
-  /**
-   * Flag indicating if the parameter derivatives to forward have been computed.
-   */
-  private boolean parameterDerivativeForwardComputed;
+  private double[] parameterDerivativeForward;
   /**
    * The derivative of the three fitting parameters with respect to the SABR parameters.
    * <p>
    * Those parameters are computed only when and if required.
    */
-  private double[][] parameterDerivativeSABR = new double[4][3];
-  /**
-   * Flag indicating if the parameter derivatives to SABR parameters have been computed.
-   */
-  private boolean parameterDerivativeSABRComputed;
+  private double[][] parameterDerivativeSabr;
   /**
    * The Black implied volatility at the cut-off strike.
    */
@@ -129,6 +123,7 @@ public class SabrExtrapolationRightFunction {
       double cutOffStrike,
       double timeToExpiry,
       double mu) {
+
     return new SabrExtrapolationRightFunction(forward, sabrData, cutOffStrike, timeToExpiry, mu,
         SabrHaganVolatilityFunctionProvider.DEFAULT);
   }
@@ -145,12 +140,13 @@ public class SabrExtrapolationRightFunction {
    * @return the instance
    */
   public static SabrExtrapolationRightFunction of(
-      double forward, SabrFormulaData
-      sabrData,
+      double forward,
+      SabrFormulaData sabrData,
       double cutOffStrike,
       double timeToExpiry,
       double mu,
       VolatilityFunctionProvider<SabrFormulaData> volatilityFunction) {
+
     return new SabrExtrapolationRightFunction(forward, sabrData, cutOffStrike, timeToExpiry, mu, volatilityFunction);
   }
 
@@ -170,9 +166,7 @@ public class SabrExtrapolationRightFunction {
     } else { // Implementation note: when time to expiry is very small, the price above the cut-off strike and its derivatives should be 0 (or at least very small).
       parameter = new double[] {SMALL_PARAMETER, 0.0, 0.0 };
       parameterDerivativeForward = new double[3];
-      parameterDerivativeForwardComputed = true;
-      parameterDerivativeSABR = new double[4][3];
-      parameterDerivativeSABRComputed = true;
+      parameterDerivativeSabr = new double[4][3];
     }
   }
 
@@ -187,15 +181,15 @@ public class SabrExtrapolationRightFunction {
    * @return the option price
    */
   public double price(double strike, PutCall putCall) {
-    double price = 0d;
-    if (strike <= cutOffStrike) { // Uses Hagan et al SABR function.
+    // Uses Hagan et al SABR function.
+    if (strike <= cutOffStrike) {
       double volatility = sabrFunction.getVolatility(forward, strike, timeToExpiry, sabrData);
-      price = BlackFormulaRepository.price(forward, strike, timeToExpiry, volatility, putCall.isCall());
-    } else { // Uses extrapolation for call.
-      price = extrapolation(strike);
-      if (putCall.isPut()) { // Put by call/put parity
-        price -= (forward - strike);
-      }
+      return BlackFormulaRepository.price(forward, strike, timeToExpiry, volatility, putCall.isCall());
+    }
+    // Uses extrapolation for call.
+    double price = extrapolation(strike);
+    if (putCall.isPut()) { // Put by call/put parity
+      price -= (forward - strike);
     }
     return price;
   }
@@ -210,19 +204,19 @@ public class SabrExtrapolationRightFunction {
    * @return the option price derivative
    */
   public double priceDerivativeStrike(double strike, PutCall putCall) {
-    double pDK = 0.0;
-    if (strike <= cutOffStrike) { // Uses Hagan et al SABR function.
+    // Uses Hagan et al SABR function.
+    if (strike <= cutOffStrike) {
       BlackPriceFunction blackFunction = new BlackPriceFunction();
       ValueDerivatives volatilityAdjoint = sabrFunction.getVolatilityAdjoint(forward, strike, timeToExpiry, sabrData);
       EuropeanVanillaOption option = EuropeanVanillaOption.of(strike, timeToExpiry, putCall);
       BlackFunctionData dataBlack = BlackFunctionData.of(forward, 1.0, volatilityAdjoint.getValue());
       ValueDerivatives bsAdjoint = blackFunction.getPriceAdjoint(option, dataBlack);
-      pDK = bsAdjoint.getDerivative(2) + bsAdjoint.getDerivative(1) * volatilityAdjoint.getDerivative(1);
-    } else { // Uses extrapolation for call.
-      pDK = extrapolationDerivative(strike);
-      if (putCall.isPut()) { // Put by call/put parity
-        pDK += 1.0;
-      }
+      return bsAdjoint.getDerivative(2) + bsAdjoint.getDerivative(1) * volatilityAdjoint.getDerivative(1);
+    }
+    // Uses extrapolation for call.
+    double pDK = extrapolationDerivative(strike);
+    if (putCall.isPut()) { // Put by call/put parity
+      pDK += 1.0;
     }
     return pDK;
   }
@@ -237,27 +231,27 @@ public class SabrExtrapolationRightFunction {
    * @return the option price derivative
    */
   public double priceDerivativeForward(double strike, PutCall putCall) {
-    double priceDerivative;
-    if (strike <= cutOffStrike) { // Uses Hagan et al SABR function.
+    // Uses Hagan et al SABR function.
+    if (strike <= cutOffStrike) {
       ValueDerivatives volatilityA = sabrFunction.getVolatilityAdjoint(forward, strike, timeToExpiry, sabrData);
       BlackFunctionData dataBlack = BlackFunctionData.of(forward, 1d, volatilityA.getValue());
       EuropeanVanillaOption option = EuropeanVanillaOption.of(strike, timeToExpiry, putCall);
       ValueDerivatives pA = BLACK_FUNCTION.getPriceAdjoint(option, dataBlack);
-      priceDerivative = pA.getDerivative(0) + pA.getDerivative(1) * volatilityA.getDerivative(0);
-    } else { // Uses extrapolation for call.
-      if (!parameterDerivativeForwardComputed) {
-        parameterDerivativeForward = computesParametersDerivativeForward();
-        parameterDerivativeForwardComputed = true;
-      }
-      double f = extrapolation(strike);
-      double fDa = f;
-      double fDb = f / strike;
-      double fDc = fDb / strike;
-      priceDerivative = fDa * parameterDerivativeForward[0] + fDb * parameterDerivativeForward[1] + fDc *
-          parameterDerivativeForward[2];
-      if (putCall.isPut()) { // Put by call/put parity
-        priceDerivative -= 1;
-      }
+      return pA.getDerivative(0) + pA.getDerivative(1) * volatilityA.getDerivative(0);
+    }
+    // Uses extrapolation for call.
+    if (parameterDerivativeForward == null) {
+      parameterDerivativeForward = computesParametersDerivativeForward();
+    }
+    double f = extrapolation(strike);
+    double fDa = f;
+    double fDb = f / strike;
+    double fDc = fDb / strike;
+    double priceDerivative = fDa * parameterDerivativeForward[0]
+        + fDb * parameterDerivativeForward[1]
+        + fDc * parameterDerivativeForward[2];
+    if (putCall.isPut()) { // Put by call/put parity
+      priceDerivative -= 1;
     }
     return priceDerivative;
   }
@@ -272,7 +266,7 @@ public class SabrExtrapolationRightFunction {
    * @return the option and its derivative
    */
   public ValueDerivatives priceAdjointSabr(double strike, PutCall putCall) {
-    double[] priceDerivativeSABR = new double[4];
+    double[] priceDerivativeSabr = new double[4];
     double price;
     if (strike <= cutOffStrike) { // Uses Hagan et al SABR function.
       ValueDerivatives volatilityA = sabrFunction.getVolatilityAdjoint(forward, strike, timeToExpiry, sabrData);
@@ -281,24 +275,24 @@ public class SabrExtrapolationRightFunction {
       ValueDerivatives pA = BLACK_FUNCTION.getPriceAdjoint(option, dataBlack);
       price = pA.getValue();
       for (int loopparam = 0; loopparam < 4; loopparam++) {
-        priceDerivativeSABR[loopparam] = pA.getDerivative(1) * volatilityA.getDerivative(loopparam + 2);
+        priceDerivativeSabr[loopparam] = pA.getDerivative(1) * volatilityA.getDerivative(loopparam + 2);
       }
     } else { // Uses extrapolation for call.
-      if (!parameterDerivativeSABRComputed) {
-        parameterDerivativeSABR = computesParametersDerivativeSABR();
-        parameterDerivativeSABRComputed = true;
+      if (parameterDerivativeSabr == null) {
+        parameterDerivativeSabr = computesParametersDerivativeSabr();
       }
+      double[][] parameterDerivativeSabr = computesParametersDerivativeSabr();
       double f = extrapolation(strike);
       double fDa = f;
       double fDb = f / strike;
       double fDc = fDb / strike;
       price = putCall.isCall() ? f : f - forward + strike; // Put by call/put parity
       for (int loopparam = 0; loopparam < 4; loopparam++) {
-        priceDerivativeSABR[loopparam] = fDa * parameterDerivativeSABR[loopparam][0] + fDb *
-            parameterDerivativeSABR[loopparam][1] + fDc * parameterDerivativeSABR[loopparam][2];
+        priceDerivativeSabr[loopparam] = fDa * parameterDerivativeSabr[loopparam][0] + fDb *
+            parameterDerivativeSabr[loopparam][1] + fDc * parameterDerivativeSabr[loopparam][2];
       }
     }
-    return ValueDerivatives.of(price, DoubleArray.ofUnsafe(priceDerivativeSABR));
+    return ValueDerivatives.of(price, DoubleArray.ofUnsafe(priceDerivativeSabr));
   }
 
   //-------------------------------------------------------------------------
@@ -325,7 +319,7 @@ public class SabrExtrapolationRightFunction {
   /**
    * Gets the tail thickness parameter.
    * 
-   * @return The mu parameter.
+   * @return the mu parameter.
    */
   public double getMu() {
     return mu;
@@ -355,9 +349,8 @@ public class SabrExtrapolationRightFunction {
    * @return the parameters derivative
    */
   public double[] getParameterDerivativeForward() {
-    if (!parameterDerivativeForwardComputed) {
+    if (parameterDerivativeForward == null) {
       parameterDerivativeForward = computesParametersDerivativeForward();
-      parameterDerivativeForwardComputed = true;
     }
     return parameterDerivativeForward;
   }
@@ -367,12 +360,11 @@ public class SabrExtrapolationRightFunction {
    * 
    * @return the parameters derivative.
    */
-  public double[][] getParameterDerivativeSABR() {
-    if (!parameterDerivativeSABRComputed) {
-      parameterDerivativeSABR = computesParametersDerivativeSABR();
-      parameterDerivativeSABRComputed = true;
+  public double[][] getParameterDerivativeSabr() {
+    if (parameterDerivativeSabr == null) {
+      parameterDerivativeSabr = computesParametersDerivativeSabr();
     }
-    return parameterDerivativeSABR;
+    return parameterDerivativeSabr;
   }
 
   //-------------------------------------------------------------------------
@@ -409,7 +401,7 @@ public class SabrExtrapolationRightFunction {
    * Computes the derivative of the three fitting parameters with respect to the forward. 
    * The computation requires some third order derivatives; they are computed by finite difference on the second order derivatives.
    * Used to compute the derivative of the price with respect to the forward.
-   * @return The derivatives.
+   * @return the derivatives
    */
   private double[] computesParametersDerivativeForward() {
     if (Math.abs(priceK[0]) < SMALL_PRICE && Math.abs(priceK[1]) < SMALL_PRICE && Math.abs(priceK[2]) < SMALL_PRICE) {
@@ -476,16 +468,16 @@ public class SabrExtrapolationRightFunction {
    * Computes the derivative of the three fitting parameters with respect to the SABR parameters. 
    * The computation requires some third order derivatives; they are computed by finite difference on the second order derivatives.
    * Used to compute the derivative of the price with respect to the SABR parameters.
-   * @return The derivatives.
+   * @return the derivatives
    */
-  private double[][] computesParametersDerivativeSABR() {
+  private double[][] computesParametersDerivativeSabr() {
     double[][] result = new double[4][3];
     if (Math.abs(priceK[0]) < SMALL_PRICE && Math.abs(priceK[1]) < SMALL_PRICE && Math.abs(priceK[2]) < SMALL_PRICE) {
       // Implementation note: If value and its derivatives is too small, then parameters are such that the extrapolated price is "very small".
       return result;
     }
     // Derivative of price with respect to SABR parameters.
-    double[][] pDSABR = new double[4][3]; // parameter SABR - equation
+    double[][] pdSabr = new double[4][3]; // parameter SABR - equation
     double shift = 0.00001;
     EuropeanVanillaOption option = EuropeanVanillaOption.of(cutOffStrike, timeToExpiry, PutCall.CALL);
     double[] vD = new double[6];
@@ -497,7 +489,7 @@ public class SabrExtrapolationRightFunction {
       double[] bsD = new double[3];
       double[][] bsD2 = new double[3][3];
       BLACK_FUNCTION.getPriceAdjoint2(option, dataBlack, bsD, bsD2);
-      pDSABR[loopparam][0] = bsD[1] * vD[paramIndex];
+      pdSabr[loopparam][0] = bsD[1] * vD[paramIndex];
       double[] vDpP = new double[6];
       double[][] vD2pP = new double[2][2];
       SabrFormulaData sabrDatapP;
@@ -528,7 +520,7 @@ public class SabrExtrapolationRightFunction {
       sabrFunction.getVolatilityAdjoint2(forward, cutOffStrike, timeToExpiry, sabrDatapP, vDpP, vD2pP);
       double vD2Kp = (vDpP[1] - vD[1]) / paramShift;
       double vD3KKa = (vD2pP[1][1] - vD2[1][1]) / paramShift;
-      pDSABR[loopparam][1] = (bsD2[2][1] + bsD2[1][1] * vD[1]) * vD[paramIndex] + bsD[1] * vD2Kp;
+      pdSabr[loopparam][1] = (bsD2[2][1] + bsD2[1][1] * vD[1]) * vD[paramIndex] + bsD[1] * vD2Kp;
       double[] bsDVP = new double[3];
       double[][] bsD2VP = new double[3][3];
       BlackFunctionData dataBlackVP = BlackFunctionData.of(forward, 1d, volatilityK * (1d + shift));
@@ -536,7 +528,7 @@ public class SabrExtrapolationRightFunction {
       double bsD3sss = (bsD2VP[1][1] - bsD2[1][1]) / (volatilityK * shift);
       double bsD3sKK = (bsD2VP[2][2] - bsD2[2][2]) / (volatilityK * shift);
       double bsD3ssK = (bsD2VP[1][2] - bsD2[1][2]) / (volatilityK * shift);
-      pDSABR[loopparam][2] = (bsD3sKK + bsD3ssK * vD[1] + (bsD3ssK + bsD3sss * vD[1]) * vD[1] + bsD2[1][1] * vD2[1][1]) *
+      pdSabr[loopparam][2] = (bsD3sKK + bsD3ssK * vD[1] + (bsD3ssK + bsD3sss * vD[1]) * vD[1] + bsD2[1][1] * vD2[1][1]) *
           vD[paramIndex] + 2 * (bsD2[1][2] + bsD2[1][1] * vD[1]) * vD2Kp + bsD[1]
           * vD3KKa;
     }
@@ -562,30 +554,23 @@ public class SabrExtrapolationRightFunction {
 
     DecompositionResult decmp = SVD.apply(fDmatrix);
     for (int loopparam = 0; loopparam < 4; loopparam++) {
-      result[loopparam] = decmp.solve(pDSABR[loopparam]);
+      result[loopparam] = decmp.solve(pdSabr[loopparam]);
     }
     return result;
   }
 
-  /**
-   * The extrapolation function.
-   * @param strike The strike.
-   * @return The extrapolated price.
-   */
+  // The extrapolation function.
   private double extrapolation(double strike) {
     return Math.pow(strike, -mu) *
         Math.exp(parameter[0] + parameter[1] / strike + parameter[2] / (strike * strike));
   }
 
-  /**
-   * The first order derivative of the extrapolation function with respect to the strike.
-   * @param strike The strike.
-   * @return The extrapolated price.
-   */
+  // The first order derivative of the extrapolation function with respect to the strike.
   private double extrapolationDerivative(double strike) {
     return -extrapolation(strike) * (mu + (parameter[1] + 2 * parameter[2] / strike) / strike) / strike;
   }
 
+  // The c parameter as a function of price, cutoff and mu.
   private Function<Double, Double> getCFunction(double[] price, double cutOffStrike, double mu) {
     double[] cPrice = Arrays.copyOf(price, price.length);
     return new Function<Double, Double>() {
