@@ -529,8 +529,7 @@ public class SabrExtrapolationRightFunction {
       double bsD3sKK = (bsD2VP[2][2] - bsD2[2][2]) / (volatilityK * shift);
       double bsD3ssK = (bsD2VP[1][2] - bsD2[1][2]) / (volatilityK * shift);
       pdSabr[loopparam][2] = (bsD3sKK + bsD3ssK * vD[1] + (bsD3ssK + bsD3sss * vD[1]) * vD[1] + bsD2[1][1] * vD2[1][1]) *
-          vD[paramIndex] + 2 * (bsD2[1][2] + bsD2[1][1] * vD[1]) * vD2Kp + bsD[1]
-          * vD3KKa;
+          vD[paramIndex] + 2 * (bsD2[1][2] + bsD2[1][1] * vD[1]) * vD2Kp + bsD[1] * vD3KKa;
     }
     // Derivative of f with respect to abc.
     double[][] fD = new double[3][3]; // fD[i][j]: derivative with respect to jth variable of f_i
