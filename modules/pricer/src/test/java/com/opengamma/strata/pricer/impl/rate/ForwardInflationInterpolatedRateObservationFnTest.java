@@ -29,7 +29,7 @@ import com.opengamma.strata.market.interpolator.CurveInterpolator;
 import com.opengamma.strata.market.interpolator.CurveInterpolators;
 import com.opengamma.strata.market.sensitivity.InflationRateSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.market.value.ForwardPriceIndexValues;
+import com.opengamma.strata.market.view.ForwardPriceIndexValues;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
 import com.opengamma.strata.product.rate.InflationInterpolatedRateObservation;
 
@@ -152,7 +152,7 @@ public class ForwardInflationInterpolatedRateObservationFnTest {
         DoubleArray.of(4, 5, 16, 17),
         DoubleArray.of(rateStart, rateStartInterp, rateEnd, rateEndInterp),
         INTERPOLATOR);
-    ForwardPriceIndexValues values = ForwardPriceIndexValues.of(UK_RPIX, VAL_DATE, timeSeries, curve);
+    ForwardPriceIndexValues values = ForwardPriceIndexValues.of(UK_RPIX, VAL_DATE, curve, timeSeries);
     return ImmutableRatesProvider.builder(VAL_DATE)
         .priceIndexValues(ImmutableMap.of(UK_RPIX, values))
         .build();

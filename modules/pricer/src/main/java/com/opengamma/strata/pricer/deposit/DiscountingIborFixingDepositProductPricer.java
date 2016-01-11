@@ -7,11 +7,10 @@ package com.opengamma.strata.pricer.deposit;
 
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
-import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.market.value.DiscountFactors;
-import com.opengamma.strata.market.value.IborIndexRates;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.IborIndexRates;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
 import com.opengamma.strata.product.deposit.ExpandedIborFixingDeposit;
 import com.opengamma.strata.product.deposit.IborFixingDeposit;
@@ -124,16 +123,16 @@ public class DiscountingIborFixingDepositProductPricer {
   //-------------------------------------------------------------------------
   // query the forward rate
   private double forwardRate(ExpandedIborFixingDeposit product, ImmutableRatesProvider provider) {
-    IborIndex index = product.getFloatingRate().getIndex();
-    IborIndexRates rates = provider.iborIndexRates(index);
-    return rates.rate(product.getFloatingRate().getFixingDate());
+    IborIndexRates rates = provider.iborIndexRates(product.getFloatingRate().getIndex());
+    // The IborFixingDeposit are fictitious instruments to anchor the beginning of the IborIndex forward curve. 
+    // By using the 'forwardRate' method (instead of 'rate') we ensure that only the forward curve is involved.
+    return rates.rateIgnoringTimeSeries(product.getFloatingRate().getFixingDate());
   }
 
   // query the forward rate sensitivity
   private PointSensitivityBuilder forwardRateSensitivity(ExpandedIborFixingDeposit product, ImmutableRatesProvider provider) {
-    IborIndex index = product.getFloatingRate().getIndex();
-    IborIndexRates rates = provider.iborIndexRates(index);
-    return rates.ratePointSensitivity(product.getFloatingRate().getFixingDate());
+    IborIndexRates rates = provider.iborIndexRates(product.getFloatingRate().getIndex());
+    return rates.rateIgnoringTimeSeriesPointSensitivity(product.getFloatingRate().getFixingDate());
   }
 
 }

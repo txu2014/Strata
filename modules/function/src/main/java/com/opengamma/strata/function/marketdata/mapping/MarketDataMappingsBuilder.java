@@ -37,6 +37,7 @@ public class MarketDataMappingsBuilder {
    */
   private MarketDataMappingsBuilder(MarketDataFeed marketDataFeed) {
     this.marketDataFeed = marketDataFeed;
+    this.mappings.add(SwaptionVolatilitiesMapping.of());
   }
 
   //-------------------------------------------------------------------------
@@ -68,10 +69,8 @@ public class MarketDataMappingsBuilder {
   public MarketDataMappingsBuilder curveGroup(CurveGroupName curveGroupName) {
     ArgChecker.notNull(curveGroupName, "curveGroupName");
     mappings.add(DiscountCurveMapping.of(curveGroupName, marketDataFeed));
-    mappings.add(RateIndexCurveMapping.of(curveGroupName, marketDataFeed));
-    mappings.add(DiscountFactorsMapping.of(curveGroupName, marketDataFeed));
-    mappings.add(IborIndexRatesMapping.of(curveGroupName, marketDataFeed));
-    mappings.add(OvernightIndexRatesMapping.of(curveGroupName, marketDataFeed));
+    mappings.add(IborIndexCurveMapping.of(curveGroupName, marketDataFeed));
+    mappings.add(OvernightIndexCurveMapping.of(curveGroupName, marketDataFeed));
     return this;
   }
 

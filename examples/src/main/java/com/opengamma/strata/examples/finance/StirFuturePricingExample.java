@@ -5,8 +5,6 @@
  */
 package com.opengamma.strata.examples.finance;
 
-import static com.opengamma.strata.function.StandardComponents.marketDataFactory;
-
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.List;
@@ -15,12 +13,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.calc.CalculationRules;
+import com.opengamma.strata.calc.CalculationRunner;
 import com.opengamma.strata.calc.Column;
 import com.opengamma.strata.calc.config.Measure;
 import com.opengamma.strata.calc.marketdata.MarketEnvironment;
-import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
-import com.opengamma.strata.calc.runner.CalculationRunner;
-import com.opengamma.strata.calc.runner.CalculationRunnerFactory;
 import com.opengamma.strata.calc.runner.Results;
 import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.examples.data.ExampleData;
@@ -47,6 +43,15 @@ public class StirFuturePricingExample {
    * @param args  ignored
    */
   public static void main(String[] args) {
+    // setup calculation runner component, which needs life-cycle management
+    // a typical application might use dependency injection to obtain the instance
+    try (CalculationRunner runner = CalculationRunner.ofMultiThreaded()) {
+      calculate(runner);
+    }
+  }
+
+  // obtains the data and calculates the grid of results
+  private static void calculate(CalculationRunner runner) {
     // the trades that will have measures calculated
     List<Trade> trades = ImmutableList.of(createTrade1(), createTrade2());
 
@@ -71,9 +76,7 @@ public class StirFuturePricingExample {
     MarketEnvironment marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
 
     // calculate the results
-    CalculationRunner runner = CalculationRunnerFactory.ofSingleThreaded()
-        .createWithMarketDataBuilder(trades, columns, rules, marketDataFactory(), MarketDataConfig.empty());
-    Results results = runner.calculateSingleScenario(marketSnapshot);
+    Results results = runner.calculateSingleScenario(rules, trades, columns, marketSnapshot);
 
     // use the report runner to transform the engine results into a trade report
     ReportCalculationResults calculationResults = ReportCalculationResults.of(

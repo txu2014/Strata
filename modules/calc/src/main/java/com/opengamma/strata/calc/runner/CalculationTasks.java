@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.opengamma.strata.basics.CalculationTarget;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.config.CalculationTaskConfig;
-import com.opengamma.strata.calc.config.CalculationTasksConfig;
 import com.opengamma.strata.calc.config.FunctionConfig;
 import com.opengamma.strata.calc.config.Measure;
 import com.opengamma.strata.calc.config.ReportingRules;
@@ -44,27 +42,33 @@ public final class CalculationTasks {
   private final List<Column> columns;
   /**
    * The calculation tasks.
-   * These are arranged in row order.
+   * <p>
+   * The tasks in the list are arranged in row order.
+   * For example, if a grid has 5 columns, the calculations 0-4 in the list are the first row,
+   * calculations 5-9 are the second row and so on.
    */
   private final List<CalculationTask> calculationTasks;
   /**
    * The market data requirements.
    */
-  private final MarketDataRequirements requirements;
+  private volatile MarketDataRequirements requirements;
 
   //-------------------------------------------------------------------------
   /**
-   * Creates an instance from a set of targets, columns and rules.
+   * Obtains an instance from a set of targets, columns and rules.
+   * <p>
+   * The targets will typically be trades.
+   * The columns represent the measures to calculate.
    * 
+   * @param calculationRules  the rules defining how the calculation is performed
    * @param targets  the targets for which values of the measures will be calculated
    * @param columns  the columns that will be calculated
-   * @param calculationRules  the rules defining how the calculation is performed
    * @return the calculation tasks
    */
   public static CalculationTasks of(
+      CalculationRules calculationRules,
       List<? extends CalculationTarget> targets,
-      List<Column> columns,
-      CalculationRules calculationRules) {
+      List<Column> columns) {
 
     // Create columns with rules that are a combination of the column overrides and the defaults
     List<Column> effectiveColumns =
@@ -73,17 +77,17 @@ public final class CalculationTasks {
             .collect(toImmutableList());
 
     // create the task configuration
-    ImmutableList.Builder<CalculationTaskConfig> configBuilder = ImmutableList.builder();
+    ImmutableList.Builder<CalculationTask> configBuilder = ImmutableList.builder();
     for (int i = 0; i < targets.size(); i++) {
       for (int j = 0; j < columns.size(); j++) {
         // TODO For each target, build a map of function group to set of measures.
         // Then request function config from the group for all measures at once
-        configBuilder.add(createTaskConfig(i, j, targets.get(i), effectiveColumns.get(j)));
+        configBuilder.add(createTask(i, j, targets.get(i), effectiveColumns.get(j)));
       }
     }
-    List<CalculationTaskConfig> configs = configBuilder.build();
-    CalculationTasksConfig config = CalculationTasksConfig.of(configs, columns);
-    return config.createTasks();
+
+    // calculation tasks holds the original user-specified columns, not the derived ones
+    return CalculationTasks.of(configBuilder.build(), columns);
   }
 
   // TODO This needs to handle a whole set of columns and return a list of config
@@ -101,7 +105,7 @@ public final class CalculationTasks {
    * @param column  the column for which the value is calculated
    * @return configuration for calculating the value for the target
    */
-  private static CalculationTaskConfig createTaskConfig(
+  private static CalculationTask createTask(
       int rowIndex,
       int columnIndex,
       CalculationTarget target,
@@ -126,13 +130,12 @@ public final class CalculationTasks {
         .map(ConfiguredFunctionGroup::getArguments)
         .orElse(ImmutableMap.of());
 
-    return CalculationTaskConfig.of(
+    return CalculationTask.of(
         target,
         measure,
         rowIndex,
         columnIndex,
-        functionConfig,
-        functionArguments,
+        functionConfig.createFunction(functionArguments),
         marketDataMappings,
         reportingRules);
   }
@@ -177,8 +180,6 @@ public final class CalculationTasks {
   private CalculationTasks(List<CalculationTask> calculationTasks, List<Column> columns) {
     this.columns = ImmutableList.copyOf(columns);
     this.calculationTasks = ImmutableList.copyOf(calculationTasks);
-    List<MarketDataRequirements> reqs = calculationTasks.stream().map(CalculationTask::requirements).collect(toList());
-    this.requirements = MarketDataRequirements.combine(reqs);
 
     // Validate the number of tasks and number of columns tally
     int taskCount = calculationTasks.size();
@@ -241,11 +242,22 @@ public final class CalculationTasks {
 
   /**
    * Gets the market data that is required to perform the calculations.
+   * <p>
+   * This can be used to feed into the market data system to obtain and calibrate data.
    *
    * @return the market data required for all calculations
+   * @throws RuntimeException if unable to obtain the requirements
    */
   public MarketDataRequirements getRequirements() {
-    return requirements;
+    MarketDataRequirements reqs = requirements;
+    if (reqs == null) {
+      List<MarketDataRequirements> result = calculationTasks.stream()
+          .map(CalculationTask::requirements)
+          .collect(toList());
+      reqs = requirements = MarketDataRequirements.combine(result);
+
+    }
+    return reqs;
   }
 
   //-------------------------------------------------------------------------

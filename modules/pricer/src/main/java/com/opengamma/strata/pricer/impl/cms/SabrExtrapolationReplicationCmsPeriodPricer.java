@@ -8,11 +8,10 @@ import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.collect.tuple.DoublesPair;
 import com.opengamma.strata.market.curve.CurveInfoType;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivity;
-import com.opengamma.strata.market.value.ZeroRateDiscountFactors;
+import com.opengamma.strata.market.view.ZeroRateDiscountFactors;
 import com.opengamma.strata.math.impl.MathException;
 import com.opengamma.strata.math.impl.integration.RungeKuttaIntegrator1D;
 import com.opengamma.strata.pricer.impl.option.SabrExtrapolationRightFunction;
@@ -144,14 +143,13 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
         cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
     //    double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate()); // TODO
     double tenor = swaptionVolatilities.getDayCount().relativeYearFraction(swap.getStartDate(), swap.getEndDate());
-    DoublesPair expiryTenor = DoublesPair.of(expiryTime, tenor);
-    double alpha = swaptionVolatilities.getParameters().getAlpha(expiryTenor);
-    double beta = swaptionVolatilities.getParameters().getBeta(expiryTenor);
-    double rho = swaptionVolatilities.getParameters().getRho(expiryTenor);
-    double nu = swaptionVolatilities.getParameters().getNu(expiryTenor);
+    double alpha = swaptionVolatilities.getParameters().alpha(expiryTime, tenor);
+    double beta = swaptionVolatilities.getParameters().beta(expiryTime, tenor);
+    double rho = swaptionVolatilities.getParameters().rho(expiryTime, tenor);
+    double nu = swaptionVolatilities.getParameters().nu(expiryTime, tenor);
     SabrFormulaData sabrPoint = SabrFormulaData.of(alpha, beta, rho, nu);
     // SABRFormulaData [alpha=0.054442381748467536, beta=0.5, rho=-0.13894045628831167, nu=0.41115236503064934] OK TODO
-    double shift = swaptionVolatilities.getParameters().getShift(expiryTenor);
+    double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
     double forward = swapPricer.parRate(expandedSwap, provider) + shift; // 0.01510740653964031 OK
     double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike() + shift;
     double shiftedCutOff = cutOffStrike + shift;
@@ -192,14 +190,13 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
         cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
     //    double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate()); // TODO
     double tenor = swaptionVolatilities.getDayCount().relativeYearFraction(swap.getStartDate(), swap.getEndDate());
-    DoublesPair expiryTenor = DoublesPair.of(expiryTime, tenor);
-    double alpha = swaptionVolatilities.getParameters().getAlpha(expiryTenor);
-    double beta = swaptionVolatilities.getParameters().getBeta(expiryTenor);
-    double rho = swaptionVolatilities.getParameters().getRho(expiryTenor);
-    double nu = swaptionVolatilities.getParameters().getNu(expiryTenor);
+    double alpha = swaptionVolatilities.getParameters().alpha(expiryTime, tenor);
+    double beta = swaptionVolatilities.getParameters().beta(expiryTime, tenor);
+    double rho = swaptionVolatilities.getParameters().rho(expiryTime, tenor);
+    double nu = swaptionVolatilities.getParameters().nu(expiryTime, tenor);
     SabrFormulaData sabrPoint = SabrFormulaData.of(alpha, beta, rho, nu);
     // SABRFormulaData [alpha=0.054442381748467536, beta=0.5, rho=-0.13894045628831167, nu=0.41115236503064934] OK TODO
-    double shift = swaptionVolatilities.getParameters().getShift(expiryTenor);
+    double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
     double forward = swapPricer.parRate(expandedSwap, provider) + shift; // 0.01510740653964031 OK
     double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike() + shift;
     double shiftedCutOff = cutOffStrike + shift;
@@ -255,14 +252,13 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     double expiryTime = swaptionVolatilities.relativeTime(expiryDate);
     //    double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate()); // TODO
     double tenor = swaptionVolatilities.getDayCount().relativeYearFraction(swap.getStartDate(), swap.getEndDate());
-    DoublesPair expiryTenor = DoublesPair.of(expiryTime, tenor);
-    double alpha = swaptionVolatilities.getParameters().getAlpha(expiryTenor);
-    double beta = swaptionVolatilities.getParameters().getBeta(expiryTenor);
-    double rho = swaptionVolatilities.getParameters().getRho(expiryTenor);
-    double nu = swaptionVolatilities.getParameters().getNu(expiryTenor);
+    double alpha = swaptionVolatilities.getParameters().alpha(expiryTime, tenor);
+    double beta = swaptionVolatilities.getParameters().beta(expiryTime, tenor);
+    double rho = swaptionVolatilities.getParameters().rho(expiryTime, tenor);
+    double nu = swaptionVolatilities.getParameters().nu(expiryTime, tenor);
     SabrFormulaData sabrPoint = SabrFormulaData.of(alpha, beta, rho, nu);
     // SABRFormulaData [alpha=0.054442381748467536, beta=0.5, rho=-0.13894045628831167, nu=0.41115236503064934] OK TODO
-    double shift = swaptionVolatilities.getParameters().getShift(expiryTenor);
+    double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
     double forward = swapPricer.parRate(expandedSwap, provider) + shift; // 0.01510740653964031 OK
     double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike() + shift;
     double shiftedCutOff = cutOffStrike + shift;
@@ -315,14 +311,13 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
         cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
     //    double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate()); // TODO
     double tenor = swaptionVolatilities.getDayCount().relativeYearFraction(swap.getStartDate(), swap.getEndDate());
-    DoublesPair expiryTenor = DoublesPair.of(expiryTime, tenor);
-    double alpha = swaptionVolatilities.getParameters().getAlpha(expiryTenor);
-    double beta = swaptionVolatilities.getParameters().getBeta(expiryTenor);
-    double rho = swaptionVolatilities.getParameters().getRho(expiryTenor);
-    double nu = swaptionVolatilities.getParameters().getNu(expiryTenor);
+    double alpha = swaptionVolatilities.getParameters().alpha(expiryTime, tenor);
+    double beta = swaptionVolatilities.getParameters().beta(expiryTime, tenor);
+    double rho = swaptionVolatilities.getParameters().rho(expiryTime, tenor);
+    double nu = swaptionVolatilities.getParameters().nu(expiryTime, tenor);
     SabrFormulaData sabrPoint = SabrFormulaData.of(alpha, beta, rho, nu);
     // SABRFormulaData [alpha=0.054442381748467536, beta=0.5, rho=-0.13894045628831167, nu=0.41115236503064934] OK TODO
-    double shift = swaptionVolatilities.getParameters().getShift(expiryTenor);
+    double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
     double forward = swapPricer.parRate(expandedSwap, provider) + shift; // 0.01510740653964031 OK
     double strike = cmsPeriod.getStrike() + shift;
     double shiftedCutOff = cutOffStrike + shift;

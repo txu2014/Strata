@@ -22,13 +22,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.collect.array.DoubleArray;
 
 /**
  * Test {@link DoubleArray}.
  */
 @Test
 public class DoubleArrayTest {
+
+  private static final double DELTA = 1e-14;
 
   public void test_EMPTY() {
     assertMatrix(DoubleArray.EMPTY);
@@ -283,10 +284,30 @@ public class DoubleArrayTest {
   }
 
   //-------------------------------------------------------------------------
+  public void test_plus() {
+    DoubleArray test = DoubleArray.of(1d, 2d, 3d);
+    assertMatrix(test.plus(5), 6d, 7d, 8d);
+    assertMatrix(test.plus(0), 1d, 2d, 3d);
+    assertMatrix(test.plus(-5), -4d, -3d, -2d);
+  }
+
+  public void test_minus() {
+    DoubleArray test = DoubleArray.of(1d, 2d, 3d);
+    assertMatrix(test.minus(5), -4d, -3d, -2d);
+    assertMatrix(test.minus(0), 1d, 2d, 3d);
+    assertMatrix(test.minus(-5), 6d, 7d, 8d);
+  }
+
   public void test_multipliedBy() {
     DoubleArray test = DoubleArray.of(1d, 2d, 3d);
     assertMatrix(test.multipliedBy(5), 5d, 10d, 15d);
     assertMatrix(test.multipliedBy(1), 1d, 2d, 3d);
+  }
+
+  public void test_dividedBy() {
+    DoubleArray test = DoubleArray.of(10d, 20d, 30d);
+    assertMatrix(test.dividedBy(5), 2d, 4d, 6d);
+    assertMatrix(test.dividedBy(1), 10d, 20d, 30d);
   }
 
   public void test_map() {
@@ -300,18 +321,32 @@ public class DoubleArrayTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_plus() {
+  public void test_plus_array() {
     DoubleArray test1 = DoubleArray.of(1d, 2d, 3d);
     DoubleArray test2 = DoubleArray.of(0.5d, 0.6d, 0.7d);
     assertMatrix(test1.plus(test2), 1.5d, 2.6d, 3.7d);
     assertThrows(() -> test1.plus(DoubleArray.EMPTY), IllegalArgumentException.class);
   }
 
-  public void test_minus() {
+  public void test_minus_array() {
     DoubleArray test1 = DoubleArray.of(1d, 2d, 3d);
     DoubleArray test2 = DoubleArray.of(0.5d, 0.6d, 0.7d);
     assertMatrix(test1.minus(test2), 0.5d, 1.4d, 2.3d);
     assertThrows(() -> test1.minus(DoubleArray.EMPTY), IllegalArgumentException.class);
+  }
+
+  public void test_multipliedBy_array() {
+    DoubleArray test1 = DoubleArray.of(1d, 2d, 3d);
+    DoubleArray test2 = DoubleArray.of(0.5d, 0.6d, 0.7d);
+    assertMatrix(test1.multipliedBy(test2), 0.5d, 1.2d, 2.1d);
+    assertThrows(() -> test1.multipliedBy(DoubleArray.EMPTY), IllegalArgumentException.class);
+  }
+
+  public void test_dividedBy_array() {
+    DoubleArray test1 = DoubleArray.of(10d, 20d, 30d);
+    DoubleArray test2 = DoubleArray.of(2d, 5d, 10d);
+    assertMatrix(test1.dividedBy(test2), 5d, 4d, 3d);
+    assertThrows(() -> test1.dividedBy(DoubleArray.EMPTY), IllegalArgumentException.class);
   }
 
   public void test_combine() {
@@ -348,10 +383,10 @@ public class DoubleArrayTest {
     assertThrows(() -> DoubleArray.EMPTY.max(), IllegalStateException.class);
   }
 
-  public void test_total() {
-    assertEquals(DoubleArray.EMPTY.total(), 0d);
-    assertEquals(DoubleArray.of(2d).total(), 2d);
-    assertEquals(DoubleArray.of(2d, 1d, 3d).total(), 6d);
+  public void test_sum() {
+    assertEquals(DoubleArray.EMPTY.sum(), 0d);
+    assertEquals(DoubleArray.of(2d).sum(), 2d);
+    assertEquals(DoubleArray.of(2d, 1d, 3d).sum(), 6d);
   }
 
   public void test_reduce() {
@@ -433,11 +468,18 @@ public class DoubleArrayTest {
       assertEquals(array.isEmpty(), true);
     } else {
       assertEquals(array.size(), expected.length);
-      assertTrue(Arrays.equals(array.toArray(), expected));
-      assertTrue(Arrays.equals(array.toArrayUnsafe(), expected));
+      assertArray(array.toArray(), expected);
+      assertArray(array.toArrayUnsafe(), expected);
       assertEquals(array.dimensions(), 1);
       assertEquals(array.isEmpty(), false);
     }
   }
 
+  private void assertArray(double[] array, double[] expected) {
+    assertEquals(array.length, expected.length);
+
+    for (int i = 0; i < array.length; i++) {
+      assertEquals(array[i], expected[i], DELTA, "Unexpected value at index " + i + ",");
+    }
+  }
 }

@@ -17,7 +17,7 @@ import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
 import com.opengamma.strata.market.explain.ExplainKey;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.market.value.OvernightIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
 import com.opengamma.strata.pricer.PricingException;
 import com.opengamma.strata.pricer.rate.RateObservationFn;
 import com.opengamma.strata.pricer.rate.RatesProvider;
@@ -273,7 +273,7 @@ public class ApproxForwardOvernightAveragedRateObservationFn
     // fixedPeriod is altered by this method.
     private double pastAccumulation() {
       double accumulatedInterest = 0.0d;
-      LocalDateDoubleTimeSeries indexFixingDateSeries = rates.getTimeSeries();
+      LocalDateDoubleTimeSeries indexFixingDateSeries = rates.getFixings();
       while ((fixedPeriod < nbPeriods) &&
           rates.getValuationDate().isAfter(publicationDates.get(fixedPeriod))) {
         accumulatedInterest += accrualFactors.get(fixedPeriod) *
@@ -287,7 +287,7 @@ public class ApproxForwardOvernightAveragedRateObservationFn
     // fixedPeriod is altered by this method.
     private double valuationDateAccumulation() {
       double accumulatedInterest = 0.0d;
-      LocalDateDoubleTimeSeries indexFixingDateSeries = rates.getTimeSeries();
+      LocalDateDoubleTimeSeries indexFixingDateSeries = rates.getFixings();
       boolean ratePresent = true;
       while (ratePresent && fixedPeriod < nbPeriods &&
           rates.getValuationDate().isEqual(publicationDates.get(fixedPeriod))) {

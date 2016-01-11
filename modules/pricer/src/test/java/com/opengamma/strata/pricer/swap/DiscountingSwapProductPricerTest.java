@@ -79,8 +79,8 @@ import com.opengamma.strata.market.sensitivity.IborRateSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.market.sensitivity.ZeroRateSensitivity;
-import com.opengamma.strata.market.value.ForwardPriceIndexValues;
-import com.opengamma.strata.market.value.PriceIndexValues;
+import com.opengamma.strata.market.view.ForwardPriceIndexValues;
+import com.opengamma.strata.market.view.PriceIndexValues;
 import com.opengamma.strata.pricer.datasets.RatesProviderDataSets;
 import com.opengamma.strata.pricer.impl.MockRatesProvider;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
@@ -131,12 +131,12 @@ public class DiscountingSwapProductPricerTest {
   private static final PriceIndexValues PRICE_CURVE = ForwardPriceIndexValues.of(
       UK_RPI,
       VAL_DATE_INFLATION,
-      LocalDateDoubleTimeSeries.of(date(2014, 3, 31), START_INDEX),
       InterpolatedNodalCurve.of(
           Curves.prices("GB_RPI_CURVE_FLAT"),
           DoubleArray.of(1, 1000),
           DoubleArray.of(CONSTANT_INDEX, CONSTANT_INDEX),
-          INTERPOLATOR));
+          INTERPOLATOR),
+      LocalDateDoubleTimeSeries.of(date(2014, 3, 31), START_INDEX));
   
 
   // non compounding

@@ -15,7 +15,7 @@ import com.opengamma.strata.collect.tuple.ObjDoublePair;
 import com.opengamma.strata.market.explain.ExplainKey;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.market.value.OvernightIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
 import com.opengamma.strata.pricer.PricingException;
 import com.opengamma.strata.pricer.rate.RateObservationFn;
 import com.opengamma.strata.pricer.rate.RatesProvider;
@@ -102,7 +102,7 @@ public class ForwardOvernightCompoundedRateObservationFn
       this.index = observation.getIndex();
       this.rates = rates;
       this.fixingCalendar = index.getFixingCalendar();
-      this.indexFixingDateSeries = rates.getTimeSeries();
+      this.indexFixingDateSeries = rates.getFixings();
       // Details of the cutoff period
       this.firstFixing = observation.getStartDate();
       this.lastFixingP1 = observation.getEndDate();

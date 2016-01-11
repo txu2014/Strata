@@ -39,12 +39,17 @@ import com.opengamma.strata.product.swap.type.IborRateSwapLegConvention;
 /**
  * A period over which a CMS coupon or CMS caplet/floorlet payoff is paid.
  * <p>
- * A single payment period within a CMS leg.
+ * This represents a single payment period within a CMS leg.
  * This class specifies the data necessary to calculate the value of the period.
  * The payment period contains the unique accrual period. 
  * The value of the period is based on the observed value of {@code SwapIndex}.
  * <p>
  * The payment is a CMS coupon, CMS caplet or CMS floorlet. 
+ * The pay-offs are, for a swap index on the fixingDate of 'S' and an year fraction 'a'<br>
+ * CMS Coupon: a * S<br>
+ * CMS Caplet: a * (S-K)^+ ; K=caplet<br>
+ * CMS Floorlet: a * (K-S)^+ ; K=floorlet
+ * <p>
  * If {@code caplet} ({@code floorlet}) is not null, the payment is a caplet (floorlet). 
  * If both of {@code caplet} and {@code floorlet} are null, this class represents a CMS coupon payment.
  * Thus at least one of the fields must be null.
@@ -127,18 +132,20 @@ public final class CmsPeriod
   @PropertyDefinition(validate = "notNull")
   private final LocalDate fixingDate;
   /**
-   * The caplet strike. 
+   * The optional caplet strike. 
    * <p>
-   * This defines the strike value of a caplet. 
-   * If the payment is not a caplet, this filed must be null. 
+   * This defines the strike value of a caplet.
+   * <p>
+   * If the period is not a caplet, this field will be absent.
    */
   @PropertyDefinition(get = "optional")
   private final Double caplet;
   /**
-   * The floorlet strike. 
+   * The optional floorlet strike. 
    * <p>
-   * This defines the strike value of a floorlet. 
-   * If the payment is not a floorlet, this field must be null.
+   * This defines the strike value of a floorlet.
+   * <p>
+   * If the period is not a floorlet, this field will be absent.
    */
   @PropertyDefinition(get = "optional")
   private final Double floorlet;
@@ -157,9 +164,8 @@ public final class CmsPeriod
    * The underlying swap. 
    * <p>
    * The interest rate swap for which the swap rate is referred. 
-   * This is not a property, derived and cached from input data. 
    */
-  private final Swap underlyingSwap;
+  private final Swap underlyingSwap;  // not a property, derived and cached from input data
 
   //-------------------------------------------------------------------------
   @ImmutableConstructor
@@ -225,11 +231,11 @@ public final class CmsPeriod
   public CmsPeriodType getCmsPeriodType() {
     if (getCaplet().isPresent()) {
       return CmsPeriodType.CAPLET;
-    }
-    if (getFloorlet().isPresent()) {
+    } else if (getFloorlet().isPresent()) {
       return CmsPeriodType.FLOORLET;
+    } else {
+      return CmsPeriodType.COUPON;
     }
-    return CmsPeriodType.COUPON;
   }
 
   /**
@@ -403,10 +409,11 @@ public final class CmsPeriod
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the caplet strike.
+   * Gets the optional caplet strike.
    * <p>
    * This defines the strike value of a caplet.
-   * If the payment is not a caplet, this filed must be null.
+   * <p>
+   * If the period is not a caplet, this field will be absent.
    * @return the optional value of the property, not null
    */
   public OptionalDouble getCaplet() {
@@ -415,10 +422,11 @@ public final class CmsPeriod
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the floorlet strike.
+   * Gets the optional floorlet strike.
    * <p>
    * This defines the strike value of a floorlet.
-   * If the payment is not a floorlet, this field must be null.
+   * <p>
+   * If the period is not a floorlet, this field will be absent.
    * @return the optional value of the property, not null
    */
   public OptionalDouble getFloorlet() {
@@ -1115,10 +1123,11 @@ public final class CmsPeriod
     }
 
     /**
-     * Sets the caplet strike.
+     * Sets the optional caplet strike.
      * <p>
      * This defines the strike value of a caplet.
-     * If the payment is not a caplet, this filed must be null.
+     * <p>
+     * If the period is not a caplet, this field will be absent.
      * @param caplet  the new value
      * @return this, for chaining, not null
      */
@@ -1128,10 +1137,11 @@ public final class CmsPeriod
     }
 
     /**
-     * Sets the floorlet strike.
+     * Sets the optional floorlet strike.
      * <p>
      * This defines the strike value of a floorlet.
-     * If the payment is not a floorlet, this field must be null.
+     * <p>
+     * If the period is not a floorlet, this field will be absent.
      * @param floorlet  the new value
      * @return this, for chaining, not null
      */

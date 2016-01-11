@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
@@ -55,10 +56,11 @@ import com.opengamma.strata.calc.config.pricing.PricingRules;
 import com.opengamma.strata.calc.marketdata.CalculationMarketData;
 import com.opengamma.strata.calc.marketdata.FunctionRequirements;
 import com.opengamma.strata.calc.marketdata.MarketDataFactory;
+import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
 import com.opengamma.strata.calc.marketdata.MarketEnvironment;
 import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
-import com.opengamma.strata.calc.runner.CalculationRunner;
-import com.opengamma.strata.calc.runner.CalculationRunnerFactory;
+import com.opengamma.strata.calc.runner.CalculationTaskRunner;
+import com.opengamma.strata.calc.runner.CalculationTasks;
 import com.opengamma.strata.calc.runner.Results;
 import com.opengamma.strata.calc.runner.SingleCalculationMarketData;
 import com.opengamma.strata.calc.runner.function.CalculationSingleFunction;
@@ -77,7 +79,7 @@ import com.opengamma.strata.market.curve.node.FixedIborSwapCurveNode;
 import com.opengamma.strata.market.curve.node.FraCurveNode;
 import com.opengamma.strata.market.interpolator.CurveExtrapolators;
 import com.opengamma.strata.market.interpolator.CurveInterpolators;
-import com.opengamma.strata.market.key.DiscountFactorsKey;
+import com.opengamma.strata.market.key.DiscountCurveKey;
 import com.opengamma.strata.market.key.IndexRateKey;
 import com.opengamma.strata.market.key.MarketDataKeys;
 import com.opengamma.strata.pricer.fra.DiscountingFraProductPricer;
@@ -177,19 +179,21 @@ public class CurveEndToEndTest {
         .reportingRules(ReportingRules.fixedCurrency(Currency.USD))
         .build();
 
-    // Calculation components -------------------------------------------------
-
-    List<Column> columns = ImmutableList.of(Column.of(Measure.PRESENT_VALUE));
-    CalculationRunner runner = CalculationRunnerFactory.ofSingleThreaded()
-        .createWithMarketDataBuilder(trades, columns, calculationRules, marketDataFactory(), marketDataConfig);
-
     // Calculate the results and check the PVs for the node instruments are zero ----------------------
 
+    List<Column> columns = ImmutableList.of(Column.of(Measure.PRESENT_VALUE));
     MarketEnvironment knownMarketData = MarketEnvironment.builder()
         .valuationDate(date(2011, 3, 8))
         .addValues(parRateData)
         .build();
-    Results results = runner.calculateSingleScenario(knownMarketData);
+
+    // using the direct executor means there is no need to close/shutdown the runner
+    CalculationTasks tasks = CalculationTasks.of(calculationRules, trades, columns);
+    MarketDataRequirements reqs = tasks.getRequirements();
+    MarketEnvironment enhancedMarketData = marketDataFactory().buildMarketData(reqs, knownMarketData, marketDataConfig);
+    CalculationTaskRunner runner = CalculationTaskRunner.of(MoreExecutors.newDirectExecutorService());
+    Results results = runner.calculateSingleScenario(tasks, enhancedMarketData);
+
     results.getItems().stream().forEach(this::checkPvIsZero);
   }
 
@@ -251,8 +255,8 @@ public class CurveEndToEndTest {
               .map(MarketDataKeys::indexCurve)
               .collect(toImmutableSet());
 
-      Set<DiscountFactorsKey> discountCurveKeys =
-          ImmutableSet.of(DiscountFactorsKey.of(fra.getCurrency()));
+      Set<DiscountCurveKey> discountCurveKeys =
+          ImmutableSet.of(DiscountCurveKey.of(fra.getCurrency()));
 
       return FunctionRequirements.builder()
           .singleValueRequirements(Sets.union(indexCurveKeys, discountCurveKeys))

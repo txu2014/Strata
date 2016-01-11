@@ -13,8 +13,8 @@ import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.market.explain.ExplainKey;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.market.value.DiscountFactors;
-import com.opengamma.strata.market.value.FxIndexRates;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.FxIndexRates;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.PaymentEventPricer;
 import com.opengamma.strata.product.swap.FxResetNotionalExchange;
@@ -110,7 +110,7 @@ public class DiscountingFxResetNotionalExchangePricer
     FxIndexRates rates = provider.fxIndexRates(event.getIndex());
     double df = provider.discountFactor(event.getCurrency(), event.getPaymentDate());
     if (!event.getFixingDate().isAfter(provider.getValuationDate()) &&
-        rates.getTimeSeries().get(event.getFixingDate()).isPresent()) {
+        rates.getFixings().get(event.getFixingDate()).isPresent()) {
       double fxRate = rates.rate(event.getReferenceCurrency(), event.getFixingDate());
       return MultiCurrencyAmount.of(CurrencyAmount.of(event.getCurrency(), event.getNotional() * df * fxRate));
     }

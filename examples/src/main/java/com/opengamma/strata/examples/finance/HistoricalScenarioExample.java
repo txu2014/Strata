@@ -32,14 +32,14 @@ import com.opengamma.strata.basics.index.IborIndices;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.calc.CalculationRules;
+import com.opengamma.strata.calc.CalculationRunner;
 import com.opengamma.strata.calc.Column;
 import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
 import com.opengamma.strata.calc.marketdata.MarketEnvironment;
 import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
 import com.opengamma.strata.calc.marketdata.scenario.PerturbationMapping;
 import com.opengamma.strata.calc.marketdata.scenario.ScenarioDefinition;
-import com.opengamma.strata.calc.runner.CalculationRunner;
-import com.opengamma.strata.calc.runner.CalculationRunnerFactory;
 import com.opengamma.strata.calc.runner.Results;
 import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.Messages;
@@ -49,7 +49,7 @@ import com.opengamma.strata.function.StandardComponents;
 import com.opengamma.strata.function.marketdata.curve.CurvePointShifts;
 import com.opengamma.strata.function.marketdata.curve.CurvePointShiftsBuilder;
 import com.opengamma.strata.function.marketdata.scenario.curve.AnyDiscountCurveFilter;
-import com.opengamma.strata.function.marketdata.scenario.curve.CurveRateIndexFilter;
+import com.opengamma.strata.function.marketdata.scenario.curve.IndexCurveFilter;
 import com.opengamma.strata.market.ShiftType;
 import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveGroup;
@@ -86,6 +86,15 @@ public class HistoricalScenarioExample {
   private static final String MARKET_DATA_RESOURCE_ROOT = "example-historicalscenario-marketdata";
 
   public static void main(String[] args) {
+    // setup calculation runner component, which needs life-cycle management
+    // a typical application might use dependency injection to obtain the instance
+    try (CalculationRunner runner = CalculationRunner.ofMultiThreaded()) {
+      calculate(runner);
+    }
+  }
+
+  // obtains the data and calculates the grid of results
+  private static void calculate(CalculationRunner runner) {
     // the trades for which to calculate a P&L series
     List<Trade> trades = ImmutableList.of(createTrade());
 
@@ -119,9 +128,10 @@ public class HistoricalScenarioExample {
     MarketEnvironment marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
 
     // calculate the results
-    CalculationRunner runner = CalculationRunnerFactory.ofSingleThreaded()
-        .createWithMarketDataBuilder(trades, columns, rules, marketDataFactory(), MarketDataConfig.empty(), historicalScenarios);
-    Results results = runner.calculateMultipleScenarios(marketSnapshot);
+    MarketDataRequirements reqs = MarketDataRequirements.of(rules, trades, columns);
+    MarketEnvironment enhancedMarketData = marketDataFactory()
+        .buildMarketData(reqs, marketSnapshot, MarketDataConfig.empty(), historicalScenarios);
+    Results results = runner.calculateMultipleScenarios(rules, trades, columns, enhancedMarketData);
 
     // the results contain the one measure requested (Present Value) for each scenario
     ScenarioResult<?> scenarioValuations = (ScenarioResult<?>) results.get(0, 0).getValue();
@@ -160,12 +170,12 @@ public class HistoricalScenarioExample {
 
     PerturbationMapping<Curve> libor3mMappings = PerturbationMapping.of(
         Curve.class,
-        CurveRateIndexFilter.of(IborIndices.USD_LIBOR_3M),
+        IndexCurveFilter.of(IborIndices.USD_LIBOR_3M),
         buildShifts(libor3mCurves));
 
     PerturbationMapping<Curve> libor6mMappings = PerturbationMapping.of(
         Curve.class,
-        CurveRateIndexFilter.of(IborIndices.USD_LIBOR_6M),
+        IndexCurveFilter.of(IborIndices.USD_LIBOR_6M),
         buildShifts(libor6mCurves));
 
     // create a scenario definition from these mappings

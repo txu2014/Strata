@@ -17,8 +17,8 @@ import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.explain.ExplainKey;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.market.value.DiscountFactors;
-import com.opengamma.strata.market.value.FxIndexRates;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.FxIndexRates;
 import com.opengamma.strata.pricer.rate.RateObservationFn;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.PaymentPeriodPricer;
@@ -460,7 +460,7 @@ public class DiscountingRatePaymentPeriodPricer
       FxReset fxReset = period.getFxReset().get();
       FxIndexRates rates = provider.fxIndexRates(fxReset.getIndex());
       if (!fxReset.getFixingDate().isAfter(provider.getValuationDate()) &&
-          rates.getTimeSeries().get(fxReset.getFixingDate()).isPresent()) {
+          rates.getFixings().get(fxReset.getFixingDate()).isPresent()) {
         double fxRate = rates.rate(fxReset.getReferenceCurrency(), fxReset.getFixingDate());
         return MultiCurrencyAmount.of(period.getCurrency(),
             accrualWithNotional(period, period.getNotional() * fxRate * df, provider));

@@ -41,16 +41,16 @@ import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
 import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.market.value.DiscountFactors;
-import com.opengamma.strata.market.value.DiscountFxForwardRates;
-import com.opengamma.strata.market.value.DiscountFxIndexRates;
-import com.opengamma.strata.market.value.DiscountIborIndexRates;
-import com.opengamma.strata.market.value.DiscountOvernightIndexRates;
-import com.opengamma.strata.market.value.FxForwardRates;
-import com.opengamma.strata.market.value.FxIndexRates;
-import com.opengamma.strata.market.value.IborIndexRates;
-import com.opengamma.strata.market.value.OvernightIndexRates;
-import com.opengamma.strata.market.value.PriceIndexValues;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.DiscountFxForwardRates;
+import com.opengamma.strata.market.view.DiscountFxIndexRates;
+import com.opengamma.strata.market.view.DiscountIborIndexRates;
+import com.opengamma.strata.market.view.DiscountOvernightIndexRates;
+import com.opengamma.strata.market.view.FxForwardRates;
+import com.opengamma.strata.market.view.FxIndexRates;
+import com.opengamma.strata.market.view.IborIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
+import com.opengamma.strata.market.view.PriceIndexValues;
 
 
 /**
@@ -200,9 +200,9 @@ public final class ImmutableRatesProvider
   //-------------------------------------------------------------------------
   @Override
   public FxIndexRates fxIndexRates(FxIndex index) {
-    LocalDateDoubleTimeSeries timeSeries = timeSeries(index);
+    LocalDateDoubleTimeSeries fixings = timeSeries(index);
     FxForwardRates fxForwardRates = fxForwardRates(index.getCurrencyPair());
-    return DiscountFxIndexRates.of(index, timeSeries, fxForwardRates);
+    return DiscountFxIndexRates.of(index, fxForwardRates, fixings);
   }
 
   //-------------------------------------------------------------------------
@@ -216,18 +216,18 @@ public final class ImmutableRatesProvider
   //-------------------------------------------------------------------------
   @Override
   public IborIndexRates iborIndexRates(IborIndex index) {
-    LocalDateDoubleTimeSeries timeSeries = timeSeries(index);
+    LocalDateDoubleTimeSeries fixings = timeSeries(index);
     Curve curve = indexCurve(index);
     DiscountFactors dfc = DiscountFactors.of(index.getCurrency(), getValuationDate(), curve);
-    return DiscountIborIndexRates.of(index, timeSeries, dfc);
+    return DiscountIborIndexRates.of(index, dfc, fixings);
   }
 
   @Override
   public OvernightIndexRates overnightIndexRates(OvernightIndex index) {
-    LocalDateDoubleTimeSeries timeSeries = timeSeries(index);
+    LocalDateDoubleTimeSeries fixings = timeSeries(index);
     Curve curve = indexCurve(index);
     DiscountFactors dfc = DiscountFactors.of(index.getCurrency(), getValuationDate(), curve);
-    return DiscountOvernightIndexRates.of(index, timeSeries, dfc);
+    return DiscountOvernightIndexRates.of(index, dfc, fixings);
   }
 
   @Override
