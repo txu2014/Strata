@@ -113,7 +113,7 @@ public class SabrSwaptionVolatilitiesTest {
       for (int j = 0; j < NB_STRIKE; ++j) {
         double expiryTime = prov.relativeTime(TEST_OPTION_EXPIRY[i]);
         SwaptionSabrSensitivity point = SwaptionSabrSensitivity.of(CONV, TEST_OPTION_EXPIRY[i], TEST_TENOR[i],
-            TEST_STRIKE[j], TEST_FORWARD, USD, alphaSensi, betaSensi, rhoSensi, nuSensi);
+            USD, alphaSensi, betaSensi, rhoSensi, nuSensi);
         SurfaceCurrencyParameterSensitivities sensiComputed = prov.surfaceCurrencyParameterSensitivity(point);
         Map<DoublesPair, Double> alphaMap = prov.getParameters().getAlphaSurface()
             .zValueParameterSensitivity(expiryTime, TEST_TENOR[i]);

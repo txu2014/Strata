@@ -493,8 +493,6 @@ public class SabrSwaptionCashParYieldProductPricerTest {
     assertEquals(sensiRec.getConvention(), SwaptionSabrRateVolatilityDataSet.SWAP_CONVENTION_EUR);
     assertEquals(sensiRec.getExpiry(), SWAPTION_REC_LONG.getExpiryDateTime());
     assertEquals(sensiRec.getTenor(), (double) TENOR_YEAR);
-    assertEquals(sensiRec.getStrike(), RATE, TOL);
-    assertEquals(sensiRec.getForward(), forward, TOL);
     assertEquals(sensiPay.getCurrency(), EUR);
     assertEquals(sensiPay.getAlphaSensitivity(), vegaPay * volSensi[2], NOTIONAL * TOL);
     assertEquals(sensiPay.getBetaSensitivity(), vegaPay * volSensi[3], NOTIONAL * TOL);
@@ -503,8 +501,6 @@ public class SabrSwaptionCashParYieldProductPricerTest {
     assertEquals(sensiRec.getConvention(), SwaptionSabrRateVolatilityDataSet.SWAP_CONVENTION_EUR);
     assertEquals(sensiPay.getExpiry(), SWAPTION_REC_LONG.getExpiryDateTime());
     assertEquals(sensiPay.getTenor(), (double) TENOR_YEAR);
-    assertEquals(sensiPay.getStrike(), RATE, TOL);
-    assertEquals(sensiPay.getForward(), forward, TOL);
   }
 
   public void test_presentValueSensitivityBlackVolatility_atMaturity() {

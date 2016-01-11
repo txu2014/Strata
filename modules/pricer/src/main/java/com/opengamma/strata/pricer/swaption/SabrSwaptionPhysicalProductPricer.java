@@ -218,7 +218,7 @@ public class SabrSwaptionPhysicalProductPricer {
     double strike = swapPricer.getLegPricer().couponEquivalent(fixedLeg, ratesProvider, pvbp);
     if (expiry < 0d) { // Option has expired already
       return SwaptionSabrSensitivity.of(
-          swaptionVolatilities.getConvention(), expiryDateTime, tenor, strike, 0d, fixedLeg.getCurrency(), 0d, 0d, 0d, 0d);
+          swaptionVolatilities.getConvention(), expiryDateTime, tenor, fixedLeg.getCurrency(), 0d, 0d, 0d, 0d);
     }
     double forward = swapPricer.parRate(underlying, ratesProvider);
     double volatility = swaptionVolatilities.volatility(expiryDateTime, tenor, strike, forward);
@@ -231,8 +231,6 @@ public class SabrSwaptionPhysicalProductPricer {
         swaptionVolatilities.getConvention(),
         expiryDateTime,
         tenor,
-        strike,
-        forward,
         fixedLeg.getCurrency(),
         vega * derivative.get(2),
         vega * derivative.get(3),
