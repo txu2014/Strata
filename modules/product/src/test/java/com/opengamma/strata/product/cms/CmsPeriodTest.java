@@ -7,6 +7,8 @@ package com.opengamma.strata.product.cms;
 
 import static com.opengamma.strata.basics.currency.Currency.CHF;
 import static com.opengamma.strata.basics.currency.Currency.GBP;
+import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
+import static com.opengamma.strata.basics.date.DayCounts.ACT_365F;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
@@ -51,6 +53,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     assertEquals(testCaplet.getCaplet().getAsDouble(), STRIKE);
     assertFalse(testCaplet.getFloorlet().isPresent());
@@ -65,6 +68,8 @@ public class CmsPeriodTest {
     assertEquals(testCaplet.getIndex(), INDEX);
     assertEquals(testCaplet.getNotional(), NOTIONAL);
     assertEquals(testCaplet.getYearFraction(), YEAR_FRACTION);
+    assertEquals(testCaplet.getDayCount(), ACT_360);
+    assertEquals(testCaplet.getStrike(), STRIKE);
     assertEquals(testCaplet.getUnderlyingSwap(), INDEX.getTemplate().getConvention()
         .toTrade(START, START, START.plus(INDEX.getTemplate().getTenor()), BuySell.BUY, 1d, 1d).getProduct());
     CmsPeriod testFloorlet = CmsPeriod.builder()
@@ -79,6 +84,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     assertFalse(testFloorlet.getCaplet().isPresent());
     assertEquals(testFloorlet.getFloorlet().getAsDouble(), STRIKE);
@@ -93,6 +99,8 @@ public class CmsPeriodTest {
     assertEquals(testFloorlet.getIndex(), INDEX);
     assertEquals(testFloorlet.getNotional(), NOTIONAL);
     assertEquals(testFloorlet.getYearFraction(), YEAR_FRACTION);
+    assertEquals(testFloorlet.getDayCount(), ACT_360);
+    assertEquals(testFloorlet.getStrike(), STRIKE);
     assertEquals(testFloorlet.getUnderlyingSwap(), INDEX.getTemplate().getConvention()
         .toTrade(START, START, START.plus(INDEX.getTemplate().getTenor()), BuySell.BUY, 1d, 1d).getProduct());
     CmsPeriod testCoupon = CmsPeriod.builder()
@@ -106,6 +114,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     assertFalse(testCoupon.getCaplet().isPresent());
     assertFalse(testCoupon.getFloorlet().isPresent());
@@ -120,6 +129,8 @@ public class CmsPeriodTest {
     assertEquals(testCoupon.getIndex(), INDEX);
     assertEquals(testCoupon.getNotional(), NOTIONAL);
     assertEquals(testCoupon.getYearFraction(), YEAR_FRACTION);
+    assertEquals(testCoupon.getDayCount(), ACT_360);
+    assertEquals(testCoupon.getStrike(), 0d);
     assertEquals(testCoupon.getUnderlyingSwap(), INDEX.getTemplate().getConvention()
         .toTrade(START, START, START.plus(INDEX.getTemplate().getTenor()), BuySell.BUY, 1d, 1d).getProduct());
   }
@@ -132,6 +143,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     assertEquals(testCaplet.getCaplet().getAsDouble(), STRIKE);
     assertFalse(testCaplet.getFloorlet().isPresent());
@@ -146,6 +158,8 @@ public class CmsPeriodTest {
     assertEquals(testCaplet.getIndex(), INDEX);
     assertEquals(testCaplet.getNotional(), NOTIONAL);
     assertEquals(testCaplet.getYearFraction(), YEAR_FRACTION);
+    assertEquals(testCaplet.getDayCount(), ACT_360);
+    assertEquals(testCaplet.getStrike(), STRIKE);
     assertEquals(testCaplet.getUnderlyingSwap(), INDEX.getTemplate().getConvention()
         .toTrade(START, START, START.plus(INDEX.getTemplate().getTenor()), BuySell.BUY, 1d, 1d).getProduct());
     CmsPeriod testFloorlet = CmsPeriod.builder()
@@ -155,6 +169,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     assertFalse(testFloorlet.getCaplet().isPresent());
     assertEquals(testFloorlet.getFloorlet().getAsDouble(), STRIKE);
@@ -169,6 +184,8 @@ public class CmsPeriodTest {
     assertEquals(testFloorlet.getIndex(), INDEX);
     assertEquals(testFloorlet.getNotional(), NOTIONAL);
     assertEquals(testFloorlet.getYearFraction(), YEAR_FRACTION);
+    assertEquals(testFloorlet.getDayCount(), ACT_360);
+    assertEquals(testFloorlet.getStrike(), STRIKE);
     assertEquals(testFloorlet.getUnderlyingSwap(), INDEX.getTemplate().getConvention()
         .toTrade(START, START, START.plus(INDEX.getTemplate().getTenor()), BuySell.BUY, 1d, 1d).getProduct());
     CmsPeriod testCoupon = CmsPeriod.builder()
@@ -178,6 +195,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     assertFalse(testCoupon.getCaplet().isPresent());
     assertFalse(testCoupon.getFloorlet().isPresent());
@@ -192,6 +210,8 @@ public class CmsPeriodTest {
     assertEquals(testCoupon.getIndex(), INDEX);
     assertEquals(testCoupon.getNotional(), NOTIONAL);
     assertEquals(testCoupon.getYearFraction(), YEAR_FRACTION);
+    assertEquals(testCoupon.getDayCount(), ACT_360);
+    assertEquals(testCoupon.getStrike(), 0d);
     assertEquals(testCoupon.getUnderlyingSwap(), INDEX.getTemplate().getConvention()
         .toTrade(START, START, START.plus(INDEX.getTemplate().getTenor()), BuySell.BUY, 1d, 1d).getProduct());
   }
@@ -205,6 +225,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build());
   }
 
@@ -217,6 +238,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     coverImmutableBean(test1);
     CmsPeriod test2 = CmsPeriod.builder()
@@ -227,6 +249,7 @@ public class CmsPeriodTest {
         .index(SwapIndices.CHF_LIBOR_1100_5Y)
         .notional(1.0e7)
         .yearFraction(0.51)
+        .dayCount(ACT_365F)
         .build();
     coverBeanEquals(test1, test2);
   }
@@ -239,6 +262,7 @@ public class CmsPeriodTest {
         .index(INDEX)
         .notional(NOTIONAL)
         .yearFraction(YEAR_FRACTION)
+        .dayCount(ACT_360)
         .build();
     assertSerialization(test);
   }
