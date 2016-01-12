@@ -97,8 +97,6 @@ public final class SwaptionSabrSensitivity
       FixedIborSwapConvention convention,
       ZonedDateTime expiry,
       double tenor,
-      //      double strike,
-      //      double forward,
       Currency sensitivityCurrency,
       double alphaSensitivity,
       double betaSensitivity,
