@@ -106,7 +106,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
   private static final RatesFiniteDifferenceSensitivityCalculator FD_CAL =
       new RatesFiniteDifferenceSensitivityCalculator(EPS);
 
-  public void test_presentValue() {
+  public void test_presentValue_zero() {
     CurrencyAmount pv = PRICER.presentValue(COUPON, RATES_PROVIDER, VOLATILITIES);
     CurrencyAmount pvCaplet = PRICER.presentValue(CAPLET_ZERO, RATES_PROVIDER, VOLATILITIES);
     CurrencyAmount pvFloorlet = PRICER.presentValue(FLOORLET_ZERO, RATES_PROVIDER, VOLATILITIES);
@@ -170,13 +170,11 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
   }
 
   public void test_presentValueSensitivitySabr() {
-    SwaptionSabrSensitivity pvPointCoupon = PRICER.presentValueSensitivitySabr(COUPON_SELL, RATES_PROVIDER,
-        VOLATILITIES);
+    SwaptionSabrSensitivity pvPointCoupon = PRICER.presentValueSensitivitySabr(COUPON_SELL, RATES_PROVIDER, VOLATILITIES);
     SurfaceCurrencyParameterSensitivities computedCoupon = VOLATILITIES.surfaceCurrencyParameterSensitivity(pvPointCoupon);
     SwaptionSabrSensitivity pvCapPoint = PRICER.presentValueSensitivitySabr(CAPLET_SELL, RATES_PROVIDER, VOLATILITIES);
     SurfaceCurrencyParameterSensitivities computedCap = VOLATILITIES.surfaceCurrencyParameterSensitivity(pvCapPoint);
-    SwaptionSabrSensitivity pvFloorPoint = PRICER.presentValueSensitivitySabr(FLOORLET_SELL, RATES_PROVIDER,
-        VOLATILITIES);
+    SwaptionSabrSensitivity pvFloorPoint = PRICER.presentValueSensitivitySabr(FLOORLET_SELL, RATES_PROVIDER, VOLATILITIES);
     SurfaceCurrencyParameterSensitivities computedFloor = VOLATILITIES.surfaceCurrencyParameterSensitivity(pvFloorPoint);
 
     SabrInterestRateParameters sabr = VOLATILITIES.getParameters();
