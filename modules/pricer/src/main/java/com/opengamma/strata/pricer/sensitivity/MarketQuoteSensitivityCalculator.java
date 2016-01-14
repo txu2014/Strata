@@ -5,6 +5,7 @@
  */
 package com.opengamma.strata.pricer.sensitivity;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -15,12 +16,14 @@ import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivity;
 import com.opengamma.strata.market.curve.CurveInfoType;
+import com.opengamma.strata.market.curve.CurveMetadata;
 import com.opengamma.strata.market.curve.CurveName;
+import com.opengamma.strata.market.curve.CurveParameterSize;
 import com.opengamma.strata.market.curve.DefaultCurveMetadata;
 import com.opengamma.strata.market.curve.JacobianCalibrationMatrix;
 import com.opengamma.strata.math.impl.matrix.MatrixAlgebra;
 import com.opengamma.strata.math.impl.matrix.OGMatrixAlgebra;
-import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
+import com.opengamma.strata.pricer.rate.RatesProvider;
 
 /**
  * Calculator to obtain the Market Quote sensitivities.
@@ -50,36 +53,48 @@ public class MarketQuoteSensitivityCalculator {
    */
   public CurveCurrencyParameterSensitivities sensitivity(
       CurveCurrencyParameterSensitivities paramSensitivities,
-      ImmutableRatesProvider provider) {
+      RatesProvider provider) {
 
     ArgChecker.notNull(paramSensitivities, "paramSensitivities");
     ArgChecker.notNull(provider, "provider");
+    
+    // Collect all the relevant curves by name, including the indirect ones, and their metadata
+    Map<CurveName, CurveMetadata> metadataMap = new HashMap<>();
+    for (CurveCurrencyParameterSensitivity paramSens : paramSensitivities.getSensitivities()) {
+      CurveMetadata metadata = paramSens.getMetadata();
+      JacobianCalibrationMatrix info = metadata.findInfo(CurveInfoType.JACOBIAN)
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Market Quote sensitivity requires Jacobian calibration information"));
+      for(CurveParameterSize p:info.getOrder()) {
+        Curve curve = provider.findCurve(p.getName())
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Market Quote sensitivity requires curve: " + p.getName()));
+        metadataMap.put(p.getName(), curve.getMetadata()); // If curve referenced several times, item overridden
+      }
+    }
 
+    // Compute market quote sensitivities and label them
     CurveCurrencyParameterSensitivities result = CurveCurrencyParameterSensitivities.empty();
     for (CurveCurrencyParameterSensitivity paramSens : paramSensitivities.getSensitivities()) {
-      // find the matching calibration info
-      Curve curve = provider.findCurve(paramSens.getCurveName())
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Market Quote sensitivity requires curve: " + paramSens.getCurveName()));
-      JacobianCalibrationMatrix info = curve.getMetadata().findInfo(CurveInfoType.JACOBIAN)
+      CurveMetadata metadata = paramSens.getMetadata();
+      JacobianCalibrationMatrix info = metadata.findInfo(CurveInfoType.JACOBIAN)
           .orElseThrow(() -> new IllegalArgumentException(
               "Market Quote sensitivity requires Jacobian calibration information"));
 
       // calculate the market quote sensitivity using the Jacobian
       DoubleMatrix jacobian = info.getJacobianMatrix();
       DoubleArray paramSensMatrix = paramSens.getSensitivity();
-      DoubleArray marketQuoteSensMatrix = (DoubleArray) MATRIX_ALGEBRA.multiply(paramSensMatrix, jacobian);
-      DoubleArray marketQuoteSens = marketQuoteSensMatrix;
+      DoubleArray marketQuoteSensArray = (DoubleArray) MATRIX_ALGEBRA.multiply(paramSensMatrix, jacobian);
 
       // split between different curves
-      Map<CurveName, DoubleArray> split = info.splitValues(marketQuoteSens);
+      Map<CurveName, DoubleArray> split = info.splitValues(marketQuoteSensArray);
       for (Entry<CurveName, DoubleArray> entry : split.entrySet()) {
-        // build result without curve metadata
-        CurveCurrencyParameterSensitivity maketQuoteSens = CurveCurrencyParameterSensitivity.of(
-            DefaultCurveMetadata.of(entry.getKey()),
+        CurveMetadata metaAvailable = metadataMap.get(entry.getKey());
+        CurveCurrencyParameterSensitivity marketQuoteSensObject = CurveCurrencyParameterSensitivity.of(
+            (metaAvailable != null) ? metaAvailable : DefaultCurveMetadata.of(entry.getKey()),
             paramSens.getCurrency(),
             entry.getValue());
-        result = result.combinedWith(maketQuoteSens);
+        result = result.combinedWith(marketQuoteSensObject);
       }
     }
     return result;

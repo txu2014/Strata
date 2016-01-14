@@ -148,12 +148,7 @@ public final class ImmutableRatesProvider
   }
 
   //-------------------------------------------------------------------------
-  /**
-   * Finds the curve with the specified name.
-   * 
-   * @param name  the curve name
-   * @return the curve
-   */
+  @Override
   public Optional<Curve> findCurve(CurveName name) {
     return Stream.concat(discountCurves.values().stream(), indexCurves.values().stream())
         .filter(c -> c.getName().equals(name))

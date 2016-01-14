@@ -7,6 +7,8 @@ package com.opengamma.strata.function.marketdata;
 
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.joda.beans.JodaBeanUtils;
 
@@ -23,6 +25,7 @@ import com.opengamma.strata.basics.market.MarketData;
 import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
 import com.opengamma.strata.market.curve.Curve;
+import com.opengamma.strata.market.curve.CurveName;
 import com.opengamma.strata.market.curve.InterpolatedNodalCurve;
 import com.opengamma.strata.market.key.DiscountCurveKey;
 import com.opengamma.strata.market.key.IborIndexCurveKey;
@@ -67,6 +70,14 @@ public final class MarketDataRatesProvider
   public MarketDataRatesProvider(MarketData marketData) {
     JodaBeanUtils.notNull(marketData, "marketData");
     this.marketData = marketData;
+  }
+
+  //-------------------------------------------------------------------------
+  @Override
+  public Optional<Curve> findCurve(CurveName name) {
+    return Stream.concat(discountCurves.values().stream(), indexCurves.values().stream())
+        .filter(c -> c.getName().equals(name))
+        .findFirst();
   }
 
   @Override

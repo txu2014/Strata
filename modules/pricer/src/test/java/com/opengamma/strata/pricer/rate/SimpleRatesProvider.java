@@ -7,6 +7,7 @@ package com.opengamma.strata.pricer.rate;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.joda.beans.Bean;
@@ -30,7 +31,9 @@ import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.PriceIndex;
 import com.opengamma.strata.basics.market.MarketDataKey;
+import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
+import com.opengamma.strata.market.curve.CurveName;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.view.DiscountFactors;
 import com.opengamma.strata.market.view.FxForwardRates;
@@ -145,6 +148,11 @@ public class SimpleRatesProvider
 
   @Override
   public MultiCurrencyAmount currencyExposure(PointSensitivities pointSensitivities) {
+    throw new UnsupportedOperationException();
+  }
+  
+  @Override
+  public Optional<Curve> findCurve(CurveName name) {
     throw new UnsupportedOperationException();
   }
 

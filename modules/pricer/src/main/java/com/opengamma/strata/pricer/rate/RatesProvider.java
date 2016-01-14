@@ -5,13 +5,17 @@
  */
 package com.opengamma.strata.pricer.rate;
 
+import java.util.Optional;
+
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.index.FxIndex;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.PriceIndex;
+import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
+import com.opengamma.strata.market.curve.CurveName;
 import com.opengamma.strata.market.sensitivity.FxIndexSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.view.FxForwardRates;
@@ -97,6 +101,15 @@ public interface RatesProvider
    * @throws IllegalArgumentException if the values are not available
    */
   public abstract PriceIndexValues priceIndexValues(PriceIndex index);
+  
+
+  /**
+   * Finds the curve with the specified name.
+   * 
+   * @param name  the curve name
+   * @return the curve
+   */
+  public Optional<Curve> findCurve(CurveName name);
 
   //-------------------------------------------------------------------------
   /**

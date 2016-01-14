@@ -519,4 +519,9 @@ public class CalibrationZeroRateUsd3OisIrsBsTest {
     // Previous run: 2325 ms for 100 calibrations (3 curve simultaneous - 43 nodes)
   }
 
+  //-------------------------------------------------------------------------
+  public static ImmutableRatesProvider rateProviderUsd() {
+    return CALIBRATOR.calibrate(CURVE_GROUP_CONFIG, VAL_DATE, ALL_QUOTES, TS);
+  }
+
 }
