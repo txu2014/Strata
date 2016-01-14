@@ -43,16 +43,14 @@ public class SwaptionSabrSensitivitiesTest {
   private static final double BETA_SENSI_2 = 1.15d;
   private static final double RHO_SENSI_2 = 0.15d;
   private static final double NU_SENSI_2 = 2.5d;
-
   private static final SwaptionSabrSensitivity SENSI_1 = SwaptionSabrSensitivity.of(
       SWAP_CONV, DATE_TIME_1, SWAP_TENOR, GBP, ALPHA_SENSI_1, BETA_SENSI_1, RHO_SENSI_1, NU_SENSI_1);
   private static final SwaptionSabrSensitivity SENSI_2 = SwaptionSabrSensitivity.of(
       SWAP_CONV, DATE_TIME_1, SWAP_TENOR, GBP, ALPHA_SENSI_2, BETA_SENSI_2, RHO_SENSI_2, NU_SENSI_2);
   private static final SwaptionSabrSensitivity SENSI_3 = SwaptionSabrSensitivity.of(
       SWAP_CONV, DATE_TIME_2, SWAP_TENOR, GBP, ALPHA_SENSI_1, BETA_SENSI_1, RHO_SENSI_1, NU_SENSI_1);
-  private static final SwaptionSabrSensitivity SENSI_12 =
-      SwaptionSabrSensitivity.of(SWAP_CONV, DATE_TIME_1, SWAP_TENOR, GBP, ALPHA_SENSI_1 + ALPHA_SENSI_2, BETA_SENSI_1 +
-          BETA_SENSI_2, RHO_SENSI_1 + RHO_SENSI_2, NU_SENSI_1 + NU_SENSI_2);
+  private static final SwaptionSabrSensitivity SENSI_12 = SwaptionSabrSensitivity.of(SWAP_CONV, DATE_TIME_1, SWAP_TENOR, 
+      GBP, ALPHA_SENSI_1 + ALPHA_SENSI_2, BETA_SENSI_1 + BETA_SENSI_2, RHO_SENSI_1 + RHO_SENSI_2, NU_SENSI_1 + NU_SENSI_2);
 
   public void test_empty() {
     SwaptionSabrSensitivities test = SwaptionSabrSensitivities.empty();
@@ -128,4 +126,5 @@ public class SwaptionSabrSensitivitiesTest {
     SwaptionSabrSensitivities test = SwaptionSabrSensitivities.of(SENSI_1);
     assertSerialization(test);
   }
+
 }
