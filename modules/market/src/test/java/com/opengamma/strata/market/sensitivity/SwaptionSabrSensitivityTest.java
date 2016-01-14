@@ -119,7 +119,6 @@ public class SwaptionSabrSensitivityTest {
     assertEquals(test0.compareKey(test7) > 0, true);
     assertEquals(test0.compareKey(test8) > 0, true);
     assertEquals(test0.compareKey(test9) < 0, true);
-
   }
 
   //-------------------------------------------------------------------------
