@@ -1,11 +1,14 @@
 /**
- * Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+ * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
  *
  * Please see distribution for license.
  */
 package com.opengamma.strata.market.sensitivity;
 
 import static com.opengamma.strata.basics.currency.Currency.GBP;
+import static com.opengamma.strata.collect.TestHelper.assertSerialization;
+import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
+import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static com.opengamma.strata.collect.TestHelper.dateUtc;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -69,16 +72,33 @@ public class SwaptionSabrSensitivitiesTest {
 
   public void test_of_sensitivities_normalize() {
     List<SwaptionSabrSensitivity> list = Arrays.asList(SENSI_1, SENSI_2);
-    SwaptionSabrSensitivities test = SwaptionSabrSensitivities.of(list);
+    SwaptionSabrSensitivities test = SwaptionSabrSensitivities.of(list).normalize();
     assertEquals(test.getSensitivities().size(), 1);
     assertEquals(test.getSensitivities().get(0), SENSI_12);
   }
 
   public void test_add() {
     SwaptionSabrSensitivities base = SwaptionSabrSensitivities.of(SENSI_1);
-    SwaptionSabrSensitivities expected1 = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_1, SENSI_3));
-    assertEquals(base.add(SENSI_3), expected1);
-    SwaptionSabrSensitivities expected2 = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_12));
-    assertEquals(base.add(SENSI_2), expected2);
+    SwaptionSabrSensitivities expected = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_1, SENSI_3));
+    assertEquals(base.add(SENSI_3), expected);
+  }
+
+  public void test_add_normalize() {
+    SwaptionSabrSensitivities base = SwaptionSabrSensitivities.of(SENSI_1);
+    SwaptionSabrSensitivities expected = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_12));
+    assertEquals(base.add(SENSI_2).normalize(), expected);
+  }
+
+  //-------------------------------------------------------------------------
+  public void coverage() {
+    SwaptionSabrSensitivities test1 = SwaptionSabrSensitivities.of(SENSI_1);
+    coverImmutableBean(test1);
+    SwaptionSabrSensitivities test2 = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_2, SENSI_3));
+    coverBeanEquals(test1, test2);
+  }
+
+  public void test_serialization() {
+    SwaptionSabrSensitivities test = SwaptionSabrSensitivities.of(SENSI_1);
+    assertSerialization(test);
   }
 }

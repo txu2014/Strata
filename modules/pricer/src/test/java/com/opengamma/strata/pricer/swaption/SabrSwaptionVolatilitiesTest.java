@@ -182,7 +182,7 @@ public class SabrSwaptionVolatilitiesTest {
           CONV, TEST_OPTION_EXPIRY[0], TEST_TENOR[i], USD, points2[0], points2[1], points2[2], points2[3]);
       SwaptionSabrSensitivity sensi3 = SwaptionSabrSensitivity.of(
           CONV, TEST_OPTION_EXPIRY[3], TEST_TENOR[i], USD, points3[0], points3[1], points3[2], points3[3]);
-      SwaptionSabrSensitivities sensis = SwaptionSabrSensitivities.of(Arrays.asList(sensi1, sensi2, sensi3));
+      SwaptionSabrSensitivities sensis = SwaptionSabrSensitivities.of(Arrays.asList(sensi1, sensi2, sensi3)).normalize();
       SurfaceCurrencyParameterSensitivities computed = prov.surfaceCurrencyParameterSensitivity(sensis);
       SurfaceCurrencyParameterSensitivities expected = prov.surfaceCurrencyParameterSensitivity(sensi1)
           .combinedWith(prov.surfaceCurrencyParameterSensitivity(sensi2))

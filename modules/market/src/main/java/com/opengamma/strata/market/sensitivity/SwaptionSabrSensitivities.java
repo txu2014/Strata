@@ -60,7 +60,6 @@ public final class SwaptionSabrSensitivities
    */
   public static SwaptionSabrSensitivities of(List<SwaptionSabrSensitivity> sensitivities) {
     List<SwaptionSabrSensitivity> mutableList = new ArrayList<SwaptionSabrSensitivity>(sensitivities);
-    normalizeSensitivities(mutableList);
     return new SwaptionSabrSensitivities(mutableList);
   }
 
@@ -88,7 +87,7 @@ public final class SwaptionSabrSensitivities
    * Adds a swaption SABR sensitivity.
    * <p>
    * A list will be created with the new sensitivity added.
-   * The created list will be normalized by {@code normalizeSensitivities(List)}.
+   * The created list will be not normalized. Use {@code normalizeSensitivities(List)} if necessary.
    * 
    * @param sensitivity  the sensitivity to add
    * @return the instance with the new sensitivity added.
@@ -96,7 +95,6 @@ public final class SwaptionSabrSensitivities
   public SwaptionSabrSensitivities add(SwaptionSabrSensitivity sensitivity) {
     List<SwaptionSabrSensitivity> mutableList = new ArrayList<SwaptionSabrSensitivity>(sensitivities);
     mutableList.add(sensitivity);
-    normalizeSensitivities(mutableList);
     return new SwaptionSabrSensitivities(mutableList);
   }
 
@@ -104,7 +102,7 @@ public final class SwaptionSabrSensitivities
    * Combines with swaption SABR sensitivities.
    * <p>
    * A list will be created with the new sensitivities added.
-   * The created list will be normalized by {@code normalizeSensitivities(List)}.
+   * The created list will be not normalized. Use {@code normalizeSensitivities(List)} if necessary.
    * 
    * @param other  the sensitivities to add
    * @return the instance with the new sensitivities added.
@@ -112,6 +110,18 @@ public final class SwaptionSabrSensitivities
   public SwaptionSabrSensitivities combine(SwaptionSabrSensitivities other) {
     List<SwaptionSabrSensitivity> mutableList =
         Stream.concat(sensitivities.stream(), other.getSensitivities().stream()).collect(Collectors.toList());
+    return new SwaptionSabrSensitivities(mutableList);
+  }
+
+  /**
+   * Normalizes the sensitivities. 
+   * <p>
+   * Swaption SABR sensitivity objects are combined into a single object if they have the same key. 
+   * 
+   * @return the instance with the sensitivities normalized.
+   */
+  public SwaptionSabrSensitivities normalize() {
+    List<SwaptionSabrSensitivity> mutableList = new ArrayList<SwaptionSabrSensitivity>(sensitivities);
     normalizeSensitivities(mutableList);
     return new SwaptionSabrSensitivities(mutableList);
   }
