@@ -26,7 +26,7 @@ import com.opengamma.strata.pricer.impl.option.SabrInterestRateParameters;
 import com.opengamma.strata.pricer.impl.volatility.smile.function.SabrHaganVolatilityFunctionProvider;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
 import com.opengamma.strata.pricer.sensitivity.RatesFiniteDifferenceSensitivityCalculator;
-import com.opengamma.strata.pricer.swaption.SabrSwaptionVolatilities;
+import com.opengamma.strata.pricer.swaption.SabrParametersSwaptionVolatilities;
 import com.opengamma.strata.pricer.swaption.SwaptionSabrRateVolatilityDataSet;
 import com.opengamma.strata.product.cms.CmsPeriod;
 import com.opengamma.strata.product.swap.SwapIndices;
@@ -41,9 +41,9 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
   private static final LocalDate VALUATION = LocalDate.of(2010, 8, 18);
   private static final ImmutableRatesProvider RATES_PROVIDER =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(VALUATION);
-  private static final SabrSwaptionVolatilities VOLATILITIES =
+  private static final SabrParametersSwaptionVolatilities VOLATILITIES =
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(VALUATION, false);
-  private static final SabrSwaptionVolatilities VOLATILITIES_SHIFT =
+  private static final SabrParametersSwaptionVolatilities VOLATILITIES_SHIFT =
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(VALUATION, true);
   private static final double SHIFT = VOLATILITIES_SHIFT.getParameters().getShiftSurface().getZValues().get(0); // constant surface
 
@@ -423,15 +423,15 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
   }
 
   //-------------------------------------------------------------------------
-  private SabrSwaptionVolatilities replaceSabrParameters(SabrInterestRateParameters sabrParams) {
-    return SabrSwaptionVolatilities.of(
+  private SabrParametersSwaptionVolatilities replaceSabrParameters(SabrInterestRateParameters sabrParams) {
+    return SabrParametersSwaptionVolatilities.of(
         sabrParams, VOLATILITIES.getConvention(), VOLATILITIES.getValuationDateTime(), VOLATILITIES.getDayCount());
   }
 
   private void testSensitivityValue(CmsPeriod coupon, CmsPeriod caplet, CmsPeriod floorlet,
       List<SurfaceParameterMetadata> listMeta, double expiry, double tenor, DoubleArray computedCouponSensi,
-      DoubleArray computedCapSensi, DoubleArray computedFloorSensi, SabrSwaptionVolatilities volsUp,
-      SabrSwaptionVolatilities volsDw) {
+      DoubleArray computedCapSensi, DoubleArray computedFloorSensi, SabrParametersSwaptionVolatilities volsUp,
+      SabrParametersSwaptionVolatilities volsDw) {
     double expectedCoupon = 0.5 * (PRICER.presentValue(coupon, RATES_PROVIDER, volsUp).getAmount()
         - PRICER.presentValue(coupon, RATES_PROVIDER, volsDw).getAmount()) / EPS;
     double expectedCap = 0.5 * (PRICER.presentValue(caplet, RATES_PROVIDER, volsUp).getAmount()

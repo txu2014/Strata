@@ -7,7 +7,7 @@ import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.pricer.impl.cms.SabrExtrapolationReplicationCmsPeriodPricer;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.pricer.swaption.SabrSwaptionVolatilities;
+import com.opengamma.strata.pricer.swaption.SabrParametersSwaptionVolatilities;
 import com.opengamma.strata.product.cms.CmsLeg;
 import com.opengamma.strata.product.cms.CmsPeriod;
 import com.opengamma.strata.product.cms.ExpandedCmsLeg;
@@ -26,7 +26,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
   public CurrencyAmount presentValue(
       CmsLeg cmsLeg,
       RatesProvider ratesProvider,
-      SabrSwaptionVolatilities swaptionVolatilities) {
+      SabrParametersSwaptionVolatilities swaptionVolatilities) {
     ExpandedCmsLeg expand = cmsLeg.expand();
     double pvTotal = expand
         .getCmsPeriods()
@@ -39,7 +39,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
   public PointSensitivityBuilder presentValueSensitivity(
       CmsLeg cmsLeg,
       RatesProvider ratesProvider,
-      SabrSwaptionVolatilities swaptionVolatilities) {
+      SabrParametersSwaptionVolatilities swaptionVolatilities) {
     ExpandedCmsLeg expand = cmsLeg.expand();
     PointSensitivityBuilder point = PointSensitivityBuilder.none();
     for (CmsPeriod cmsPeriod : expand.getCmsPeriods()) {
@@ -66,7 +66,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
   public double presentValueSensitivityStrike(
       CmsLeg cmsLeg,
       RatesProvider ratesProvider,
-      SabrSwaptionVolatilities swaptionVolatilities) {
+      SabrParametersSwaptionVolatilities swaptionVolatilities) {
     ExpandedCmsLeg expand = cmsLeg.expand();
     return expand
         .getCmsPeriods()

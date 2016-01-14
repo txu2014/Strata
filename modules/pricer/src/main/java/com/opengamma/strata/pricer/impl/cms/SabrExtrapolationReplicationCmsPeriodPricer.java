@@ -20,6 +20,7 @@ import com.opengamma.strata.pricer.impl.option.SabrInterestRateParameters;
 import com.opengamma.strata.pricer.impl.volatility.smile.function.SabrFormulaData;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.DiscountingSwapProductPricer;
+import com.opengamma.strata.pricer.swaption.SabrParametersSwaptionVolatilities;
 import com.opengamma.strata.pricer.swaption.SabrSwaptionVolatilities;
 import com.opengamma.strata.product.cms.CmsPeriod;
 import com.opengamma.strata.product.cms.CmsPeriodType;
@@ -133,7 +134,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
   public CurrencyAmount presentValue(
       CmsPeriod cmsPeriod,
       RatesProvider provider,
-      SabrSwaptionVolatilities swaptionVolatilities) {
+      SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
     Currency ccy = cmsPeriod.getCurrency();
     Swap swap = cmsPeriod.getUnderlyingSwap();
@@ -181,7 +182,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
   public PointSensitivityBuilder presentValueSensitivity(
       CmsPeriod cmsPeriod,
       RatesProvider provider,
-      SabrSwaptionVolatilities swaptionVolatilities) {
+      SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
     Currency ccy = cmsPeriod.getCurrency();
     Swap swap = cmsPeriod.getUnderlyingSwap();
@@ -240,7 +241,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
   public SwaptionSabrSensitivity presentValueSensitivitySabr(
       CmsPeriod cmsPeriod,
       RatesProvider provider,
-      SabrSwaptionVolatilities swaptionVolatilities) {
+      SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
     Currency ccy = cmsPeriod.getCurrency();
     Swap swap = cmsPeriod.getUnderlyingSwap();
@@ -295,7 +296,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
   public double presentValueSensitivityStrike(
       CmsPeriod cmsPeriod,
       RatesProvider provider,
-      SabrSwaptionVolatilities swaptionVolatilities) {
+      SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
     ArgChecker.isFalse(cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON),
         "presentValueSensitivityStrike is not relevant for CMS coupon");
@@ -444,7 +445,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     public CmsIntegrantProvider(
         CmsPeriod cmsPeriod,
         ExpandedSwap swap,
-        SabrSwaptionVolatilities swaptionVolatilities,
+        SabrParametersSwaptionVolatilities swaptionVolatilities,
         double forward,
         double strike,
         double timeToExpiry,
@@ -620,7 +621,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     public CmsDeltaIntegrantProvider(
         CmsPeriod cmsPeriod,
         ExpandedSwap swap,
-        SabrSwaptionVolatilities swaptionVolatilities,
+        SabrParametersSwaptionVolatilities swaptionVolatilities,
         double forward,
         double strike,
         double timeToExpiry,
