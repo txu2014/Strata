@@ -6,6 +6,7 @@
 package com.opengamma.strata.market.sensitivity;
 
 import static com.opengamma.strata.basics.currency.Currency.GBP;
+import static com.opengamma.strata.basics.currency.Currency.USD;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
@@ -19,6 +20,8 @@ import java.util.List;
 
 import org.testng.annotations.Test;
 
+import com.opengamma.strata.basics.currency.CurrencyPair;
+import com.opengamma.strata.basics.currency.FxMatrix;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConvention;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConventions;
 
@@ -87,6 +90,30 @@ public class SwaptionSabrSensitivitiesTest {
     SwaptionSabrSensitivities base = SwaptionSabrSensitivities.of(SENSI_1);
     SwaptionSabrSensitivities expected = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_12));
     assertEquals(base.add(SENSI_2).normalize(), expected);
+  }
+
+  public void test_combine() {
+    SwaptionSabrSensitivities base = SwaptionSabrSensitivities.of(SENSI_1);
+    SwaptionSabrSensitivities other = SwaptionSabrSensitivities.of(SENSI_3);
+    SwaptionSabrSensitivities expected = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_1, SENSI_3));
+    assertEquals(base.combine(other), expected);
+  }
+
+  public void test_combine_normalize() {
+    SwaptionSabrSensitivities base = SwaptionSabrSensitivities.of(SENSI_1);
+    SwaptionSabrSensitivities other = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_2, SENSI_3));
+    SwaptionSabrSensitivities expected = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_12, SENSI_3));
+    assertEquals(base.combine(other).normalize(), expected);
+  }
+
+  public void test_convertedTo() {
+    SwaptionSabrSensitivities base = SwaptionSabrSensitivities.of(Arrays.asList(SENSI_1, SENSI_3));
+    double rate = 1.5d;
+    FxMatrix matrix = FxMatrix.of(CurrencyPair.of(GBP, USD), rate);
+    assertEquals(base.convertedTo(GBP, matrix), base);
+    SwaptionSabrSensitivities expected = SwaptionSabrSensitivities.of(
+        Arrays.asList(SENSI_1.convertedTo(USD, matrix), SENSI_3.convertedTo(USD, matrix)));
+    assertEquals(base.convertedTo(USD, matrix), expected);
   }
 
   //-------------------------------------------------------------------------
