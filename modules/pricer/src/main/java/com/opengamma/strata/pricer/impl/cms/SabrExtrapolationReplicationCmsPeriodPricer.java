@@ -137,6 +137,9 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
     Currency ccy = cmsPeriod.getCurrency();
+    if (provider.getValuationDate().isAfter(cmsPeriod.getPaymentDate())) {
+      return CurrencyAmount.zero(ccy);
+    }
     Swap swap = cmsPeriod.getUnderlyingSwap();
     ExpandedSwap expandedSwap = swap.expand();
     double dfPayment = provider.discountFactor(ccy, cmsPeriod.getPaymentDate());
@@ -185,6 +188,9 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
     Currency ccy = cmsPeriod.getCurrency();
+    if (provider.getValuationDate().isAfter(cmsPeriod.getPaymentDate())) {
+      return PointSensitivityBuilder.none();
+    }
     Swap swap = cmsPeriod.getUnderlyingSwap();
     ExpandedSwap expandedSwap = swap.expand();
     double dfPayment = provider.discountFactor(ccy, cmsPeriod.getPaymentDate());
@@ -238,7 +244,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
    * @param swaptionVolatilities  the swaption volatilities
    * @return the present value sensitivity
    */
-  public SwaptionSabrSensitivity presentValueSensitivitySabr(
+  public SwaptionSabrSensitivity presentValueSensitivitySabrParameter(
       CmsPeriod cmsPeriod,
       RatesProvider provider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
@@ -252,6 +258,10 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
         cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone());
     double expiryTime = swaptionVolatilities.relativeTime(expiryDate);
     double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate());
+    if (provider.getValuationDate().isAfter(cmsPeriod.getPaymentDate())) {
+      return SwaptionSabrSensitivity.of(
+          cmsPeriod.getIndex().getTemplate().getConvention(), expiryDate, tenor, ccy, 0d, 0d, 0d, 0d);
+    }
     double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
     double forward = swapPricer.parRate(expandedSwap, provider) + shift;
     double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike() + shift;
@@ -301,6 +311,9 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     ArgChecker.isFalse(cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON),
         "presentValueSensitivityStrike is not relevant for CMS coupon");
     Currency ccy = cmsPeriod.getCurrency();
+    if (provider.getValuationDate().isAfter(cmsPeriod.getPaymentDate())) {
+      return 0d;
+    }
     Swap swap = cmsPeriod.getUnderlyingSwap();
     ExpandedSwap expandedSwap = swap.expand();
     double dfPayment = provider.discountFactor(ccy, cmsPeriod.getPaymentDate());

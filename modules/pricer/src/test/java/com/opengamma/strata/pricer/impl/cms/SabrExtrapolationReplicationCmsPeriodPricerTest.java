@@ -3,11 +3,13 @@ package com.opengamma.strata.pricer.impl.cms;
 import static com.opengamma.strata.basics.currency.Currency.EUR;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
 import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
+import static com.opengamma.strata.product.swap.SwapIndices.EUR_EURIBOR_1100_5Y;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import org.testng.annotations.Test;
@@ -29,16 +31,20 @@ import com.opengamma.strata.pricer.sensitivity.RatesFiniteDifferenceSensitivityC
 import com.opengamma.strata.pricer.swaption.SabrParametersSwaptionVolatilities;
 import com.opengamma.strata.pricer.swaption.SwaptionSabrRateVolatilityDataSet;
 import com.opengamma.strata.product.cms.CmsPeriod;
-import com.opengamma.strata.product.swap.SwapIndices;
 
 /**
  * Test {@link SabrExtrapolationReplicationCmsPeriodPricer}.
  */
 @Test
-//(enabled = false)
 public class SabrExtrapolationReplicationCmsPeriodPricerTest {
 
   private static final LocalDate VALUATION = LocalDate.of(2010, 8, 18);
+  private static final LocalDate FIXING = LocalDate.of(2020, 4, 24);
+  private static final LocalDate START = LocalDate.of(2020, 4, 28);
+  private static final LocalDate END = LocalDate.of(2021, 4, 28);
+  private static final LocalDate PAYMENT = LocalDate.of(2021, 4, 28);
+  private static final LocalDate AFTER_PAYMENT = LocalDate.of(2021, 4, 29);
+
   private static final ImmutableRatesProvider RATES_PROVIDER =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(VALUATION);
   private static final SabrParametersSwaptionVolatilities VOLATILITIES =
@@ -46,56 +52,33 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
   private static final SabrParametersSwaptionVolatilities VOLATILITIES_SHIFT =
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(VALUATION, true);
   private static final double SHIFT = VOLATILITIES_SHIFT.getParameters().getShiftSurface().getZValues().get(0); // constant surface
+  private static final ImmutableRatesProvider RATES_PROVIDER_ENDED =
+      SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(AFTER_PAYMENT);
+  private static final SabrParametersSwaptionVolatilities VOLATILITIES_ENDED =
+      SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(AFTER_PAYMENT, true);
 
-  private static final LocalDate FIXING = LocalDate.of(2020, 4, 24);
-  private static final LocalDate START = LocalDate.of(2020, 4, 28);
-  private static final LocalDate END = LocalDate.of(2021, 4, 28);
-  private static final LocalDate PAYMENT = LocalDate.of(2021, 4, 28);
-  private static final double ACC_FACTOR = ACT_360.relativeYearFraction(START, END); //  1.0138888888888888;
+  private static final double ACC_FACTOR = ACT_360.relativeYearFraction(START, END);
   private static final double NOTIONAL = 10000000;
   private static final double STRIKE = 0.04;
   private static final double STRIKE_NEGATIVE = -0.01;
+
   // CMS - buy
-  private static final CmsPeriod COUPON = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).build();
-  private static final CmsPeriod CAPLET = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(STRIKE).build();
-  private static final CmsPeriod FLOORLET = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(STRIKE).build();
+  private static final CmsPeriod COUPON = createCmsCoupon(true);
+  private static final CmsPeriod CAPLET = createCmsCaplet(true, STRIKE);
+  private static final CmsPeriod FLOORLET = createCmsFloorlet(true, STRIKE);
   // CMS - sell
-  private static final CmsPeriod COUPON_SELL = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(-NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).build();
-  private static final CmsPeriod CAPLET_SELL = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(-NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(STRIKE).build();
-  private static final CmsPeriod FLOORLET_SELL = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(-NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(STRIKE).build();
+  private static final CmsPeriod COUPON_SELL = createCmsCoupon(false);
+  private static final CmsPeriod CAPLET_SELL = createCmsCaplet(false, STRIKE);
+  private static final CmsPeriod FLOORLET_SELL = createCmsFloorlet(false, STRIKE);
   // CMS - zero strikes
-  private static final CmsPeriod CAPLET_ZERO = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(0d).build();
-  private static final CmsPeriod FLOORLET_ZERO = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(0d).build();
+  private static final CmsPeriod CAPLET_ZERO = createCmsCaplet(true, 0d);
+  private static final CmsPeriod FLOORLET_ZERO = createCmsFloorlet(true, 0d);
   // CMS - negative strikes, to become positive after shift
-  private static final CmsPeriod CAPLET_NEGATIVE = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(STRIKE_NEGATIVE).build();
-  private static final CmsPeriod FLOORLET_NEGATIVE = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(STRIKE_NEGATIVE).build();
+  private static final CmsPeriod CAPLET_NEGATIVE = createCmsCaplet(true, STRIKE_NEGATIVE);
+  private static final CmsPeriod FLOORLET_NEGATIVE = createCmsFloorlet(true, STRIKE_NEGATIVE);
   // CMS - negative strikes, to become zero after shift
-  private static final CmsPeriod CAPLET_SHIFT = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(-SHIFT).build();
-  private static final CmsPeriod FLOORLET_SHIFT = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-      .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
-      .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(-SHIFT).build();
+  private static final CmsPeriod CAPLET_SHIFT = createCmsCaplet(true, -SHIFT);
+  private static final CmsPeriod FLOORLET_SHIFT = createCmsFloorlet(true, -SHIFT);
 
   private static final double CUT_OFF_STRIKE = 0.10;
   private static final double MU = 2.50;
@@ -130,7 +113,17 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
     assertEquals(pvCapletBuy.getAmount(), -pvCapletSell.getAmount(), NOTIONAL * TOL);
     assertEquals(pvFloorletBuy.getAmount(), -pvFloorletSell.getAmount(), NOTIONAL * TOL);
   }
-  
+
+  public void test_presentValue_afterPayment() {
+    CurrencyAmount pv = PRICER.presentValue(COUPON, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    CurrencyAmount pvCaplet = PRICER.presentValue(CAPLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    CurrencyAmount pvFloorlet = PRICER.presentValue(FLOORLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    assertEquals(pv, CurrencyAmount.zero(EUR));
+    assertEquals(pvCaplet, CurrencyAmount.zero(EUR));
+    assertEquals(pvFloorlet, CurrencyAmount.zero(EUR));
+  }
+
+  //-------------------------------------------------------------------------
   public void test_presentValueSensitivity() {
     PointSensitivityBuilder pvPointCoupon = PRICER.presentValueSensitivity(COUPON_SELL, RATES_PROVIDER, VOLATILITIES);
     CurveCurrencyParameterSensitivities computedCoupon = RATES_PROVIDER
@@ -169,12 +162,25 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
     assertTrue(computedFloor.equalWithTolerance(expectedFloor, EPS * NOTIONAL * 10d));
   }
 
-  public void test_presentValueSensitivitySabr() {
-    SwaptionSabrSensitivity pvPointCoupon = PRICER.presentValueSensitivitySabr(COUPON_SELL, RATES_PROVIDER, VOLATILITIES);
+  public void test_presentValueSensitivity_afterPayment() {
+    PointSensitivityBuilder pt = PRICER.presentValueSensitivity(COUPON, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    PointSensitivityBuilder ptCap = PRICER.presentValueSensitivity(CAPLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    PointSensitivityBuilder ptFloor = PRICER.presentValueSensitivity(FLOORLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    assertEquals(pt, PointSensitivityBuilder.none());
+    assertEquals(ptCap, PointSensitivityBuilder.none());
+    assertEquals(ptFloor, PointSensitivityBuilder.none());
+  }
+
+  //-------------------------------------------------------------------------
+  public void test_presentValueSensitivitySabrParameter() {
+    SwaptionSabrSensitivity pvPointCoupon =
+        PRICER.presentValueSensitivitySabrParameter(COUPON_SELL, RATES_PROVIDER, VOLATILITIES);
     SurfaceCurrencyParameterSensitivities computedCoupon = VOLATILITIES.surfaceCurrencyParameterSensitivity(pvPointCoupon);
-    SwaptionSabrSensitivity pvCapPoint = PRICER.presentValueSensitivitySabr(CAPLET_SELL, RATES_PROVIDER, VOLATILITIES);
+    SwaptionSabrSensitivity pvCapPoint =
+        PRICER.presentValueSensitivitySabrParameter(CAPLET_SELL, RATES_PROVIDER, VOLATILITIES);
     SurfaceCurrencyParameterSensitivities computedCap = VOLATILITIES.surfaceCurrencyParameterSensitivity(pvCapPoint);
-    SwaptionSabrSensitivity pvFloorPoint = PRICER.presentValueSensitivitySabr(FLOORLET_SELL, RATES_PROVIDER, VOLATILITIES);
+    SwaptionSabrSensitivity pvFloorPoint =
+        PRICER.presentValueSensitivitySabrParameter(FLOORLET_SELL, RATES_PROVIDER, VOLATILITIES);
     SurfaceCurrencyParameterSensitivities computedFloor = VOLATILITIES.surfaceCurrencyParameterSensitivity(pvFloorPoint);
 
     SabrInterestRateParameters sabr = VOLATILITIES.getParameters();
@@ -264,17 +270,17 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
     }
   }
 
-  public void test_presentValueSensitivitySabr_shift() {
+  public void test_presentValueSensitivitySabrParameter_shift() {
     SwaptionSabrSensitivity pvPointCoupon =
-        PRICER.presentValueSensitivitySabr(COUPON, RATES_PROVIDER, VOLATILITIES_SHIFT);
+        PRICER.presentValueSensitivitySabrParameter(COUPON, RATES_PROVIDER, VOLATILITIES_SHIFT);
     SurfaceCurrencyParameterSensitivities computedCoupon = VOLATILITIES_SHIFT
         .surfaceCurrencyParameterSensitivity(pvPointCoupon);
     SwaptionSabrSensitivity pvCapPoint =
-        PRICER.presentValueSensitivitySabr(CAPLET_NEGATIVE, RATES_PROVIDER, VOLATILITIES_SHIFT);
+        PRICER.presentValueSensitivitySabrParameter(CAPLET_NEGATIVE, RATES_PROVIDER, VOLATILITIES_SHIFT);
     SurfaceCurrencyParameterSensitivities computedCap = VOLATILITIES_SHIFT
         .surfaceCurrencyParameterSensitivity(pvCapPoint);
     SwaptionSabrSensitivity pvFloorPoint =
-        PRICER.presentValueSensitivitySabr(FLOORLET_NEGATIVE, RATES_PROVIDER, VOLATILITIES_SHIFT);
+        PRICER.presentValueSensitivitySabrParameter(FLOORLET_NEGATIVE, RATES_PROVIDER, VOLATILITIES_SHIFT);
     SurfaceCurrencyParameterSensitivities computedFloor = VOLATILITIES_SHIFT
         .surfaceCurrencyParameterSensitivity(pvFloorPoint);
 
@@ -365,23 +371,38 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
     }
   }
 
+  public void test_presentValueSensitivitySabrParameter_afterPayment() {
+    SwaptionSabrSensitivity sensi =
+        PRICER.presentValueSensitivitySabrParameter(COUPON, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    SwaptionSabrSensitivity sensiCap =
+        PRICER.presentValueSensitivitySabrParameter(CAPLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    SwaptionSabrSensitivity sensiFloor =
+        PRICER.presentValueSensitivitySabrParameter(FLOORLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    SwaptionSabrSensitivity sensiExpected = SwaptionSabrSensitivity.of(
+        EUR_EURIBOR_1100_5Y.getTemplate().getConvention(), FIXING.atStartOfDay(ZoneOffset.UTC), 5d, EUR, 0d, 0d, 0d, 0d);
+    assertEquals(sensi, sensiExpected);
+    assertEquals(sensiCap, sensiExpected);
+    assertEquals(sensiFloor, sensiExpected);
+  }
+
+  //-------------------------------------------------------------------------
   public void test_presentValueSensitivityStrike() {
     double computedCaplet = PRICER.presentValueSensitivityStrike(CAPLET, RATES_PROVIDER, VOLATILITIES);
     CmsPeriod capletUp = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(STRIKE + EPS).build();
     CmsPeriod capletDw = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(STRIKE - EPS).build();
     double expectedCaplet = 0.5 * (PRICER.presentValue(capletUp, RATES_PROVIDER, VOLATILITIES).getAmount()
         - PRICER.presentValue(capletDw, RATES_PROVIDER, VOLATILITIES).getAmount()) / EPS;
     assertEquals(computedCaplet, expectedCaplet, NOTIONAL * EPS);
     double computedFloorlet = PRICER.presentValueSensitivityStrike(FLOORLET, RATES_PROVIDER, VOLATILITIES);
     CmsPeriod floorletUp = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(STRIKE + EPS).build();
     CmsPeriod floorletDw = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(STRIKE - EPS).build();
     double expectedFloorlet = 0.5 * (PRICER.presentValue(floorletUp, RATES_PROVIDER, VOLATILITIES).getAmount()
         - PRICER.presentValue(floorletDw, RATES_PROVIDER, VOLATILITIES).getAmount()) / EPS;
@@ -391,30 +412,38 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
   public void test_presentValueSensitivityStrike_shift() {
     double computedCaplet = PRICER.presentValueSensitivityStrike(CAPLET_NEGATIVE, RATES_PROVIDER, VOLATILITIES_SHIFT);
     CmsPeriod capletUp = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(STRIKE_NEGATIVE + EPS).build();
     CmsPeriod capletDw = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).caplet(STRIKE_NEGATIVE - EPS).build();
     double expectedCaplet = 0.5 * (PRICER.presentValue(capletUp, RATES_PROVIDER, VOLATILITIES_SHIFT).getAmount()
         - PRICER.presentValue(capletDw, RATES_PROVIDER, VOLATILITIES_SHIFT).getAmount()) / EPS;
     assertEquals(computedCaplet, expectedCaplet, NOTIONAL * EPS);
     double computedFloorlet = PRICER.presentValueSensitivityStrike(FLOORLET_NEGATIVE, RATES_PROVIDER, VOLATILITIES_SHIFT);
     CmsPeriod floorletUp = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(STRIKE_NEGATIVE + EPS).build();
     CmsPeriod floorletDw = CmsPeriod.builder().dayCount(ACT_360).currency(EUR)
-        .index(SwapIndices.EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
+        .index(EUR_EURIBOR_1100_5Y).startDate(START).endDate(END).fixingDate(FIXING).notional(NOTIONAL)
         .paymentDate(PAYMENT).yearFraction(ACC_FACTOR).floorlet(STRIKE_NEGATIVE - EPS).build();
     double expectedFloorlet = 0.5 * (PRICER.presentValue(floorletUp, RATES_PROVIDER, VOLATILITIES_SHIFT).getAmount()
         - PRICER.presentValue(floorletDw, RATES_PROVIDER, VOLATILITIES_SHIFT).getAmount()) / EPS;
     assertEquals(computedFloorlet, expectedFloorlet, NOTIONAL * EPS);
   }
 
+  public void test_presentValueSensitivityStrike_afterPayment() {
+    double sensiCap = PRICER.presentValueSensitivityStrike(CAPLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    double sensiFloor = PRICER.presentValueSensitivityStrike(FLOORLET, RATES_PROVIDER_ENDED, VOLATILITIES_ENDED);
+    assertEquals(sensiCap, 0d);
+    assertEquals(sensiFloor, 0d);
+  }
+
   public void test_presentValueSensitivityStrike_coupon() {
     assertThrowsIllegalArg(() -> PRICER.presentValueSensitivityStrike(COUPON, RATES_PROVIDER, VOLATILITIES));
   }
 
+  //-------------------------------------------------------------------------
   private InterpolatedNodalSurface[] bumpSurface(InterpolatedNodalSurface surface, int position) {
     DoubleArray zValues = surface.getZValues();
     InterpolatedNodalSurface surfaceUp = surface.withZValues(zValues.with(position, zValues.get(position) + EPS));
@@ -422,7 +451,6 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
     return new InterpolatedNodalSurface[] {surfaceUp, surfaceDw };
   }
 
-  //-------------------------------------------------------------------------
   private SabrParametersSwaptionVolatilities replaceSabrParameters(SabrInterestRateParameters sabrParams) {
     return SabrParametersSwaptionVolatilities.of(
         sabrParams, VOLATILITIES.getConvention(), VOLATILITIES.getValuationDateTime(), VOLATILITIES.getDayCount());
@@ -449,6 +477,53 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
     assertEquals(computedCouponSensi.get(position), expectedCoupon, EPS * NOTIONAL * 10d);
     assertEquals(computedCapSensi.get(position), expectedCap, EPS * NOTIONAL * 10d);
     assertEquals(computedFloorSensi.get(position), expectedFloor, EPS * NOTIONAL * 10d);
+  }
+
+  private static CmsPeriod createCmsCoupon(boolean isBuy) {
+    double notional = isBuy ? NOTIONAL : -NOTIONAL;
+    return CmsPeriod.builder()
+        .dayCount(ACT_360)
+        .currency(EUR)
+        .index(EUR_EURIBOR_1100_5Y)
+        .startDate(START)
+        .endDate(END)
+        .fixingDate(FIXING)
+        .notional(notional)
+        .paymentDate(PAYMENT)
+        .yearFraction(ACC_FACTOR)
+        .build();
+  }
+
+  private static CmsPeriod createCmsCaplet(boolean isBuy, double strike) {
+    double notional = isBuy ? NOTIONAL : -NOTIONAL;
+    return CmsPeriod.builder()
+        .dayCount(ACT_360)
+        .currency(EUR)
+        .index(EUR_EURIBOR_1100_5Y)
+        .startDate(START)
+        .endDate(END)
+        .fixingDate(FIXING)
+        .notional(notional)
+        .paymentDate(PAYMENT)
+        .yearFraction(ACC_FACTOR)
+        .caplet(strike)
+        .build();
+  }
+
+  private static CmsPeriod createCmsFloorlet(boolean isBuy, double strike) {
+    double notional = isBuy ? NOTIONAL : -NOTIONAL;
+    return CmsPeriod.builder()
+        .dayCount(ACT_360)
+        .currency(EUR)
+        .index(EUR_EURIBOR_1100_5Y)
+        .startDate(START)
+        .endDate(END)
+        .fixingDate(FIXING)
+        .notional(notional)
+        .paymentDate(PAYMENT)
+        .yearFraction(ACC_FACTOR)
+        .floorlet(strike)
+        .build();
   }
 
 }
