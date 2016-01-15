@@ -104,8 +104,15 @@ public final class SwaptionSabrSensitivity
       double rhoSensitivity,
       double nuSensitivity) {
 
-    return new SwaptionSabrSensitivity(convention, expiry, tenor, sensitivityCurrency, alphaSensitivity,
-        betaSensitivity, rhoSensitivity, nuSensitivity);
+    return new SwaptionSabrSensitivity(
+        convention,
+        expiry,
+        tenor,
+        sensitivityCurrency,
+        alphaSensitivity,
+        betaSensitivity,
+        rhoSensitivity,
+        nuSensitivity);
   }
 
   //-------------------------------------------------------------------------
@@ -119,8 +126,15 @@ public final class SwaptionSabrSensitivity
     if (this.currency.equals(currency)) {
       return this;
     }
-    return new SwaptionSabrSensitivity(convention, expiry, tenor, currency, alphaSensitivity, betaSensitivity,
-        rhoSensitivity, nuSensitivity);
+    return new SwaptionSabrSensitivity(
+        convention,
+        expiry,
+        tenor,
+        currency,
+        alphaSensitivity,
+        betaSensitivity,
+        rhoSensitivity,
+        nuSensitivity);
   }
 
   /**
@@ -138,8 +152,15 @@ public final class SwaptionSabrSensitivity
       double rhoSensitivity,
       double nuSensitivity) {
 
-    return new SwaptionSabrSensitivity(convention, expiry, tenor, currency, alphaSensitivity, betaSensitivity,
-        rhoSensitivity, nuSensitivity);
+    return new SwaptionSabrSensitivity(
+        convention,
+        expiry,
+        tenor,
+        currency,
+        alphaSensitivity,
+        betaSensitivity,
+        rhoSensitivity,
+        nuSensitivity);
   }
 
   /**
@@ -149,8 +170,15 @@ public final class SwaptionSabrSensitivity
    * @return an instance with the sensitivity values rescaled
    */
   public SwaptionSabrSensitivity multipliedBy(double factor) {
-    return new SwaptionSabrSensitivity(convention, expiry, tenor, currency, alphaSensitivity * factor,
-        betaSensitivity * factor, rhoSensitivity * factor, nuSensitivity * factor);
+    return new SwaptionSabrSensitivity(
+        convention,
+        expiry,
+        tenor,
+        currency,
+        alphaSensitivity * factor,
+        betaSensitivity * factor,
+        rhoSensitivity * factor,
+        nuSensitivity * factor);
   }
 
   @Override

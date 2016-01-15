@@ -5,12 +5,16 @@
  */
 package com.opengamma.strata.calc.runner.function.result;
 
+import static com.opengamma.strata.collect.Guavate.ensureOnlyOne;
+
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import org.joda.beans.Bean;
+import org.joda.beans.BeanBuilder;
 import org.joda.beans.BeanDefinition;
 import org.joda.beans.ImmutableBean;
 import org.joda.beans.JodaBeanUtils;
@@ -33,7 +37,6 @@ import com.opengamma.strata.calc.runner.function.CalculationSingleFunction;
 import com.opengamma.strata.calc.runner.function.CurrencyConvertible;
 import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.array.DoubleArray;
-import org.joda.beans.BeanBuilder;
 
 /**
  * An array of currency values in one currency representing the result of the same calculation
@@ -48,16 +51,21 @@ import org.joda.beans.BeanBuilder;
 public final class CurrencyValuesArray
     implements CurrencyConvertible<CurrencyValuesArray>, ScenarioResult<CurrencyAmount>, ImmutableBean {
 
-  /** The currency of the values. */
+  /**
+   * The currency of the values.
+   * All values have the same currency.
+   */
   @PropertyDefinition(validate = "notNull")
   private final Currency currency;
-
-  /** The currency values. */
+  /**
+   * The calculated values, one per scenario.
+   */
   @PropertyDefinition(validate = "notNull")
   private final DoubleArray values;
 
+  //-------------------------------------------------------------------------
   /**
-   * Returns an instance with the specified currency and values.
+   * Obtains an instance from the specified currency and array of values.
    *
    * @param currency  the currency of the values
    * @param values  the currency values
@@ -67,6 +75,28 @@ public final class CurrencyValuesArray
     return new CurrencyValuesArray(currency, values);
   }
 
+  /**
+   * Obtains an instance from the specified array of amounts.
+   * <p>
+   * All amounts must have the same currency.
+   *
+   * @param amounts  the list of amounts
+   * @return an instance with the specified amounts
+   * @throws IllegalArgumentException if multiple currencies are found
+   */
+  public static CurrencyValuesArray of(List<CurrencyAmount> amounts) {
+    Currency currency = amounts.stream()
+        .map(ca -> ca.getCurrency())
+        .distinct()
+        .reduce(ensureOnlyOne())
+        .get();
+    double[] values = amounts.stream()
+        .mapToDouble(ca -> ca.getAmount())
+        .toArray();
+    return new CurrencyValuesArray(currency, DoubleArray.ofUnsafe(values));
+  }
+
+  //-------------------------------------------------------------------------
   @Override
   public CurrencyValuesArray convertedTo(Currency reportingCurrency, CalculationMarketData marketData) {
     if (currency.equals(reportingCurrency)) {
@@ -144,6 +174,7 @@ public final class CurrencyValuesArray
   //-----------------------------------------------------------------------
   /**
    * Gets the currency of the values.
+   * All values have the same currency.
    * @return the value of the property, not null
    */
   public Currency getCurrency() {
@@ -152,7 +183,7 @@ public final class CurrencyValuesArray
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the currency values.
+   * Gets the calculated values, one per scenario.
    * @return the value of the property, not null
    */
   public DoubleArray getValues() {

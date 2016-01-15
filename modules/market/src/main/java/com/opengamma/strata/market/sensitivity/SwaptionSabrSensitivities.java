@@ -5,6 +5,8 @@
  */
 package com.opengamma.strata.market.sensitivity;
 
+import static com.opengamma.strata.collect.Guavate.toImmutableList;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,8 +38,8 @@ import com.opengamma.strata.basics.currency.FxRateProvider;
 /**
  * Sensitivities of swaptions to SABR model parameters.
  * <p>
- * Contains a list of {@link SwaptionSabrSensitivity} each of which holds sensitivity vales to grid points of 
- * the SABR parameters.
+ * Contains a list of {@link SwaptionSabrSensitivity} each of which holds sensitivity values
+ * to the grid points of the SABR parameters.
  */
 @BeanDefinition(builderScope = "private")
 public final class SwaptionSabrSensitivities
@@ -53,7 +55,7 @@ public final class SwaptionSabrSensitivities
 
   //-------------------------------------------------------------------------
   /**
-   * Creates an instance with the specified sensitivities.
+   * Obtains an instance with the specified sensitivities.
    * 
    * @param sensitivities  the list of sensitivities
    * @return the instance with the sensitivities
@@ -64,7 +66,7 @@ public final class SwaptionSabrSensitivities
   }
 
   /**
-   * Creates an instance with the specified sensitivity.
+   * Obtains an instance with the specified sensitivity.
    * 
    * @param sensitivity  the sensitivity to add
    * @return the instance with the sensitivity
@@ -74,7 +76,7 @@ public final class SwaptionSabrSensitivities
   }
 
   /**
-   * Creates an empty instance.
+   * Obtains an empty instance.
    * <p>
    * @return the empty instance
    */
@@ -126,6 +128,7 @@ public final class SwaptionSabrSensitivities
     return new SwaptionSabrSensitivities(mutableList);
   }
 
+  // combines entries with the same key
   private static void normalizeSensitivities(List<SwaptionSabrSensitivity> mutableList) {
     mutableList.sort(SwaptionSabrSensitivity::compareKey);
     SwaptionSabrSensitivity previous = mutableList.get(0);
@@ -150,7 +153,7 @@ public final class SwaptionSabrSensitivities
     List<SwaptionSabrSensitivity> converted = sensitivities
         .stream()
         .map(sensitivity -> sensitivity.convertedTo(resultCurrency, rateProvider))
-        .collect(Collectors.toList());
+        .collect(toImmutableList());
     return SwaptionSabrSensitivities.of(converted);
   }
 

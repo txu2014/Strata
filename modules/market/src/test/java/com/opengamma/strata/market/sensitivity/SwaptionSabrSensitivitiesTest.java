@@ -49,7 +49,7 @@ public class SwaptionSabrSensitivitiesTest {
       SWAP_CONV, DATE_TIME_1, SWAP_TENOR, GBP, ALPHA_SENSI_2, BETA_SENSI_2, RHO_SENSI_2, NU_SENSI_2);
   private static final SwaptionSabrSensitivity SENSI_3 = SwaptionSabrSensitivity.of(
       SWAP_CONV, DATE_TIME_2, SWAP_TENOR, GBP, ALPHA_SENSI_1, BETA_SENSI_1, RHO_SENSI_1, NU_SENSI_1);
-  private static final SwaptionSabrSensitivity SENSI_12 = SwaptionSabrSensitivity.of(SWAP_CONV, DATE_TIME_1, SWAP_TENOR, 
+  private static final SwaptionSabrSensitivity SENSI_12 = SwaptionSabrSensitivity.of(SWAP_CONV, DATE_TIME_1, SWAP_TENOR,
       GBP, ALPHA_SENSI_1 + ALPHA_SENSI_2, BETA_SENSI_1 + BETA_SENSI_2, RHO_SENSI_1 + RHO_SENSI_2, NU_SENSI_1 + NU_SENSI_2);
 
   public void test_empty() {
