@@ -1,3 +1,8 @@
+/**
+ * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
+ *
+ * Please see distribution for license.
+ */
 package com.opengamma.strata.pricer.impl.cms;
 
 import java.time.ZonedDateTime;
@@ -136,6 +141,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
       RatesProvider provider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
+    // TODO implement SwapIndexRates and forward/observe rate must be obtain through rates provider. 
     Currency ccy = cmsPeriod.getCurrency();
     if (provider.getValuationDate().isAfter(cmsPeriod.getPaymentDate())) {
       return CurrencyAmount.zero(ccy);
