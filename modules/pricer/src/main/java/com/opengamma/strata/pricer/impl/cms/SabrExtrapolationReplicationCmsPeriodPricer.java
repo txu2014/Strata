@@ -141,7 +141,6 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
       RatesProvider provider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
-    // TODO implement SwapIndexRates and forward/observe rate must be obtain through rates provider. 
     Currency ccy = cmsPeriod.getCurrency();
     if (provider.getValuationDate().isAfter(cmsPeriod.getPaymentDate())) {
       return CurrencyAmount.zero(ccy);
