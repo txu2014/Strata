@@ -5,7 +5,9 @@
  */
 package com.opengamma.strata.pricer.impl.cms;
 
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.OptionalDouble;
 import java.util.function.Function;
 
 import org.slf4j.Logger;
@@ -15,6 +17,7 @@ import com.opengamma.strata.basics.PutCall;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.collect.ArgChecker;
+import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivity;
@@ -149,12 +152,37 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     ExpandedSwap expandedSwap = swap.expand();
     double dfPayment = provider.discountFactor(ccy, cmsPeriod.getPaymentDate());
     ZonedDateTime valuationDate = swaptionVolatilities.getValuationDateTime();
+    LocalDate fixingDate = cmsPeriod.getFixingDate();
     double expiryTime = swaptionVolatilities.relativeTime(
-        cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
+        fixingDate.atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
     double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate());
     double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
+    double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike();
+    if (!fixingDate.isAfter(valuationDate.toLocalDate())) {
+      OptionalDouble fixedRate = provider.timeSeries(cmsPeriod.getIndex()).get(fixingDate);
+      if (fixedRate.isPresent()) {
+        double payoff = 0d;
+        switch (cmsPeriod.getCmsPeriodType()) {
+          case CAPLET:
+            payoff = Math.max(fixedRate.getAsDouble() - strike, 0d);
+            break;
+          case FLOORLET:
+            payoff = Math.max(strike - fixedRate.getAsDouble(), 0d);
+            break;
+          case COUPON:
+            payoff = fixedRate.getAsDouble();
+            break;
+          default:
+            throw new IllegalArgumentException("unsupported CMS type");
+        }
+        return CurrencyAmount.of(ccy, dfPayment * payoff * cmsPeriod.getNotional() * cmsPeriod.getYearFraction());
+      } else if (fixingDate.isBefore(valuationDate.toLocalDate())) {
+        throw new IllegalArgumentException(Messages.format(
+            "Unable to get fixing for {} on date {}, no time-series supplied", cmsPeriod.getIndex(), fixingDate));
+      }
+    }
+    strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : strike + shift;
     double forward = swapPricer.parRate(expandedSwap, provider) + shift;
-    double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike() + shift;
     double eta = cmsPeriod.getDayCount().relativeYearFraction(cmsPeriod.getPaymentDate(), swap.getStartDate());
     CmsIntegrantProvider intProv = new CmsIntegrantProvider(
         cmsPeriod, expandedSwap, swaptionVolatilities, forward, strike, expiryTime, tenor, cutOffStrike + shift, eta);
@@ -200,12 +228,38 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     ExpandedSwap expandedSwap = swap.expand();
     double dfPayment = provider.discountFactor(ccy, cmsPeriod.getPaymentDate());
     ZonedDateTime valuationDate = swaptionVolatilities.getValuationDateTime();
+    LocalDate fixingDate = cmsPeriod.getFixingDate();
     double expiryTime = swaptionVolatilities.relativeTime(
-        cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
+        fixingDate.atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
     double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate());
     double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
+    double strike = cmsPeriod.getStrike();
+    if (!fixingDate.isAfter(valuationDate.toLocalDate())) {
+      OptionalDouble fixedRate = provider.timeSeries(cmsPeriod.getIndex()).get(fixingDate);
+      if (fixedRate.isPresent()) {
+        double payoff = 0d;
+        switch (cmsPeriod.getCmsPeriodType()) {
+          case CAPLET:
+            payoff = Math.max(fixedRate.getAsDouble() - strike, 0d);
+            break;
+          case FLOORLET:
+            payoff = Math.max(strike - fixedRate.getAsDouble(), 0d);
+            break;
+          case COUPON:
+            payoff = fixedRate.getAsDouble();
+            break;
+          default:
+            throw new IllegalArgumentException("unsupported CMS type");
+        }
+        return provider.discountFactors(ccy).zeroRatePointSensitivity(
+            cmsPeriod.getPaymentDate()).multipliedBy(payoff * cmsPeriod.getNotional() * cmsPeriod.getYearFraction());
+      } else if (fixingDate.isBefore(valuationDate.toLocalDate())) {
+        throw new IllegalArgumentException(Messages.format(
+            "Unable to get fixing for {} on date {}, no time-series supplied", cmsPeriod.getIndex(), fixingDate));
+      }
+    }
+    strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : strike + shift;
     double forward = swapPricer.parRate(expandedSwap, provider) + shift;
-    double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike() + shift;
     double eta = cmsPeriod.getDayCount().relativeYearFraction(cmsPeriod.getPaymentDate(), swap.getStartDate());
     CmsDeltaIntegrantProvider intProv = new CmsDeltaIntegrantProvider(
         cmsPeriod, expandedSwap, swaptionVolatilities, forward, strike, expiryTime, tenor, cutOffStrike + shift, eta);
@@ -259,17 +313,27 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     ExpandedSwap expandedSwap = swap.expand();
     double dfPayment = provider.discountFactor(ccy, cmsPeriod.getPaymentDate());
     ZonedDateTime valuationDate = swaptionVolatilities.getValuationDateTime();
-    ZonedDateTime expiryDate =
-        cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone());
-    double expiryTime = swaptionVolatilities.relativeTime(expiryDate);
+    LocalDate fixingDate = cmsPeriod.getFixingDate();
+    ZonedDateTime expiryDate = fixingDate.atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone());
     double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate());
     if (provider.getValuationDate().isAfter(cmsPeriod.getPaymentDate())) {
       return SwaptionSabrSensitivity.of(
           cmsPeriod.getIndex().getTemplate().getConvention(), expiryDate, tenor, ccy, 0d, 0d, 0d, 0d);
     }
+    if (!fixingDate.isAfter(valuationDate.toLocalDate())) {
+      OptionalDouble fixedRate = provider.timeSeries(cmsPeriod.getIndex()).get(fixingDate);
+      if (fixedRate.isPresent()) {
+        return SwaptionSabrSensitivity.of(
+            cmsPeriod.getIndex().getTemplate().getConvention(), expiryDate, tenor, ccy, 0d, 0d, 0d, 0d);
+      } else if (fixingDate.isBefore(valuationDate.toLocalDate())) {
+        throw new IllegalArgumentException(Messages.format(
+            "Unable to get fixing for {} on date {}, no time-series supplied", cmsPeriod.getIndex(), fixingDate));
+      }
+    }
+    double expiryTime = swaptionVolatilities.relativeTime(expiryDate);
     double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
-    double forward = swapPricer.parRate(expandedSwap, provider) + shift;
     double strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : cmsPeriod.getStrike() + shift;
+    double forward = swapPricer.parRate(expandedSwap, provider) + shift;
     double eta = cmsPeriod.getDayCount().relativeYearFraction(cmsPeriod.getPaymentDate(), swap.getStartDate());
     CmsIntegrantProvider intProv = new CmsIntegrantProvider(
         cmsPeriod, expandedSwap, swaptionVolatilities, forward, strike, expiryTime, tenor, cutOffStrike + shift, eta);
@@ -323,12 +387,34 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
     ExpandedSwap expandedSwap = swap.expand();
     double dfPayment = provider.discountFactor(ccy, cmsPeriod.getPaymentDate());
     ZonedDateTime valuationDate = swaptionVolatilities.getValuationDateTime();
+    LocalDate fixingDate = cmsPeriod.getFixingDate();
     double expiryTime = swaptionVolatilities.relativeTime(
-        cmsPeriod.getFixingDate().atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
+        fixingDate.atTime(valuationDate.toLocalTime()).atZone(valuationDate.getZone()));
     double tenor = swaptionVolatilities.tenor(swap.getStartDate(), swap.getEndDate());
     double shift = swaptionVolatilities.getParameters().shift(expiryTime, tenor);
+    double strike = cmsPeriod.getStrike();
+    if (!fixingDate.isAfter(valuationDate.toLocalDate())) {
+      OptionalDouble fixedRate = provider.timeSeries(cmsPeriod.getIndex()).get(fixingDate);
+      if (fixedRate.isPresent()) {
+        double payoff = 0d;
+        switch (cmsPeriod.getCmsPeriodType()) {
+          case CAPLET:
+            payoff = fixedRate.getAsDouble() >= strike ? -1d : 0d;
+            break;
+          case FLOORLET:
+            payoff = fixedRate.getAsDouble() < strike ? 1d : 0d;
+            break;
+          default:
+            throw new IllegalArgumentException("unsupported CMS type");
+        }
+        return payoff * cmsPeriod.getNotional() * cmsPeriod.getYearFraction() * dfPayment;
+      } else if (fixingDate.isBefore(valuationDate.toLocalDate())) {
+        throw new IllegalArgumentException(Messages.format(
+            "Unable to get fixing for {} on date {}, no time-series supplied", cmsPeriod.getIndex(), fixingDate));
+      }
+    }
+    strike = cmsPeriod.getCmsPeriodType().equals(CmsPeriodType.COUPON) ? 0d : strike + shift;
     double forward = swapPricer.parRate(expandedSwap, provider) + shift;
-    double strike = cmsPeriod.getStrike() + shift;
     double eta = cmsPeriod.getDayCount().relativeYearFraction(cmsPeriod.getPaymentDate(), swap.getStartDate());
     CmsIntegrantProvider intProv = new CmsIntegrantProvider(
         cmsPeriod, expandedSwap, swaptionVolatilities, forward, strike, expiryTime, tenor, cutOffStrike + shift, eta);
