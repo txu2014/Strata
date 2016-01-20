@@ -144,4 +144,5 @@ public interface RatesProvider
    * @return the time series
    */
   public abstract LocalDateDoubleTimeSeries timeSeries(Index index);
+
 }
