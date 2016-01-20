@@ -165,7 +165,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
   //-------------------------------------------------------------------------
   private void validate(RatesProvider ratesProvider, SabrParametersSwaptionVolatilities swaptionVolatilities) {
     ArgChecker.isTrue(swaptionVolatilities.getValuationDate().equals(ratesProvider.getValuationDate()),
-        "Volatility and rate data must be for the same date");
+        "volatility and rate data must be for the same date");
   }
 
 }

@@ -63,7 +63,7 @@ public class SabrExtrapolationReplicationCmsPeriodPricerTest {
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(VALUATION, true);
   private static final double SHIFT = VOLATILITIES_SHIFT.getParameters().getShiftSurface().getZValues().get(0); // constant surface
   private static final double OBS_INDEX = 0.0135;
-  private static final LocalDateDoubleTimeSeries TIME_SERIES = LocalDateDoubleTimeSeries.of(FIXING, 0.0135);
+  private static final LocalDateDoubleTimeSeries TIME_SERIES = LocalDateDoubleTimeSeries.of(FIXING, OBS_INDEX);
   // providers - on fixing date, no time series
   private static final ImmutableRatesProvider RATES_PROVIDER_ON_FIX =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(FIXING);

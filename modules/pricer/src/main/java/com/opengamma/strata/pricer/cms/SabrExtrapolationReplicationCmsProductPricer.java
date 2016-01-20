@@ -73,7 +73,7 @@ public class SabrExtrapolationReplicationCmsProductPricer {
       return MultiCurrencyAmount.of(pvCmsLeg);
     }
     CurrencyAmount pvPayLeg = payLegPricer.presentValue(expanded.getPayLeg().get(), ratesProvider);
-    return MultiCurrencyAmount.of(pvCmsLeg, pvPayLeg);
+    return MultiCurrencyAmount.of(pvCmsLeg).plus(pvPayLeg);
   }
 
   /**
@@ -181,7 +181,7 @@ public class SabrExtrapolationReplicationCmsProductPricer {
       return MultiCurrencyAmount.of(ccCmsLeg);
     }
     CurrencyAmount ccPayLeg = payLegPricer.currentCash(expanded.getPayLeg().get(), ratesProvider);
-    return MultiCurrencyAmount.of(ccPayLeg, ccCmsLeg);
+    return MultiCurrencyAmount.of(ccPayLeg).plus(ccCmsLeg);
   }
 
 }

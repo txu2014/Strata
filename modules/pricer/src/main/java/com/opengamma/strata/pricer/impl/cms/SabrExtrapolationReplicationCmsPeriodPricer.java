@@ -23,6 +23,7 @@ import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivity;
 import com.opengamma.strata.math.impl.MathException;
 import com.opengamma.strata.math.impl.integration.RungeKuttaIntegrator1D;
+import com.opengamma.strata.pricer.cms.SabrExtrapolationReplicationCmsLegPricer;
 import com.opengamma.strata.pricer.impl.option.SabrExtrapolationRightFunction;
 import com.opengamma.strata.pricer.impl.option.SabrInterestRateParameters;
 import com.opengamma.strata.pricer.impl.volatility.smile.function.SabrFormulaData;
@@ -42,6 +43,9 @@ import com.opengamma.strata.product.swap.SwapLegType;
  *  Computes the price of a CMS coupon/caplet/floorlet by swaption replication on a SABR formula with extrapolation.
  *  <p>
  *  The replication requires numerical integration. This is completed by {@link RungeKuttaIntegrator1D}.
+ *  <p>
+ *  The consistency between {@code RatesProvider} and {@code SabrParametersSwaptionVolatilities} is not checked in this 
+ *  class, but validated only once in {@link SabrExtrapolationReplicationCmsLegPricer}.
  *  <p>
  *  Reference: Hagan, P. S. (2003). Convexity conundrums: Pricing CMS swaps, caps, and floors. 
  *  Wilmott Magazine, March, pages 38--44.
@@ -804,7 +808,6 @@ public class SabrExtrapolationReplicationCmsPeriodPricer {
       result[1] = getEta() * getTau() * result[0] / (1d + x * getTau());
       return result;
     }
-
   }
 
 }
