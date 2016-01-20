@@ -49,8 +49,7 @@ import com.opengamma.strata.product.swap.SwapLeg;
  */
 @Test
 public class SabrExtrapolationReplicationCmsProductPricerTest {
-
-  private static final LocalDate VALUATION = LocalDate.of(2015, 8, 18);
+  // CMS products
   private static final SwapIndex INDEX = SwapIndices.EUR_EURIBOR_1100_5Y;
   private static final LocalDate START = LocalDate.of(2015, 10, 21);
   private static final LocalDate END = LocalDate.of(2020, 10, 21);
@@ -82,6 +81,7 @@ public class SabrExtrapolationReplicationCmsProductPricerTest {
   private static final Cms CMS_TWO_LEGS = Cms.of(CMS_LEG, PAY_LEG);
   private static final Cms CMS_ONE_LEG = Cms.of(CMS_LEG);
   // providers
+  private static final LocalDate VALUATION = LocalDate.of(2015, 8, 18);
   private static final ImmutableRatesProvider RATES_PROVIDER =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(VALUATION);
   private static final SabrParametersSwaptionVolatilities VOLATILITIES =

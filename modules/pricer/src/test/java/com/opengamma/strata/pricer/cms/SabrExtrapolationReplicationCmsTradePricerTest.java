@@ -53,7 +53,7 @@ import com.opengamma.strata.product.swap.SwapLeg;
  */
 @Test
 public class SabrExtrapolationReplicationCmsTradePricerTest {
-
+  // trades
   private static final LocalDate VALUATION = LocalDate.of(2015, 8, 18);
   private static final SwapIndex INDEX = SwapIndices.EUR_EURIBOR_1100_5Y;
   private static final LocalDate START = LocalDate.of(2015, 10, 21);

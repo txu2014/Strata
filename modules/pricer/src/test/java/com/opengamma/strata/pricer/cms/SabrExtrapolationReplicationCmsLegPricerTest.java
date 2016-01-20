@@ -48,8 +48,7 @@ import com.opengamma.strata.product.swap.SwapIndices;
  */
 @Test
 public class SabrExtrapolationReplicationCmsLegPricerTest {
-
-  private static final LocalDate VALUATION = LocalDate.of(2015, 8, 18);
+  // CMS legs
   private static final SwapIndex INDEX = SwapIndices.EUR_EURIBOR_1100_5Y;
   private static final LocalDate START = LocalDate.of(2015, 10, 21);
   private static final LocalDate END = LocalDate.of(2020, 10, 21);
@@ -62,7 +61,6 @@ public class SabrExtrapolationReplicationCmsLegPricerTest {
   private static final ValueSchedule CAP_STRIKE = ValueSchedule.of(CAP_VALUE);
   private static final List<ValueStep> FLOOR_STEPS = new ArrayList<ValueStep>();
   private static final List<ValueStep> NOTIONAL_STEPS = new ArrayList<ValueStep>();
-
   private static final double FLOOR_VALUE_0 = 0.014;
   private static final double FLOOR_VALUE_1 = 0.0135;
   private static final double FLOOR_VALUE_2 = 0.012;
@@ -81,7 +79,6 @@ public class SabrExtrapolationReplicationCmsLegPricerTest {
   }
   private static final ValueSchedule FLOOR_STRIKE = ValueSchedule.of(FLOOR_VALUE_0, FLOOR_STEPS);
   private static final ValueSchedule NOTIONAL = ValueSchedule.of(NOTIONAL_VALUE_0, NOTIONAL_STEPS);
-
   private static final CmsLeg CAP_LEG = CmsLeg.builder()
       .capSchedule(CAP_STRIKE)
       .index(INDEX)
@@ -102,12 +99,13 @@ public class SabrExtrapolationReplicationCmsLegPricerTest {
       .payReceive(PAY)
       .paymentSchedule(SCHEDULE_EUR)
       .build();
-
+  // providers
+  private static final LocalDate VALUATION = LocalDate.of(2015, 8, 18);
   private static final ImmutableRatesProvider RATES_PROVIDER =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(VALUATION);
   private static final SabrParametersSwaptionVolatilities VOLATILITIES =
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(VALUATION, true);
-
+  // providers - valuation after the first payment
   private static final LocalDate AFTER_PAYMENT = LocalDate.of(2016, 11, 25);  // the first cms payment is 2016-10-21.
   private static final LocalDate FIXING = LocalDate.of(2016, 10, 19); // fixing for the second period.
   private static final double OBS_INDEX = 0.013;
@@ -116,19 +114,19 @@ public class SabrExtrapolationReplicationCmsLegPricerTest {
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(AFTER_PAYMENT, TIME_SERIES);
   private static final SabrParametersSwaptionVolatilities VOLATILITIES_AFTER_PERIOD =
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(AFTER_PAYMENT, true);
-
+  // providers - valuation on the payment date
   private static final LocalDate PAYMENT = LocalDate.of(2017, 10, 23); // payment date of the second payment
   private static final ImmutableRatesProvider RATES_PROVIDER_ON_PAY =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(PAYMENT, TIME_SERIES);
   private static final SabrParametersSwaptionVolatilities VOLATILITIES_ON_PAY =
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(PAYMENT, true);
-
+  // providers - valuation after maturity date
   private static final LocalDate ENDED = END.plusDays(7);
   private static final ImmutableRatesProvider RATES_PROVIDER_ENDED =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderEur(ENDED);
   private static final SabrParametersSwaptionVolatilities VOLATILITIES_ENDED =
       SwaptionSabrRateVolatilityDataSet.getVolatilitiesEur(ENDED, true);
-
+  // pricers
   private static final double CUT_OFF_STRIKE = 0.10;
   private static final double MU = 2.50;
   private static final double EPS = 1.0e-5;
