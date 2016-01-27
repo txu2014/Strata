@@ -37,10 +37,8 @@ import com.opengamma.strata.basics.schedule.StubConvention;
 import com.opengamma.strata.basics.value.ValueSchedule;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.product.rate.IborRateObservation;
-import com.opengamma.strata.product.swap.FixedRateCalculation;
 import com.opengamma.strata.product.swap.FixingRelativeTo;
 import com.opengamma.strata.product.swap.IborRateCalculation;
-import com.opengamma.strata.product.swap.OvernightRateCalculation;
 
 /**
  * An Ibor cap/floor leg of a cap/floor product.
@@ -95,16 +93,15 @@ public final class IborCapFloorLeg
   /**
    * The offset of payment from the base calculation period date.
    * <p>
-   * The offset is applied to the unadjusted date specified by {@code paymentRelativeTo}.
-   * Offset can be based on calendar days or business days.
+   * The offset is applied to the adjusted end date. Offset can be based on calendar days or business days.
+   * This is set to be no adjustment if not specified.
    */
   @PropertyDefinition(validate = "notNull")
   private final DaysAdjustment paymentDateOffset;
   /**
    * The interest rate accrual calculation.
    * <p>
-   * Different kinds of swap leg are determined by the subclass used here.
-   * See {@link FixedRateCalculation}, {@link IborRateCalculation} and {@link OvernightRateCalculation}.
+   * The interest rate accrual is based on Ibor index.
    */
   @PropertyDefinition(validate = "notNull")
   private final IborRateCalculation calculation;
@@ -146,13 +143,40 @@ public final class IborCapFloorLeg
     this.calculation = ArgChecker.notNull(calculation, "calculation");
     this.currency = currency != null ? currency : calculation.getIndex().getCurrency();
     this.notional = notional;
-    this.paymentDateOffset = ArgChecker.notNull(paymentDateOffset, "paymentDateOffset");
+    this.paymentDateOffset = paymentDateOffset != null ? paymentDateOffset : DaysAdjustment.NONE;
     this.capSchedule = capSchedule;
     this.floorSchedule = floorSchedule;
     ArgChecker.isTrue(!this.getPaymentSchedule().getStubConvention().isPresent() ||
         this.getPaymentSchedule().getStubConvention().get().equals(StubConvention.NONE), "Stub period is not allowed");
     ArgChecker.isFalse(this.getCapSchedule().isPresent() == this.getFloorSchedule().isPresent(),
         "one of cap schedule and floor schedule should be empty");
+    ArgChecker.isTrue(this.getCalculation().getIndex().getTenor().getPeriod().equals(this.getPaymentSchedule()
+        .getFrequency().getPeriod()), "payment frequency period should be the same as index tenor period");
+  }
+
+  //-------------------------------------------------------------------------
+  /**
+   * Gets the start date of the leg.
+   * <p>
+   * This is the first accrual date in the leg, often known as the effective date.
+   * This date has been adjusted to be a valid business day.
+   * 
+   * @return the start date of the leg
+   */
+  public LocalDate getStartDate() {
+    return paymentSchedule.getAdjustedStartDate();
+  }
+
+  /**
+   * Gets the end date of the leg.
+   * <p>
+   * This is the last accrual date in the leg, often known as the maturity date.
+   * This date has been adjusted to be a valid business day.
+   * 
+   * @return the end date of the leg
+   */
+  public LocalDate getEndDate() {
+    return paymentSchedule.getAdjustedEndDate();
   }
 
   //-------------------------------------------------------------------------
@@ -292,8 +316,8 @@ public final class IborCapFloorLeg
   /**
    * Gets the offset of payment from the base calculation period date.
    * <p>
-   * The offset is applied to the unadjusted date specified by {@code paymentRelativeTo}.
-   * Offset can be based on calendar days or business days.
+   * The offset is applied to the adjusted end date. Offset can be based on calendar days or business days.
+   * This is set to be no adjustment if not specified.
    * @return the value of the property, not null
    */
   public DaysAdjustment getPaymentDateOffset() {
@@ -304,8 +328,7 @@ public final class IborCapFloorLeg
   /**
    * Gets the interest rate accrual calculation.
    * <p>
-   * Different kinds of swap leg are determined by the subclass used here.
-   * See {@link FixedRateCalculation}, {@link IborRateCalculation} and {@link OvernightRateCalculation}.
+   * The interest rate accrual is based on Ibor index.
    * @return the value of the property, not null
    */
   public IborRateCalculation getCalculation() {
@@ -801,8 +824,8 @@ public final class IborCapFloorLeg
     /**
      * Sets the offset of payment from the base calculation period date.
      * <p>
-     * The offset is applied to the unadjusted date specified by {@code paymentRelativeTo}.
-     * Offset can be based on calendar days or business days.
+     * The offset is applied to the adjusted end date. Offset can be based on calendar days or business days.
+     * This is set to be no adjustment if not specified.
      * @param paymentDateOffset  the new value, not null
      * @return this, for chaining, not null
      */
@@ -815,8 +838,7 @@ public final class IborCapFloorLeg
     /**
      * Sets the interest rate accrual calculation.
      * <p>
-     * Different kinds of swap leg are determined by the subclass used here.
-     * See {@link FixedRateCalculation}, {@link IborRateCalculation} and {@link OvernightRateCalculation}.
+     * The interest rate accrual is based on Ibor index.
      * @param calculation  the new value, not null
      * @return this, for chaining, not null
      */

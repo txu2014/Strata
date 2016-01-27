@@ -36,8 +36,7 @@ public class IborCapletFloorletPeriodTest {
   private static final LocalDate END = LocalDate.of(2011, 1, 10);
   private static final LocalDate PAYMENT = LocalDate.of(2011, 1, 13);
   private static final double NOTIONAL = 1.e6;
-  private static final IborRateObservation RATE_OBSERVATION = IborRateObservation
-      .of(EUR_EURIBOR_3M, FIXING);
+  private static final IborRateObservation RATE_OBSERVATION = IborRateObservation.of(EUR_EURIBOR_3M, FIXING);
   private static final double YEAR_FRACTION = 0.251d;
 
   public void test_builder_min() {
