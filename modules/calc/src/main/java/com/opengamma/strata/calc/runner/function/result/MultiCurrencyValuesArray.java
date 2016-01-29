@@ -6,6 +6,7 @@
 package com.opengamma.strata.calc.runner.function.result;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -31,7 +33,9 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Sets;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.FxRate;
@@ -40,6 +44,7 @@ import com.opengamma.strata.basics.market.FxRateKey;
 import com.opengamma.strata.basics.market.MarketDataBox;
 import com.opengamma.strata.calc.marketdata.CalculationMarketData;
 import com.opengamma.strata.calc.runner.function.CurrencyConvertible;
+import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.MapStream;
 import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.array.DoubleArray;
@@ -95,6 +100,29 @@ public final class MultiCurrencyValuesArray
     }
     Map<Currency, DoubleArray> doubleArrayMap = MapStream.of(valueMap).mapValues(v -> DoubleArray.ofUnsafe(v)).toMap();
     return new MultiCurrencyValuesArray(doubleArrayMap);
+  }
+
+  /**
+   * Obtains an instance using a function to create the entries.
+   * <p>
+   * The function is passed the scenario index and returns the value for that index.
+   * 
+   * @param size  the number of elements
+   * @param valueFunction  the function used to obtain each value
+   * @return an instance initialized using the function
+   * @throws IllegalArgumentException is size is zero or less
+   */
+  public static MultiCurrencyValuesArray of(int size, IntFunction<MultiCurrencyAmount> valueFunction) {
+    ArgChecker.notNegativeOrZero(size, "size");
+    Map<Currency, double[]> map = new HashMap<>();
+    for (int i = 0; i < size; i++) {
+      MultiCurrencyAmount mca = valueFunction.apply(i);
+      for (CurrencyAmount ca : mca.getAmounts()) {
+        double[] array = map.computeIfAbsent(ca.getCurrency(), c -> new double[size]);
+        array[i] = ca.getAmount();
+      }
+    }
+    return new MultiCurrencyValuesArray(MapStream.of(map).mapValues(array -> DoubleArray.ofUnsafe(array)).toMap());
   }
 
   /**
@@ -224,6 +252,108 @@ public final class MultiCurrencyValuesArray
       }
     }
     return CurrencyValuesArray.of(reportingCurrency, DoubleArray.ofUnsafe(singleCurrencyValues));
+  }
+
+  /**
+   * Returns a new array containing the values from this array added to the values in the other array.
+   * <p>
+   * The arrays must have the same size.
+   *
+   * @param other  another array of multiple currency values.
+   * @return a new array containing the values from this array added to the values in the other array
+   * @throws IllegalArgumentException if the arrays have different sizes
+   */
+  public MultiCurrencyValuesArray plus(MultiCurrencyValuesArray other) {
+    if (other.size() != size) {
+      throw new IllegalArgumentException(
+          Messages.format(
+              "Sizes must be equal when adding, this size is {}, other size is {}",
+              size,
+              other.size()));
+    }
+    Map<Currency, DoubleArray> addedValues = Stream.concat(values.entrySet().stream(), other.values.entrySet().stream())
+        .collect(toMap(e -> e.getKey(), e -> e.getValue(), (arr1, arr2) -> arr1.plus(arr2)));
+    return MultiCurrencyValuesArray.of(addedValues);
+  }
+
+  /**
+   * Returns a new array containing the values from this array with the values from the amount added.
+   *
+   * @param amount  the amount to add
+   * @return a new array containing the values from this array added to the values in the other array
+   */
+  public MultiCurrencyValuesArray plus(MultiCurrencyAmount amount) {
+    ImmutableMap.Builder<Currency, DoubleArray> builder = ImmutableMap.builder();
+
+    for (Currency currency : Sets.union(values.keySet(), amount.getCurrencies())) {
+      DoubleArray array = values.get(currency);
+
+      if (array == null) {
+        builder.put(currency, DoubleArray.filled(size, amount.getAmount(currency).getAmount()));
+      } else if (!amount.contains(currency)) {
+        builder.put(currency, array);
+      } else {
+        builder.put(currency, array.plus(amount.getAmount(currency).getAmount()));
+      }
+    }
+    return MultiCurrencyValuesArray.of(builder.build());
+  }
+
+  /**
+   * Returns a new array containing the values from this array with the values from the other array subtracted.
+   * <p>
+   * The arrays must have the same size.
+   *
+   * @param other  another array of multiple currency values.
+   * @return a new array containing the values from this array added with the values from the other array subtracted
+   * @throws IllegalArgumentException if the arrays have different sizes
+   */
+  public MultiCurrencyValuesArray minus(MultiCurrencyValuesArray other) {
+    if (other.size() != size) {
+      throw new IllegalArgumentException(
+          Messages.format(
+              "Sizes must be equal when subtracting, this size is {}, other size is {}",
+              size,
+              other.size()));
+    }
+    ImmutableMap.Builder<Currency, DoubleArray> builder = ImmutableMap.builder();
+
+    for (Currency currency : Sets.union(values.keySet(), other.values.keySet())) {
+      DoubleArray array = values.get(currency);
+      DoubleArray otherArray = other.values.get(currency);
+
+      if (otherArray == null) {
+        builder.put(currency, array);
+      } else if (array == null) {
+        builder.put(currency, otherArray.multipliedBy(-1));
+      } else {
+        builder.put(currency, array.minus(otherArray));
+      }
+    }
+    return of(builder.build());
+  }
+
+  /**
+   * Returns a new array containing the values from this array with the values from the amount subtracted.
+   *
+   * @param amount  the amount to subtract
+   * @return a new array containing the values from this array with the values from the amount subtracted
+   */
+  public MultiCurrencyValuesArray minus(MultiCurrencyAmount amount) {
+    ImmutableMap.Builder<Currency, DoubleArray> builder = ImmutableMap.builder();
+
+    for (Currency currency : Sets.union(values.keySet(), amount.getCurrencies())) {
+      DoubleArray array = values.get(currency);
+
+      if (array == null) {
+        builder.put(currency, DoubleArray.filled(size, -amount.getAmount(currency).getAmount()));
+      } else if (!amount.contains(currency)) {
+        builder.put(currency, array);
+      } else {
+        builder.put(currency, array.minus(amount.getAmount(currency).getAmount()));
+      }
+    }
+    return MultiCurrencyValuesArray.of(builder.build());
   }
 
   private void checkNumberOfRates(int rateCount) {
