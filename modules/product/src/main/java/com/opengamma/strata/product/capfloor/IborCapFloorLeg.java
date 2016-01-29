@@ -61,8 +61,6 @@ public final class IborCapFloorLeg
    * <p>
    * A value of 'Pay' implies that the resulting amount is paid to the counterparty.
    * A value of 'Receive' implies that the resulting amount is received from the counterparty.
-   * Note that negative swap rates can result in a payment in the opposite direction
-   * to that implied by this indicator.
    */
   @PropertyDefinition(validate = "notNull")
   private final PayReceive payReceive;
@@ -77,7 +75,7 @@ public final class IborCapFloorLeg
   /**
    * The currency of the leg associated with the notional.
    * <p>
-   * This is the currency of the leg and the currency that swap rate calculation is made in.
+   * This is the currency of the leg and the currency that payoff calculation is made in.
    * The amounts of the notional are expressed in terms of this currency.
    */
   @PropertyDefinition(validate = "notNull")
@@ -268,8 +266,6 @@ public final class IborCapFloorLeg
    * <p>
    * A value of 'Pay' implies that the resulting amount is paid to the counterparty.
    * A value of 'Receive' implies that the resulting amount is received from the counterparty.
-   * Note that negative swap rates can result in a payment in the opposite direction
-   * to that implied by this indicator.
    * @return the value of the property, not null
    */
   public PayReceive getPayReceive() {
@@ -292,7 +288,7 @@ public final class IborCapFloorLeg
   /**
    * Gets the currency of the leg associated with the notional.
    * <p>
-   * This is the currency of the leg and the currency that swap rate calculation is made in.
+   * This is the currency of the leg and the currency that payoff calculation is made in.
    * The amounts of the notional are expressed in terms of this currency.
    * @return the value of the property, not null
    */
@@ -768,8 +764,6 @@ public final class IborCapFloorLeg
      * <p>
      * A value of 'Pay' implies that the resulting amount is paid to the counterparty.
      * A value of 'Receive' implies that the resulting amount is received from the counterparty.
-     * Note that negative swap rates can result in a payment in the opposite direction
-     * to that implied by this indicator.
      * @param payReceive  the new value, not null
      * @return this, for chaining, not null
      */
@@ -796,7 +790,7 @@ public final class IborCapFloorLeg
     /**
      * Sets the currency of the leg associated with the notional.
      * <p>
-     * This is the currency of the leg and the currency that swap rate calculation is made in.
+     * This is the currency of the leg and the currency that payoff calculation is made in.
      * The amounts of the notional are expressed in terms of this currency.
      * @param currency  the new value, not null
      * @return this, for chaining, not null
