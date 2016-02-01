@@ -21,7 +21,7 @@ import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
  * The price and derivatives are also made available.
  */
 public interface IborCapletFloorletVolatilities 
-extends MarketDataView {
+    extends MarketDataView {
 
   /**
    * Gets the Ibor index for which the data is valid.
