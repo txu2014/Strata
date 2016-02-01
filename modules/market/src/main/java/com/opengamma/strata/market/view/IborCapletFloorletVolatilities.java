@@ -93,7 +93,7 @@ extends MarketDataView {
    * @param expiry  the time to expiry as a year fraction
    * @param putCall  whether the option is put or call
    * @param strike  the option strike rate
-   * @param forward  the forward rate of the underlying swap
+   * @param forward  the forward rate
    * @param volatility  the volatility
    * @return the price
    * @throws RuntimeException if the value cannot be obtained
@@ -108,7 +108,7 @@ extends MarketDataView {
   /**
    * Calculates the price delta.
    * <p>
-   * This is the forward driftless delta.
+   * This is the first order sensitivity of the option price to the forward.
    * <p>
    * This relies on expiry supplied by {@link #relativeTime(ZonedDateTime)}.
    * This relies on volatility supplied by {@link #volatility(double, double, double)}.
@@ -116,7 +116,7 @@ extends MarketDataView {
    * @param expiry  the time to expiry as a year fraction
    * @param putCall  whether the option is put or call
    * @param strike  the option strike rate
-   * @param forward  the forward rate of the underlying swap
+   * @param forward  the forward rate
    * @param volatility  the volatility
    * @return the delta
    * @throws RuntimeException if the value cannot be obtained
@@ -131,7 +131,7 @@ extends MarketDataView {
   /**
    * Calculates the price gamma.
    * <p>
-   * This is the second order sensitivity of the forward option value to the forward.
+   * This is the second order sensitivity of the option price to the forward.
    * <p>
    * This relies on expiry supplied by {@link #relativeTime(ZonedDateTime)}.
    * This relies on volatility supplied by {@link #volatility(double, double, double)}.
@@ -139,7 +139,7 @@ extends MarketDataView {
    * @param expiry  the time to expiry as a year fraction
    * @param putCall  whether the option is put or call
    * @param strike  the option strike rate
-   * @param forward  the forward rate of the underlying swap
+   * @param forward  the forward rate
    * @param volatility  the volatility
    * @return the gamma
    * @throws RuntimeException if the value cannot be obtained
@@ -154,7 +154,7 @@ extends MarketDataView {
   /**
    * Calculates the price theta.
    * <p>
-   * This is the driftless sensitivity of the present value to a change in time to maturity.
+   * This is the driftless sensitivity of the option price to a change in time to maturity.
    * <p>
    * This relies on expiry supplied by {@link #relativeTime(ZonedDateTime)}.
    * This relies on volatility supplied by {@link #volatility(double, double, double)}.
@@ -162,7 +162,7 @@ extends MarketDataView {
    * @param expiry  the time to expiry as a year fraction
    * @param putCall  whether the option is put or call
    * @param strike  the option strike rate
-   * @param forward  the forward rate of the underlying swap
+   * @param forward  the forward rate
    * @param volatility  the volatility
    * @return the theta
    * @throws RuntimeException if the value cannot be obtained
@@ -177,7 +177,7 @@ extends MarketDataView {
   /**
    * Calculates the price vega.
    * <p>
-   * This is the sensitivity of the option forward price to the implied volatility.
+   * This is the sensitivity of the option price to the implied volatility.
    * <p>
    * This relies on expiry supplied by {@link #relativeTime(ZonedDateTime)}.
    * This relies on volatility supplied by {@link #volatility(double, double, double)}.
@@ -185,7 +185,7 @@ extends MarketDataView {
    * @param expiry  the time to expiry as a year fraction
    * @param putCall  whether the option is put or call
    * @param strike  the option strike rate
-   * @param forward  the forward rate of the underlying swap
+   * @param forward  the forward rate
    * @param volatility  the volatility
    * @return the vega
    * @throws RuntimeException if the value cannot be obtained

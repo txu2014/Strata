@@ -1,3 +1,8 @@
+/**
+ * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
+ *
+ * Please see distribution for license.
+ */
 package com.opengamma.strata.pricer.capfloor;
 
 import java.io.Serializable;
@@ -39,11 +44,6 @@ import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
 import com.opengamma.strata.market.surface.SurfaceMetadata;
 import com.opengamma.strata.market.surface.SurfaceParameterMetadata;
 import com.opengamma.strata.market.surface.meta.GenericVolatilitySurfaceYearFractionMetadata;
-/**
- * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
- *
- * Please see distribution for license.
- */
 import com.opengamma.strata.pricer.impl.option.BlackFormulaRepository;
 
 /**

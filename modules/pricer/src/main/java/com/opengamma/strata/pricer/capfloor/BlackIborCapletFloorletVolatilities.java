@@ -8,7 +8,7 @@ package com.opengamma.strata.pricer.capfloor;
 import com.opengamma.strata.market.view.IborCapletFloorletVolatilities;
 
 /**
- * Volatility for Ibor cap/floor in the log-normal or Black model.
+ * Volatility for Ibor caplet/floorlet in the log-normal or Black model.
  */
 public interface BlackIborCapletFloorletVolatilities 
     extends IborCapletFloorletVolatilities {

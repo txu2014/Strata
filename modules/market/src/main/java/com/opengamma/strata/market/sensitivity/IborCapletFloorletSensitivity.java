@@ -50,12 +50,12 @@ public final class IborCapletFloorletSensitivity
   @PropertyDefinition(validate = "notNull")
   private final ZonedDateTime expiry;
   /**
-   * The swaption strike rate.
+   * The strike rate.
    */
   @PropertyDefinition
   private final double strike;
   /**
-   * The underlying swap forward rate.
+   * The forward rate.
    */
   @PropertyDefinition
   private final double forward;
@@ -247,7 +247,7 @@ public final class IborCapletFloorletSensitivity
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the swaption strike rate.
+   * Gets the strike rate.
    * @return the value of the property
    */
   public double getStrike() {
@@ -256,7 +256,7 @@ public final class IborCapletFloorletSensitivity
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the underlying swap forward rate.
+   * Gets the forward rate.
    * @return the value of the property
    */
   public double getForward() {

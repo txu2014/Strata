@@ -59,7 +59,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
   /** 
    * The normal volatility surface.  
    * <p>
-   * The order of the dimensions is expiry/simple moneyness.
+   * The order of the dimensions is expiry/strike.
    */
   @PropertyDefinition(validate = "notNull")
   private final NodalSurface surface;
@@ -264,7 +264,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
   /**
    * Gets the normal volatility surface.
    * <p>
-   * The order of the dimensions is expiry/simple moneyness.
+   * The order of the dimensions is expiry/strike.
    * @return the value of the property, not null
    */
   public NodalSurface getSurface() {
