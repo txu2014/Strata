@@ -31,8 +31,8 @@ import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.CalculationRunner;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.config.Measure;
-import com.opengamma.strata.calc.config.ReportingRules;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.config.ReportingCurrency;
 import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
 import com.opengamma.strata.calc.marketdata.MarketEnvironment;
 import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
@@ -94,8 +94,8 @@ public class CurveScenarioExample {
 
     // the columns, specifying the measures to be calculated
     List<Column> columns = ImmutableList.of(
-        Column.of(Measure.PRESENT_VALUE),
-        Column.of(Measure.PV01));
+        Column.of(Measures.PRESENT_VALUE),
+        Column.of(Measures.PV01));
 
     // use the built-in example market data
     ExampleMarketDataBuilder marketDataBuilder = ExampleMarketData.builder();
@@ -104,7 +104,7 @@ public class CurveScenarioExample {
     CalculationRules rules = CalculationRules.builder()
         .pricingRules(StandardComponents.pricingRules())
         .marketDataRules(marketDataBuilder.rules())
-        .reportingRules(ReportingRules.fixedCurrency(Currency.USD))
+        .reportingCurrency(ReportingCurrency.of(Currency.USD))
         .build();
 
     // mappings that select which market data to apply perturbations to

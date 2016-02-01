@@ -27,6 +27,7 @@ import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.market.FxRateKey;
 import com.opengamma.strata.calc.config.FunctionConfig;
 import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
 import com.opengamma.strata.calc.config.pricing.FunctionGroup;
 import com.opengamma.strata.calc.marketdata.CalculationMarketData;
 import com.opengamma.strata.calc.marketdata.FunctionRequirements;
@@ -73,14 +74,14 @@ public class FxNdfCalculationFunctionTest {
   public void test_group() {
     FunctionGroup<FxNdfTrade> test = FxNdfFunctionGroups.discounting();
     assertThat(test.configuredMeasures(TRADE)).contains(
-        Measure.PRESENT_VALUE,
-        Measure.PV01,
-        Measure.BUCKETED_PV01,
-        Measure.CURRENCY_EXPOSURE,
-        Measure.CURRENT_CASH,
-        Measure.FORWARD_FX_RATE);
+        Measures.PRESENT_VALUE,
+        Measures.PV01,
+        Measures.BUCKETED_PV01,
+        Measures.CURRENCY_EXPOSURE,
+        Measures.CURRENT_CASH,
+        Measures.FORWARD_FX_RATE);
     FunctionConfig<FxNdfTrade> config =
-        FxNdfFunctionGroups.discounting().functionConfig(TRADE, Measure.PRESENT_VALUE).get();
+        FxNdfFunctionGroups.discounting().functionConfig(TRADE, Measures.PRESENT_VALUE).get();
     assertThat(config.createFunction()).isInstanceOf(FxNdfCalculationFunction.class);
   }
 
@@ -92,7 +93,7 @@ public class FxNdfCalculationFunctionTest {
     assertThat(reqs.getSingleValueRequirements()).isEqualTo(
         ImmutableSet.of(DiscountCurveKey.of(GBP), DiscountCurveKey.of(USD)));
     assertThat(reqs.getTimeSeriesRequirements()).isEmpty();
-    assertThat(function.defaultReportingCurrency(TRADE)).hasValue(GBP);
+    assertThat(function.naturalCurrency(TRADE)).hasValue(GBP);
   }
 
   public void test_simpleMeasures() {
@@ -106,16 +107,22 @@ public class FxNdfCalculationFunctionTest {
     FxRate expectedForwardFx = pricer.forwardFxRate(TRADE.getProduct(), provider);
 
     Set<Measure> measures = ImmutableSet.of(
-        Measure.PRESENT_VALUE, Measure.CURRENCY_EXPOSURE, Measure.CURRENT_CASH, Measure.FORWARD_FX_RATE);
+        Measures.PRESENT_VALUE,
+        Measures.PRESENT_VALUE_MULTI_CCY,
+        Measures.CURRENCY_EXPOSURE,
+        Measures.CURRENT_CASH,
+        Measures.FORWARD_FX_RATE);
     assertThat(function.calculate(TRADE, measures, md))
         .containsEntry(
-            Measure.PRESENT_VALUE, Result.success(CurrencyValuesArray.of(ImmutableList.of(expectedPv))))
+            Measures.PRESENT_VALUE, Result.success(CurrencyValuesArray.of(ImmutableList.of(expectedPv))))
         .containsEntry(
-            Measure.CURRENCY_EXPOSURE, Result.success(MultiCurrencyValuesArray.of(ImmutableList.of(expectedCurrencyExp))))
+            Measures.PRESENT_VALUE_MULTI_CCY, Result.success(CurrencyValuesArray.of(ImmutableList.of(expectedPv))))
         .containsEntry(
-            Measure.CURRENT_CASH, Result.success(CurrencyValuesArray.of(ImmutableList.of(expectedCash))))
+            Measures.CURRENCY_EXPOSURE, Result.success(MultiCurrencyValuesArray.of(ImmutableList.of(expectedCurrencyExp))))
         .containsEntry(
-            Measure.FORWARD_FX_RATE, Result.success(ScenarioResult.of(ImmutableList.of(expectedForwardFx))));
+            Measures.CURRENT_CASH, Result.success(CurrencyValuesArray.of(ImmutableList.of(expectedCash))))
+        .containsEntry(
+            Measures.FORWARD_FX_RATE, Result.success(ScenarioResult.of(ImmutableList.of(expectedForwardFx))));
   }
 
   public void test_pv01() {
@@ -128,12 +135,12 @@ public class FxNdfCalculationFunctionTest {
     MultiCurrencyAmount expectedPv01 = pvParamSens.total().multipliedBy(1e-4);
     CurveCurrencyParameterSensitivities expectedBucketedPv01 = pvParamSens.multipliedBy(1e-4);
 
-    Set<Measure> measures = ImmutableSet.of(Measure.PV01, Measure.BUCKETED_PV01);
+    Set<Measure> measures = ImmutableSet.of(Measures.PV01, Measures.BUCKETED_PV01);
     assertThat(function.calculate(TRADE, measures, md))
         .containsEntry(
-            Measure.PV01, Result.success(MultiCurrencyValuesArray.of(ImmutableList.of(expectedPv01))))
+            Measures.PV01, Result.success(MultiCurrencyValuesArray.of(ImmutableList.of(expectedPv01))))
         .containsEntry(
-            Measure.BUCKETED_PV01, Result.success(ScenarioResult.of(ImmutableList.of(expectedBucketedPv01))));
+            Measures.BUCKETED_PV01, Result.success(ScenarioResult.of(ImmutableList.of(expectedBucketedPv01))));
   }
 
   //-------------------------------------------------------------------------

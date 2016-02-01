@@ -5,7 +5,7 @@
  */
 package com.opengamma.strata.function.calculation.swaption;
 
-import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
 import com.opengamma.strata.calc.config.pricing.DefaultFunctionGroup;
 import com.opengamma.strata.calc.config.pricing.FunctionGroup;
 import com.opengamma.strata.product.swaption.SwaptionTrade;
@@ -23,7 +23,8 @@ public final class SwaptionFunctionGroups {
    */
   private static final FunctionGroup<SwaptionTrade> STANDARD_GROUP =
       DefaultFunctionGroup.builder(SwaptionTrade.class).name("Swaption")
-          .addFunction(Measure.PRESENT_VALUE, SwaptionCalculationFunction.class)
+          .addFunction(Measures.PRESENT_VALUE, SwaptionCalculationFunction.class)
+          .addFunction(Measures.PRESENT_VALUE_MULTI_CCY, SwaptionCalculationFunction.class)
           .build();
 
   /**
@@ -39,7 +40,8 @@ public final class SwaptionFunctionGroups {
    * <p>
    * The supported built-in measures are:
    * <ul>
-   *   <li>{@linkplain Measure#PRESENT_VALUE Present value}
+   *   <li>{@linkplain Measures#PRESENT_VALUE Present value}
+   *   <li>{@linkplain Measures#PRESENT_VALUE_MULTI_CCY Present value with no currency conversion}
    * </ul>
    * 
    * @return the function group

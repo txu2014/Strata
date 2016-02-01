@@ -21,9 +21,11 @@ import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.basics.market.ObservableKey;
 import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
 import com.opengamma.strata.calc.marketdata.CalculationMarketData;
 import com.opengamma.strata.calc.marketdata.FunctionRequirements;
 import com.opengamma.strata.calc.runner.function.CalculationFunction;
+import com.opengamma.strata.calc.runner.function.FunctionUtils;
 import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
@@ -40,14 +42,15 @@ import com.opengamma.strata.product.fra.FraTrade;
  * This uses the standard discounting calculation method.
  * The supported built-in measures are:
  * <ul>
- *   <li>{@linkplain Measure#PAR_RATE Par rate}
- *   <li>{@linkplain Measure#PAR_SPREAD Par spread}
- *   <li>{@linkplain Measure#PRESENT_VALUE Present value}
- *   <li>{@linkplain Measure#EXPLAIN_PRESENT_VALUE Explain present value}
- *   <li>{@linkplain Measure#CASH_FLOWS Cash flows}
- *   <li>{@linkplain Measure#PV01 PV01}
- *   <li>{@linkplain Measure#BUCKETED_PV01 Bucketed PV01}
- *   <li>{@linkplain Measure#BUCKETED_GAMMA_PV01 Bucketed Gamma PV01}
+ *   <li>{@linkplain Measures#PAR_RATE Par rate}
+ *   <li>{@linkplain Measures#PAR_SPREAD Par spread}
+ *   <li>{@linkplain Measures#PRESENT_VALUE Present value}
+ *   <li>{@linkplain Measures#PRESENT_VALUE_MULTI_CCY Present value with no currency conversion}
+ *   <li>{@linkplain Measures#EXPLAIN_PRESENT_VALUE Explain present value}
+ *   <li>{@linkplain Measures#CASH_FLOWS Cash flows}
+ *   <li>{@linkplain Measures#PV01 PV01}
+ *   <li>{@linkplain Measures#BUCKETED_PV01 Bucketed PV01}
+ *   <li>{@linkplain Measures#BUCKETED_GAMMA_PV01 Bucketed Gamma PV01}
  * </ul>
  */
 public class FraCalculationFunction
@@ -58,15 +61,20 @@ public class FraCalculationFunction
    */
   private static final ImmutableMap<Measure, SingleMeasureCalculation> CALCULATORS =
       ImmutableMap.<Measure, SingleMeasureCalculation>builder()
-          .put(Measure.PAR_RATE, FraMeasureCalculations::parRate)
-          .put(Measure.PAR_SPREAD, FraMeasureCalculations::parSpread)
-          .put(Measure.PRESENT_VALUE, FraMeasureCalculations::presentValue)
-          .put(Measure.EXPLAIN_PRESENT_VALUE, FraMeasureCalculations::explainPresentValue)
-          .put(Measure.CASH_FLOWS, FraMeasureCalculations::cashFlows)
-          .put(Measure.PV01, FraMeasureCalculations::pv01)
-          .put(Measure.BUCKETED_PV01, FraMeasureCalculations::bucketedPv01)
-          .put(Measure.BUCKETED_GAMMA_PV01, FraMeasureCalculations::bucketedGammaPv01)
+          .put(Measures.PAR_RATE, FraMeasureCalculations::parRate)
+          .put(Measures.PAR_SPREAD, FraMeasureCalculations::parSpread)
+          .put(Measures.PRESENT_VALUE, FraMeasureCalculations::presentValue)
+          .put(Measures.EXPLAIN_PRESENT_VALUE, FraMeasureCalculations::explainPresentValue)
+          .put(Measures.CASH_FLOWS, FraMeasureCalculations::cashFlows)
+          .put(Measures.PV01, FraMeasureCalculations::pv01)
+          .put(Measures.BUCKETED_PV01, FraMeasureCalculations::bucketedPv01)
+          .put(Measures.BUCKETED_GAMMA_PV01, FraMeasureCalculations::bucketedGammaPv01)
           .build();
+
+  private static final ImmutableSet<Measure> MEASURES = ImmutableSet.<Measure>builder()
+      .addAll(CALCULATORS.keySet())
+      .add(Measures.PRESENT_VALUE_MULTI_CCY)
+      .build();
 
   /**
    * Creates an instance.
@@ -77,11 +85,11 @@ public class FraCalculationFunction
   //-------------------------------------------------------------------------
   @Override
   public Set<Measure> supportedMeasures() {
-    return CALCULATORS.keySet();
+    return MEASURES;
   }
 
   @Override
-  public Optional<Currency> defaultReportingCurrency(FraTrade target) {
+  public Optional<Currency> naturalCurrency(FraTrade target) {
     return Optional.of(target.getProduct().getCurrency());
   }
 
@@ -134,6 +142,8 @@ public class FraCalculationFunction
     for (Measure measure : measures) {
       results.put(measure, calculate(measure, trade, product, scenarioMarketData));
     }
+    // The calculated value is the same for these two measures but they are handled differently WRT FX conversion
+    FunctionUtils.duplicateResult(Measures.PRESENT_VALUE, Measures.PRESENT_VALUE_MULTI_CCY, results);
     return results;
   }
 

@@ -15,9 +15,11 @@ import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
 import com.opengamma.strata.calc.marketdata.CalculationMarketData;
 import com.opengamma.strata.calc.marketdata.FunctionRequirements;
 import com.opengamma.strata.calc.runner.function.CalculationFunction;
+import com.opengamma.strata.calc.runner.function.FunctionUtils;
 import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
@@ -32,17 +34,17 @@ import com.opengamma.strata.product.fx.FxSwapTrade;
  * This uses the standard discounting calculation method.
  * The supported built-in measures are:
  * <ul>
- *   <li>{@linkplain Measure#PAR_SPREAD Par spread}
- *   <li>{@linkplain Measure#PRESENT_VALUE Present value}
- *   <li>{@linkplain Measure#PV01 PV01}
- *   <li>{@linkplain Measure#BUCKETED_PV01 Bucketed PV01}
- *   <li>{@linkplain Measure#CURRENCY_EXPOSURE Currency exposure}
- *   <li>{@linkplain Measure#CURRENT_CASH Current cash}
- *   <li>{@linkplain Measure#FORWARD_FX_RATE Forward FX rate}
+ *   <li>{@linkplain Measures#PAR_SPREAD Par spread}
+ *   <li>{@linkplain Measures#PRESENT_VALUE Present value}
+ *   <li>{@linkplain Measures#PRESENT_VALUE_MULTI_CCY Present value with no currency conversion}
+ *   <li>{@linkplain Measures#PV01 PV01}
+ *   <li>{@linkplain Measures#BUCKETED_PV01 Bucketed PV01}
+ *   <li>{@linkplain Measures#CURRENCY_EXPOSURE Currency exposure}
+ *   <li>{@linkplain Measures#CURRENT_CASH Current cash}
+ *   <li>{@linkplain Measures#FORWARD_FX_RATE Forward FX rate}
  * </ul>
  * <p>
- * The default reporting currency is determined to be the base currency of the market convention
- * pair of the near leg currencies.
+ * The "natural" currency is the base currency of the market convention pair of the near leg currencies.
  */
 public class FxSwapCalculationFunction
     implements CalculationFunction<FxSwapTrade> {
@@ -52,13 +54,18 @@ public class FxSwapCalculationFunction
    */
   private static final ImmutableMap<Measure, SingleMeasureCalculation> CALCULATORS =
       ImmutableMap.<Measure, SingleMeasureCalculation>builder()
-          .put(Measure.PAR_SPREAD, FxSwapMeasureCalculations::parSpread)
-          .put(Measure.PRESENT_VALUE, FxSwapMeasureCalculations::presentValue)
-          .put(Measure.PV01, FxSwapMeasureCalculations::pv01)
-          .put(Measure.BUCKETED_PV01, FxSwapMeasureCalculations::bucketedPv01)
-          .put(Measure.CURRENCY_EXPOSURE, FxSwapMeasureCalculations::currencyExposure)
-          .put(Measure.CURRENT_CASH, FxSwapMeasureCalculations::currentCash)
+          .put(Measures.PAR_SPREAD, FxSwapMeasureCalculations::parSpread)
+          .put(Measures.PRESENT_VALUE, FxSwapMeasureCalculations::presentValue)
+          .put(Measures.PV01, FxSwapMeasureCalculations::pv01)
+          .put(Measures.BUCKETED_PV01, FxSwapMeasureCalculations::bucketedPv01)
+          .put(Measures.CURRENCY_EXPOSURE, FxSwapMeasureCalculations::currencyExposure)
+          .put(Measures.CURRENT_CASH, FxSwapMeasureCalculations::currentCash)
           .build();
+
+  private static final ImmutableSet<Measure> MEASURES = ImmutableSet.<Measure>builder()
+      .addAll(CALCULATORS.keySet())
+      .add(Measures.PRESENT_VALUE_MULTI_CCY)
+      .build();
 
   /**
    * Creates an instance.
@@ -69,11 +76,11 @@ public class FxSwapCalculationFunction
   //-------------------------------------------------------------------------
   @Override
   public Set<Measure> supportedMeasures() {
-    return CALCULATORS.keySet();
+    return MEASURES;
   }
 
   @Override
-  public Optional<Currency> defaultReportingCurrency(FxSwapTrade target) {
+  public Optional<Currency> naturalCurrency(FxSwapTrade target) {
     Currency base = target.getProduct().getNearLeg().getBaseCurrencyAmount().getCurrency();
     Currency counter = target.getProduct().getNearLeg().getCounterCurrencyAmount().getCurrency();
     CurrencyPair marketConventionPair = CurrencyPair.of(base, counter).toConventional();
@@ -112,6 +119,8 @@ public class FxSwapCalculationFunction
     for (Measure measure : measures) {
       results.put(measure, calculate(measure, trade, product, scenarioMarketData));
     }
+    // The calculated value is the same for these two measures but they are handled differently WRT FX conversion
+    FunctionUtils.duplicateResult(Measures.PRESENT_VALUE, Measures.PRESENT_VALUE_MULTI_CCY, results);
     return results;
   }
 

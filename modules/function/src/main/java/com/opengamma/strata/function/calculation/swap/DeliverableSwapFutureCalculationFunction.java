@@ -19,9 +19,11 @@ import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.basics.market.ObservableKey;
 import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
 import com.opengamma.strata.calc.marketdata.CalculationMarketData;
 import com.opengamma.strata.calc.marketdata.FunctionRequirements;
 import com.opengamma.strata.calc.runner.function.CalculationFunction;
+import com.opengamma.strata.calc.runner.function.FunctionUtils;
 import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
@@ -38,12 +40,13 @@ import com.opengamma.strata.product.swap.DeliverableSwapFutureTrade;
  * This uses the standard discounting calculation method.
  * The supported built-in measures are:
  * <ul>
- *   <li>{@linkplain Measure#PRESENT_VALUE Present value}
- *   <li>{@linkplain Measure#PV01 PV01}
- *   <li>{@linkplain Measure#BUCKETED_PV01 Bucketed PV01}
+ *   <li>{@linkplain Measures#PRESENT_VALUE Present value}
+ *   <li>{@linkplain Measures#PRESENT_VALUE_MULTI_CCY Present value with no currency conversion}
+ *   <li>{@linkplain Measures#PV01 PV01}
+ *   <li>{@linkplain Measures#BUCKETED_PV01 Bucketed PV01}
  * </ul>
  * <p>
- * The default reporting currency is determined from the first swap leg.
+ * The "natural" currency is the currency of the swap leg that is received.
  */
 public class DeliverableSwapFutureCalculationFunction
     implements CalculationFunction<DeliverableSwapFutureTrade> {
@@ -53,10 +56,15 @@ public class DeliverableSwapFutureCalculationFunction
    */
   private static final ImmutableMap<Measure, SingleMeasureCalculation> CALCULATORS =
       ImmutableMap.<Measure, SingleMeasureCalculation>builder()
-          .put(Measure.PRESENT_VALUE, DeliverableSwapFutureMeasureCalculations::presentValue)
-          .put(Measure.PV01, DeliverableSwapFutureMeasureCalculations::pv01)
-          .put(Measure.BUCKETED_PV01, DeliverableSwapFutureMeasureCalculations::bucketedPv01)
+          .put(Measures.PRESENT_VALUE, DeliverableSwapFutureMeasureCalculations::presentValue)
+          .put(Measures.PV01, DeliverableSwapFutureMeasureCalculations::pv01)
+          .put(Measures.BUCKETED_PV01, DeliverableSwapFutureMeasureCalculations::bucketedPv01)
           .build();
+
+  private static final ImmutableSet<Measure> MEASURES = ImmutableSet.<Measure>builder()
+      .addAll(CALCULATORS.keySet())
+      .add(Measures.PRESENT_VALUE_MULTI_CCY)
+      .build();
 
   /**
    * Creates an instance.
@@ -67,11 +75,11 @@ public class DeliverableSwapFutureCalculationFunction
   //-------------------------------------------------------------------------
   @Override
   public Set<Measure> supportedMeasures() {
-    return CALCULATORS.keySet();
+    return MEASURES;
   }
 
   @Override
-  public Optional<Currency> defaultReportingCurrency(DeliverableSwapFutureTrade target) {
+  public Optional<Currency> naturalCurrency(DeliverableSwapFutureTrade target) {
     return Optional.of(target.getProduct().getCurrency());
   }
 
@@ -115,6 +123,8 @@ public class DeliverableSwapFutureCalculationFunction
     for (Measure measure : measures) {
       results.put(measure, calculate(measure, trade, scenarioMarketData));
     }
+    // The calculated value is the same for these two measures but they are handled differently WRT FX conversion
+    FunctionUtils.duplicateResult(Measures.PRESENT_VALUE, Measures.PRESENT_VALUE_MULTI_CCY, results);
     return results;
   }
 
