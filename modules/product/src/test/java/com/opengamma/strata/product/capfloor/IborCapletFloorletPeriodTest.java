@@ -16,6 +16,7 @@ import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 
 import org.testng.annotations.Test;
 
@@ -29,6 +30,8 @@ import com.opengamma.strata.product.rate.IborRateObservation;
 public class IborCapletFloorletPeriodTest {
 
   private static final LocalDate FIXING = LocalDate.of(2011, 1, 4);
+  private static final ZonedDateTime FIXING_TIME_ZONE =
+      FIXING.atTime(EUR_EURIBOR_3M.getFixingTime()).atZone(EUR_EURIBOR_3M.getFixingZone());
   private static final double STRIKE = 0.04;
   private static final LocalDate START_UNADJ = LocalDate.of(2010, 10, 8);
   private static final LocalDate END_UNADJ = LocalDate.of(2011, 1, 8);
@@ -56,7 +59,7 @@ public class IborCapletFloorletPeriodTest {
     assertEquals(test.getNotional(), NOTIONAL);
     assertEquals(test.getRateObservation(), RATE_OBSERVATION);
     assertEquals(test.getIndex(), EUR_EURIBOR_3M);
-    assertEquals(test.getFixingDate(), FIXING);
+    assertEquals(test.getFixingDateTime(), FIXING_TIME_ZONE);
     assertEquals(test.getPutCall(), PutCall.CALL);
     assertEquals(test.getUnadjustedStartDate(), startExp);
     assertEquals(test.getUnadjustedEndDate(), endExp);
@@ -87,7 +90,7 @@ public class IborCapletFloorletPeriodTest {
     assertEquals(test.getNotional(), NOTIONAL);
     assertEquals(test.getRateObservation(), RATE_OBSERVATION);
     assertEquals(test.getIndex(), EUR_EURIBOR_3M);
-    assertEquals(test.getFixingDate(), FIXING);
+    assertEquals(test.getFixingDateTime(), FIXING_TIME_ZONE);
     assertEquals(test.getPutCall(), PutCall.PUT);
     assertEquals(test.getYearFraction(), YEAR_FRACTION);
   }
