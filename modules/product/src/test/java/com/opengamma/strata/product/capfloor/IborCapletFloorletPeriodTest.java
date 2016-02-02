@@ -30,8 +30,7 @@ import com.opengamma.strata.product.rate.IborRateObservation;
 public class IborCapletFloorletPeriodTest {
 
   private static final LocalDate FIXING = LocalDate.of(2011, 1, 4);
-  private static final ZonedDateTime FIXING_TIME_ZONE =
-      FIXING.atTime(EUR_EURIBOR_3M.getFixingTime()).atZone(EUR_EURIBOR_3M.getFixingZone());
+  private static final ZonedDateTime FIXING_TIME_ZONE = EUR_EURIBOR_3M.calculateFixingDateTime(FIXING);
   private static final double STRIKE = 0.04;
   private static final LocalDate START_UNADJ = LocalDate.of(2010, 10, 8);
   private static final LocalDate END_UNADJ = LocalDate.of(2011, 1, 8);
