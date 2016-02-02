@@ -226,7 +226,7 @@ public final class IborCapletFloorletPeriod
    * @return the fixing date-time. 
    */
   public ZonedDateTime getFixingDateTime() {
-    return rateObservation.getFixingDateTime();
+    return rateObservation.getIndex().calculateFixingDateTime(rateObservation.getFixingDate());
   }
 
   /**
