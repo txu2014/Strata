@@ -32,9 +32,10 @@ import com.opengamma.strata.product.swap.ExpandedSwapLeg;
  * An expanded Ibor cap/floor product, with dates calculated ready for pricing.
  * <p>
  * The Ibor cap/floor product consists of two legs, a cap/floor leg and a pay leg.
- * The cap/floor leg is defined as a set of call/put options on successive Ibor index rates, i.e., Ibor caplets/floorlets.
- * The pay leg is any swap leg from a standard interest rate swap. The pay leg is absent for typical cap/floor products, 
- * with the premium paid upfront instead, as defined on {@link IborCapFloorTrade}.
+ * The cap/floor leg involves a set of call/put options on successive Ibor index rates,
+ * known as Ibor caplets/floorlets.
+ * The pay leg is any swap leg from a standard interest rate swap. The pay leg is absent for typical
+ * Ibor cap/floor products, with the premium paid upfront instead, as defined in {@link IborCapFloorTrade}.
  * <p>
  * An {@code ExpandedIborCapFloor} contains information based on holiday calendars.
  * If a holiday calendar changes, the adjusted dates may no longer be correct.
@@ -81,6 +82,7 @@ public final class ExpandedIborCapFloor
    * @return the cap/floor
    */
   public static ExpandedIborCapFloor of(ExpandedIborCapFloorLeg capFloorLeg, ExpandedSwapLeg payLeg) {
+    ArgChecker.notNull(payLeg, "payLeg");
     return new ExpandedIborCapFloor(capFloorLeg, payLeg);
   }
 
@@ -88,7 +90,8 @@ public final class ExpandedIborCapFloor
   @ImmutableValidator
   private void validate() {
     if (getPayLeg().isPresent()) {
-      ArgChecker.isFalse(payLeg.getPayReceive().equals(capFloorLeg.getPayReceive()),
+      ArgChecker.isFalse(
+          payLeg.getPayReceive().equals(capFloorLeg.getPayReceive()),
           "Two legs should have different Pay/Receive flags");
     }
   }
