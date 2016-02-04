@@ -82,14 +82,6 @@ public interface IborIndex
   public abstract HolidayCalendar getFixingCalendar();
 
   /**
-   * Converts the fixing date from {@code LocalDate} to {@code ZonedDateTime}.
-   * 
-   * @param fixingDate  the fixing date
-   * @return  the zoned date-time
-   */
-  public abstract ZonedDateTime calculateFixingDateTime(LocalDate fixingDate);
-
-  /**
    * Gets the tenor of the index.
    * 
    * @return the tenor

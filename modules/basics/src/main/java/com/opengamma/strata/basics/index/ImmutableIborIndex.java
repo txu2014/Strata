@@ -124,11 +124,6 @@ public final class ImmutableIborIndex
     return maturityDateOffset.getTenor();
   }
 
-  @Override
-  public ZonedDateTime calculateFixingDateTime(LocalDate fixingDate) {
-    return fixingDate.atTime(fixingTime).atZone(fixingZone);
-  }
-
   //-------------------------------------------------------------------------
   @Override
   public ZonedDateTime calculateFixingDateTime(LocalDate fixingDate) {
