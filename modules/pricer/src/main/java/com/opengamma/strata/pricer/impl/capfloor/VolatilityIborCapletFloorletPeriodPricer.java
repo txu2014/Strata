@@ -10,8 +10,18 @@ import com.opengamma.strata.market.view.IborCapletFloorletVolatilities;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.product.capfloor.IborCapletFloorletPeriod;
 
+/**
+ * Pricer for caplet/floorlet based on volatilities.
+ * <p>
+ * The pricing methodologies are defined in individual implementations of the volatilities, {@link IborCapletFloorletVolatilities}. 
+ * <p>
+ * The value of the caplet/floorlet after expiry is 0. 
+ */
 public class VolatilityIborCapletFloorletPeriodPricer {
 
+  /**
+   * Default implementation.
+   */
   public static final VolatilityIborCapletFloorletPeriodPricer DEFAULT = new VolatilityIborCapletFloorletPeriodPricer();
   
 
@@ -31,6 +41,7 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
 
+    validate(volatilities);
     double expiry = volatilities.relativeTime(period.getFixingDateTime());
     Currency currency = period.getCurrency();
     if (expiry < 0d) { // Option has expired already
@@ -59,6 +70,7 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
 
+    validate(volatilities);
     double expiry = volatilities.relativeTime(period.getFixingDateTime());
     ArgChecker.isTrue(expiry >= 0d, "Option must be before expiry to compute an implied volatility");
     double forward = ratesProvider.iborIndexRates(period.getIndex()).rate(period.getFixingDate());
@@ -82,6 +94,7 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
 
+    validate(volatilities);
     double expiry = volatilities.relativeTime(period.getFixingDateTime());
     Currency currency = period.getCurrency();
     if (expiry < 0d) { // Option has expired already
@@ -113,6 +126,7 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
 
+    validate(volatilities);
     double expiry = volatilities.relativeTime(period.getFixingDateTime());
     Currency currency = period.getCurrency();
     if (expiry < 0d) { // Option has expired already
@@ -132,7 +146,8 @@ public class VolatilityIborCapletFloorletPeriodPricer {
   /**
    * Calculates the present value theta of the caplet/floorlet period.
    * <p>
-   * The present value theta is given by the minus of the present value sensitivity to {@code timeToExpiry}. 
+   * The present value theta is given by the minus of the present value sensitivity to the {@code timeToExpiry} 
+   * parameter of Black model. 
    * 
    * @param period  the caplet/floorlet period
    * @param ratesProvider  the rates provider
@@ -144,6 +159,7 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
 
+    validate(volatilities);
     double expiry = volatilities.relativeTime(period.getFixingDateTime());
     Currency currency = period.getCurrency();
     if (expiry < 0d) { // Option has expired already
@@ -170,25 +186,26 @@ public class VolatilityIborCapletFloorletPeriodPricer {
    * @param volatilities  the volatilities
    * @return the present value curve sensitivity
    */
-  public PointSensitivityBuilder presentValueSensitivityStickyStrike(
+  public PointSensitivityBuilder presentValueSensitivity(
       IborCapletFloorletPeriod period,
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
 
+    validate(volatilities);
     double expiry = volatilities.relativeTime(period.getFixingDateTime());
     Currency currency = period.getCurrency();
     if (expiry < 0d) { // Option has expired already
       return PointSensitivityBuilder.none();
     }
     double forward = ratesProvider.iborIndexRates(period.getIndex()).rate(period.getFixingDate());
-    PointSensitivityBuilder forwardSensi = ratesProvider.iborIndexRates(period.getIndex()).ratePointSensitivity(
-        period.getFixingDate());
+    PointSensitivityBuilder forwardSensi =
+        ratesProvider.iborIndexRates(period.getIndex()).ratePointSensitivity(period.getFixingDate());
     double strike = period.getStrike();
     double volatility = volatilities.volatility(expiry, strike, forward);
     PutCall putCall = period.getPutCall();
     double df = ratesProvider.discountFactor(currency, period.getPaymentDate());
-    PointSensitivityBuilder dfSensi = ratesProvider.discountFactors(currency).zeroRatePointSensitivity(
-        period.getPaymentDate());
+    PointSensitivityBuilder dfSensi =
+        ratesProvider.discountFactors(currency).zeroRatePointSensitivity(period.getPaymentDate());
     double factor = period.getNotional() * period.getYearFraction();
     double fwdPv = factor * volatilities.price(expiry, putCall, strike, forward, volatility);
     double fwdDelta = factor * volatilities.priceDelta(expiry, putCall, strike, forward, volatility);
@@ -211,10 +228,11 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
 
+    validate(volatilities);
     double expiry = volatilities.relativeTime(period.getFixingDateTime());
     double strike = period.getStrike();
     Currency currency = period.getCurrency();
-    if (expiry < 0d) { // Option has expired already
+    if (expiry <= 0d) { // Option has expired already or at expiry
       return PointSensitivityBuilder.none();
     }
     double forward = ratesProvider.iborIndexRates(period.getIndex()).rate(period.getFixingDate());
@@ -231,4 +249,15 @@ public class VolatilityIborCapletFloorletPeriodPricer {
         vega * period.getNotional());
   }
   
+  /**
+   * Validate the volatilities provider. 
+   * <p>
+   * This method must be overridden such that a correct implementation of {@code IborCapletFloorletVolatilities} is 
+   * used for pricing. 
+   * 
+   * @param volatilities  the volatilities
+   */
+  protected void validate(IborCapletFloorletVolatilities volatilities) {
+  }
+
 }

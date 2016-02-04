@@ -9,7 +9,13 @@ import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.product.capfloor.ExpandedIborCapFloorLeg;
 
 public class VolatilityIborCapFloorLegPricer {
-  
+
+  /**
+   * Default implementation. 
+   */
+  public static final VolatilityIborCapFloorLegPricer DEFAULT =
+      new VolatilityIborCapFloorLegPricer(VolatilityIborCapletFloorletPeriodPricer.DEFAULT);
+
   private final VolatilityIborCapletFloorletPeriodPricer periodPricer;
 
   public VolatilityIborCapFloorLegPricer(VolatilityIborCapletFloorletPeriodPricer periodPricer) {
@@ -81,7 +87,7 @@ public class VolatilityIborCapFloorLegPricer {
         .get();
   }
 
-  public PointSensitivityBuilder presentValueSensitivityStickyStrike(
+  public PointSensitivityBuilder presentValueSensitivity(
       ExpandedIborCapFloorLeg capFloorLeg,
       RatesProvider ratesProvider,
       IborCapletFloorletVolatilities volatilities) {
@@ -89,7 +95,7 @@ public class VolatilityIborCapFloorLegPricer {
     validate(ratesProvider, volatilities);
     return capFloorLeg.getCapletFloorletPeriods()
         .stream()
-        .map(period -> periodPricer.presentValueSensitivityStickyStrike(period, ratesProvider, volatilities))
+        .map(period -> periodPricer.presentValueSensitivity(period, ratesProvider, volatilities))
         .reduce((p1, p2) -> p1.combinedWith(p2))
         .get();
   }
