@@ -98,6 +98,19 @@ public interface IborIndex
 
   //-------------------------------------------------------------------------
   /**
+   * Converts the fixing date-time from the fixing date.
+   * <p>
+   * The fixing date is the date on which the index is to be observed.
+   * The fixing date-time is the specific date and time of the observation.
+   * <p>
+   * No error is thrown if the input date is not a valid fixing date.
+   * 
+   * @param fixingDate  the fixing date
+   * @return  the fixing date-time
+   */
+  public abstract ZonedDateTime calculateFixingDateTime(LocalDate fixingDate);
+
+  /**
    * Calculates the effective date from the fixing date.
    * <p>
    * The fixing date is the date on which the index is to be observed.

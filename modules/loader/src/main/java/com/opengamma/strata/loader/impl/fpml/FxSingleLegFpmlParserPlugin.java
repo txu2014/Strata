@@ -24,7 +24,7 @@ import com.opengamma.strata.basics.index.ImmutableFxIndex;
 import com.opengamma.strata.collect.io.XmlElement;
 import com.opengamma.strata.loader.fpml.FpmlDocument;
 import com.opengamma.strata.loader.fpml.FpmlParseException;
-import com.opengamma.strata.loader.fpml.FpmlTradeParser;
+import com.opengamma.strata.loader.fpml.FpmlParserPlugin;
 import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.fx.FxNdf;
 import com.opengamma.strata.product.fx.FxNdfTrade;
@@ -36,24 +36,24 @@ import com.opengamma.strata.product.fx.FxSingleTrade;
  * <p>
  * This parser handles the subset of FpML necessary to populate the trade model.
  */
-final class FxSingleLegFpmlTradeParser
-    implements FpmlTradeParser {
+final class FxSingleLegFpmlParserPlugin
+    implements FpmlParserPlugin {
   // this class is loaded by ExtendedEnum reflection
 
   /**
    * The singleton instance of the parser.
    */
-  public static final FxSingleLegFpmlTradeParser INSTANCE = new FxSingleLegFpmlTradeParser();
+  public static final FxSingleLegFpmlParserPlugin INSTANCE = new FxSingleLegFpmlParserPlugin();
 
   /**
    * Restricted constructor.
    */
-  private FxSingleLegFpmlTradeParser() {
+  private FxSingleLegFpmlParserPlugin() {
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public Trade parseTrade(XmlElement tradeEl, FpmlDocument document) {
+  public Trade parseTrade(FpmlDocument document, XmlElement tradeEl) {
     // supported elements:
     // 'exchangedCurrency1/paymentAmount'
     // 'exchangedCurrency2/paymentAmount'

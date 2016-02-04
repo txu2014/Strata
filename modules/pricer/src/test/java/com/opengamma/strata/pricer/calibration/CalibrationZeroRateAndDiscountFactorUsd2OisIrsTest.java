@@ -547,7 +547,7 @@ public class CalibrationZeroRateAndDiscountFactorUsd2OisIrsTest {
           + (endTime - startTime) + " ms.");
     }
     System.out.println("Avoiding hotspot: " + count);
-    // Previous run: 1600 ms for 100 calibrations (2 curve simultaneous - 30 nodes)
+    // Previous run: 1500 ms for 100 calibrations (2 curve simultaneous - 30 nodes)
   }
 
 }

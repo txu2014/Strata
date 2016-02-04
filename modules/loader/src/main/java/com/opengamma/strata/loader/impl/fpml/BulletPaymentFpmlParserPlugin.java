@@ -8,7 +8,7 @@ package com.opengamma.strata.loader.impl.fpml;
 import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.collect.io.XmlElement;
 import com.opengamma.strata.loader.fpml.FpmlDocument;
-import com.opengamma.strata.loader.fpml.FpmlTradeParser;
+import com.opengamma.strata.loader.fpml.FpmlParserPlugin;
 import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.payment.BulletPayment;
 import com.opengamma.strata.product.payment.BulletPaymentTrade;
@@ -18,24 +18,24 @@ import com.opengamma.strata.product.payment.BulletPaymentTrade;
  * <p>
  * This parser handles the subset of FpML necessary to populate the trade model.
  */
-final class BulletPaymentFpmlTradeParser
-    implements FpmlTradeParser {
+final class BulletPaymentFpmlParserPlugin
+    implements FpmlParserPlugin {
   // this class is loaded by ExtendedEnum reflection
 
   /**
    * The singleton instance of the parser.
    */
-  public static final BulletPaymentFpmlTradeParser INSTANCE = new BulletPaymentFpmlTradeParser();
+  public static final BulletPaymentFpmlParserPlugin INSTANCE = new BulletPaymentFpmlParserPlugin();
 
   /**
    * Restricted constructor.
    */
-  private BulletPaymentFpmlTradeParser() {
+  private BulletPaymentFpmlParserPlugin() {
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public Trade parseTrade(XmlElement tradeEl, FpmlDocument document) {
+  public Trade parseTrade(FpmlDocument document, XmlElement tradeEl) {
     // supported elements:
     // 'payment/payerPartyReference'
     // 'payment/receiverPartyReference'
