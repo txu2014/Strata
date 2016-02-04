@@ -1,3 +1,8 @@
+/**
+ * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
+ *
+ * Please see distribution for license.
+ */
 package com.opengamma.strata.pricer.impl.capfloor;
 
 import com.opengamma.strata.basics.PutCall;
@@ -7,6 +12,7 @@ import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.sensitivity.IborCapletFloorletSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.market.view.IborCapletFloorletVolatilities;
+import com.opengamma.strata.pricer.capfloor.VolatilityIborCapFloorLegPricer;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.product.capfloor.IborCapletFloorletPeriod;
 
@@ -16,6 +22,9 @@ import com.opengamma.strata.product.capfloor.IborCapletFloorletPeriod;
  * The pricing methodologies are defined in individual implementations of the volatilities, {@link IborCapletFloorletVolatilities}. 
  * <p>
  * The value of the caplet/floorlet after expiry is 0. 
+ *  <p>
+ *  The consistency between {@code RatesProvider} and {@code IborCapletFloorletVolatilities} is not checked in this 
+ *  class, but validated only once in {@link VolatilityIborCapFloorLegPricer}.
  */
 public class VolatilityIborCapletFloorletPeriodPricer {
 

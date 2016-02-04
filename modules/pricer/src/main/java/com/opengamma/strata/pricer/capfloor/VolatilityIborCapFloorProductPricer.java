@@ -1,3 +1,8 @@
+/**
+ * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
+ *
+ * Please see distribution for license.
+ */
 package com.opengamma.strata.pricer.capfloor;
 
 import com.opengamma.strata.basics.currency.CurrencyAmount;
@@ -12,8 +17,20 @@ import com.opengamma.strata.product.capfloor.IborCapFloorLeg;
 import com.opengamma.strata.product.capfloor.IborCapFloorProduct;
 import com.opengamma.strata.product.swap.SwapLeg;
 
+/**
+ * Pricer for cap/floor products based on volatilities.
+ * <p>
+ * This function provides the ability to price {@link IborCapFloorProduct}. 
+ * <p>
+ * The pricing methodologies are defined in individual implementations of the volatilities, {@link IborCapletFloorletVolatilities}. 
+ */
 public class VolatilityIborCapFloorProductPricer {
 
+  /**
+   * Default implementation.
+   */
+  public static final VolatilityIborCapFloorProductPricer DEFAULT =
+      new VolatilityIborCapFloorProductPricer(VolatilityIborCapFloorLegPricer.DEFAULT, DiscountingSwapLegPricer.DEFAULT);
   /**
    * The pricer for {@link IborCapFloorLeg}.
    */
