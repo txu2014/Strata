@@ -5,7 +5,7 @@
  */
 package com.opengamma.strata.pricer.capfloor;
 
-import com.opengamma.strata.pricer.impl.capfloor.BlackIborCapletFloorletPeriodPricer;
+import com.opengamma.strata.pricer.impl.capfloor.NormalIborCapletFloorletPeriodPricer;
 import com.opengamma.strata.product.capfloor.IborCapletFloorletPeriod;
 
 /**
@@ -18,14 +18,14 @@ public class NormalIborCapFloorLegPricer
   * Default implementation. 
   */
   public static final NormalIborCapFloorLegPricer DEFAULT =
-      new NormalIborCapFloorLegPricer(BlackIborCapletFloorletPeriodPricer.DEFAULT);
+      new NormalIborCapFloorLegPricer(NormalIborCapletFloorletPeriodPricer.DEFAULT);
 
   /**
    * Creates an instance. 
    * 
    * @param periodPricer  the pricer for {@link IborCapletFloorletPeriod}.
    */
-  public NormalIborCapFloorLegPricer(BlackIborCapletFloorletPeriodPricer periodPricer) {
+  public NormalIborCapFloorLegPricer(NormalIborCapletFloorletPeriodPricer periodPricer) {
     super(periodPricer);
   }
 

@@ -134,6 +134,12 @@ public class BlackIborCapletFloorletPeriodPricerTest {
       IborCapletFloorletDataSet.createRatesProvider(FIXING.plusWeeks(1), EUR_EURIBOR_3M, TIME_SERIES);
   private static final BlackIborCapletFloorletExpiryStrikeVolatilities VOLS_AFTER_FIX = IborCapletFloorletDataSet
       .createBlackVolatilitiesProvider(FIXING.plusWeeks(1).atStartOfDay(ZoneOffset.UTC), EUR_EURIBOR_3M);
+  // valuation date after payment date
+  private static final LocalDate DATE_AFTER_PAY = LocalDate.of(2011, 5, 2);
+  private static final ImmutableRatesProvider RATES_AFTER_PAY =
+      IborCapletFloorletDataSet.createRatesProvider(DATE_AFTER_PAY, EUR_EURIBOR_3M, TIME_SERIES);
+  private static final BlackIborCapletFloorletExpiryStrikeVolatilities VOLS_AFTER_PAY = IborCapletFloorletDataSet
+      .createBlackVolatilitiesProvider(DATE_AFTER_PAY.plusWeeks(1).atStartOfDay(ZoneOffset.UTC), EUR_EURIBOR_3M);
   // normal vols
   private static final NormalIborCapletFloorletExpiryStrikeVolatilities VOLS_NORMAL = IborCapletFloorletDataSet
       .createNormalVolatilitiesProvider(VALUATION, EUR_EURIBOR_3M);
@@ -190,6 +196,16 @@ public class BlackIborCapletFloorletPeriodPricerTest {
   public void test_presentValue_afterFix() {
     CurrencyAmount computedCaplet = PRICER.presentValue(CAPLET_LONG, RATES_AFTER_FIX, VOLS_AFTER_FIX);
     CurrencyAmount computedFloorlet = PRICER.presentValue(FLOORLET_SHORT, RATES_AFTER_FIX, VOLS_AFTER_FIX);
+    double payoff = (OBS_INDEX - STRIKE) * PRICER_COUPON.presentValue(FIXED_COUPON_UNIT, RATES_AFTER_FIX);
+    assertEquals(computedCaplet.getCurrency(), EUR);
+    assertEquals(computedCaplet.getAmount(), payoff, NOTIONAL * TOL);
+    assertEquals(computedFloorlet.getCurrency(), EUR);
+    assertEquals(computedFloorlet.getAmount(), 0d, NOTIONAL * TOL);
+  }
+
+  public void test_presentValue_afterPay() {
+    CurrencyAmount computedCaplet = PRICER.presentValue(CAPLET_LONG, RATES_AFTER_PAY, VOLS_AFTER_PAY);
+    CurrencyAmount computedFloorlet = PRICER.presentValue(FLOORLET_SHORT, RATES_AFTER_PAY, VOLS_AFTER_PAY);
     assertEquals(computedCaplet.getCurrency(), EUR);
     assertEquals(computedCaplet.getAmount(), 0d, NOTIONAL * TOL);
     assertEquals(computedFloorlet.getCurrency(), EUR);
@@ -376,14 +392,28 @@ public class BlackIborCapletFloorletPeriodPricerTest {
         FD_CAL.sensitivity(RATES_ON_FIX, p -> PRICER_BASE.presentValue(FLOORLET_SHORT, p, VOLS_ON_FIX));
     assertTrue(computedCaplet.equalWithTolerance(expectedCaplet, EPS_FD * NOTIONAL));
     assertTrue(computedFloorlet.equalWithTolerance(expectedFloorlet, EPS_FD * NOTIONAL));
-
   }
 
   public void test_presentValueSensitivity_afterFix() {
-    PointSensitivityBuilder computedCaplet =
-        PRICER.presentValueSensitivity(CAPLET_LONG, RATES_AFTER_FIX, VOLS_AFTER_FIX);
-    PointSensitivityBuilder computedFloorlet =
+    PointSensitivityBuilder pointCaplet = PRICER.presentValueSensitivity(CAPLET_LONG, RATES_AFTER_FIX, VOLS_AFTER_FIX);
+    CurveCurrencyParameterSensitivities computedCaplet = RATES_AFTER_FIX.curveParameterSensitivity(pointCaplet.build());
+    PointSensitivityBuilder pointFloorlet =
         PRICER.presentValueSensitivity(FLOORLET_SHORT, RATES_AFTER_FIX, VOLS_AFTER_FIX);
+    CurveCurrencyParameterSensitivities computedFloorlet =
+        RATES_AFTER_FIX.curveParameterSensitivity(pointFloorlet.build());
+    CurveCurrencyParameterSensitivities expectedCaplet =
+        FD_CAL.sensitivity(RATES_AFTER_FIX, p -> PRICER_BASE.presentValue(CAPLET_LONG, p, VOLS_AFTER_FIX));
+    CurveCurrencyParameterSensitivities expectedFloorlet =
+        FD_CAL.sensitivity(RATES_AFTER_FIX, p -> PRICER_BASE.presentValue(FLOORLET_SHORT, p, VOLS_AFTER_FIX));
+    assertTrue(computedCaplet.equalWithTolerance(expectedCaplet, EPS_FD * NOTIONAL));
+    assertTrue(computedFloorlet.equalWithTolerance(expectedFloorlet, EPS_FD * NOTIONAL));
+  }
+
+  public void test_presentValueSensitivity_afterPay() {
+    PointSensitivityBuilder computedCaplet =
+        PRICER.presentValueSensitivity(CAPLET_LONG, RATES_AFTER_PAY, VOLS_AFTER_PAY);
+    PointSensitivityBuilder computedFloorlet =
+        PRICER.presentValueSensitivity(FLOORLET_SHORT, RATES_AFTER_PAY, VOLS_AFTER_PAY);
     assertEquals(computedCaplet, PointSensitivityBuilder.none());
     assertEquals(computedFloorlet, PointSensitivityBuilder.none());
   }
@@ -391,9 +421,11 @@ public class BlackIborCapletFloorletPeriodPricerTest {
   //-------------------------------------------------------------------------
   public void test_presentValueSensitivityVolatility() {
     PointSensitivityBuilder pointCaplet = PRICER.presentValueSensitivityVolatility(CAPLET_LONG, RATES, VOLS);
-    SurfaceCurrencyParameterSensitivity computedCaplet = VOLS.surfaceCurrencyParameterSensitivity(pointCaplet.build());
+    SurfaceCurrencyParameterSensitivity computedCaplet =
+        VOLS.surfaceCurrencyParameterSensitivity(pointCaplet.build()).getSensitivities().get(0);
     PointSensitivityBuilder pointFloorlet = PRICER.presentValueSensitivityVolatility(FLOORLET_SHORT, RATES, VOLS);
-    SurfaceCurrencyParameterSensitivity computedFloorlet = VOLS.surfaceCurrencyParameterSensitivity(pointFloorlet.build());
+    SurfaceCurrencyParameterSensitivity computedFloorlet =
+        VOLS.surfaceCurrencyParameterSensitivity(pointFloorlet.build()).getSensitivities().get(0);
     testSurfaceSensitivity(computedCaplet, VOLS, v -> PRICER.presentValue(CAPLET_LONG, RATES, v));
     testSurfaceSensitivity(computedFloorlet, VOLS, v -> PRICER.presentValue(FLOORLET_SHORT, RATES, v));
   }

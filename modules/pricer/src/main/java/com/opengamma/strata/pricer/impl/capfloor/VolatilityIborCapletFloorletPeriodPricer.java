@@ -21,10 +21,11 @@ import com.opengamma.strata.product.capfloor.IborCapletFloorletPeriod;
  * <p>
  * The pricing methodologies are defined in individual implementations of the volatilities, {@link IborCapletFloorletVolatilities}. 
  * <p>
- * The value of the caplet/floorlet after expiry is 0. 
- *  <p>
- *  The consistency between {@code RatesProvider} and {@code IborCapletFloorletVolatilities} is not checked in this 
- *  class, but validated only once in {@link VolatilityIborCapFloorLegPricer}.
+ * The value of the caplet/floorlet after expiry is a fixed currency amount or zero depending on an observed index rate. 
+ * The value is zero if valuation date is after payment date of the cap/floor.  
+ * <p>
+ * The consistency between {@code RatesProvider} and {@code IborCapletFloorletVolatilities} is not checked in this 
+ * class, but validated only once in {@link VolatilityIborCapFloorLegPricer}.
  */
 public class VolatilityIborCapletFloorletPeriodPricer {
 
@@ -51,17 +52,22 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       IborCapletFloorletVolatilities volatilities) {
 
     validate(volatilities);
-    double expiry = volatilities.relativeTime(period.getFixingDateTime());
     Currency currency = period.getCurrency();
-    if (expiry < 0d) { // Option has expired already
+    if (ratesProvider.getValuationDate().isAfter(period.getPaymentDate())) {
       return CurrencyAmount.of(currency, 0d);
     }
-    double forward = ratesProvider.iborIndexRates(period.getIndex()).rate(period.getFixingDate());
-    double strike = period.getStrike();
-    double volatility = volatilities.volatility(expiry, strike, forward);
-    PutCall putCall = period.getPutCall();
+    double expiry = volatilities.relativeTime(period.getFixingDateTime());
     double df = ratesProvider.discountFactor(currency, period.getPaymentDate());
-    double price = df * period.getYearFraction() * volatilities.price(expiry, putCall, strike, forward, volatility);
+    PutCall putCall = period.getPutCall();
+    double strike = period.getStrike();
+    double indexRate = ratesProvider.iborIndexRates(period.getIndex()).rate(period.getFixingDate());
+    if (expiry < 0d) { // Option has expired already
+      double sign = putCall.isCall() ? 1d : -1d;
+      double payoff = Math.max(sign * (indexRate - strike), 0d);
+      return CurrencyAmount.of(currency, df * payoff * period.getYearFraction() * period.getNotional());
+    }
+    double volatility = volatilities.volatility(expiry, strike, indexRate);
+    double price = df * period.getYearFraction() * volatilities.price(expiry, putCall, strike, indexRate, volatility);
     return CurrencyAmount.of(currency, price * period.getNotional());
   }
 
@@ -201,24 +207,29 @@ public class VolatilityIborCapletFloorletPeriodPricer {
       IborCapletFloorletVolatilities volatilities) {
 
     validate(volatilities);
-    double expiry = volatilities.relativeTime(period.getFixingDateTime());
     Currency currency = period.getCurrency();
-    if (expiry < 0d) { // Option has expired already
+    if (ratesProvider.getValuationDate().isAfter(period.getPaymentDate())) {
       return PointSensitivityBuilder.none();
     }
-    double forward = ratesProvider.iborIndexRates(period.getIndex()).rate(period.getFixingDate());
-    PointSensitivityBuilder forwardSensi =
-        ratesProvider.iborIndexRates(period.getIndex()).ratePointSensitivity(period.getFixingDate());
-    double strike = period.getStrike();
-    double volatility = volatilities.volatility(expiry, strike, forward);
+    double expiry = volatilities.relativeTime(period.getFixingDateTime());
     PutCall putCall = period.getPutCall();
-    double df = ratesProvider.discountFactor(currency, period.getPaymentDate());
+    double strike = period.getStrike();
+    double indexRate = ratesProvider.iborIndexRates(period.getIndex()).rate(period.getFixingDate());
     PointSensitivityBuilder dfSensi =
         ratesProvider.discountFactors(currency).zeroRatePointSensitivity(period.getPaymentDate());
+    if (expiry < 0d) { // Option has expired already
+      double sign = putCall.isCall() ? 1d : -1d;
+      double payoff = Math.max(sign * (indexRate - strike), 0d);
+      return dfSensi.multipliedBy(payoff * period.getYearFraction() * period.getNotional());
+    }
+    PointSensitivityBuilder indexRateSensiSensi =
+        ratesProvider.iborIndexRates(period.getIndex()).ratePointSensitivity(period.getFixingDate());
+    double volatility = volatilities.volatility(expiry, strike, indexRate);
+    double df = ratesProvider.discountFactor(currency, period.getPaymentDate());
     double factor = period.getNotional() * period.getYearFraction();
-    double fwdPv = factor * volatilities.price(expiry, putCall, strike, forward, volatility);
-    double fwdDelta = factor * volatilities.priceDelta(expiry, putCall, strike, forward, volatility);
-    return dfSensi.multipliedBy(fwdPv).combinedWith(forwardSensi.multipliedBy(fwdDelta * df));
+    double fwdPv = factor * volatilities.price(expiry, putCall, strike, indexRate, volatility);
+    double fwdDelta = factor * volatilities.priceDelta(expiry, putCall, strike, indexRate, volatility);
+    return dfSensi.multipliedBy(fwdPv).combinedWith(indexRateSensiSensi.multipliedBy(fwdDelta * df));
   }
 
   //-------------------------------------------------------------------------

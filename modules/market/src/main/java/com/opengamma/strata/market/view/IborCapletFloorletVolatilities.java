@@ -83,16 +83,17 @@ public interface IborCapletFloorletVolatilities
    * @return the parameter sensitivity
    * @throws RuntimeException if the result cannot be calculated
    */
-  default SurfaceCurrencyParameterSensitivity surfaceCurrencyParameterSensitivity(
+  default SurfaceCurrencyParameterSensitivities surfaceCurrencyParameterSensitivity(
         PointSensitivities pointSensitivities) {
     List<SurfaceCurrencyParameterSensitivity> sensitivitiesTotal = pointSensitivities.getSensitivities()
               .stream()
               .filter(pointSensitivity -> (pointSensitivity instanceof IborCapletFloorletSensitivity))
               .map(pointSensitivity -> surfaceCurrencyParameterSensitivity((IborCapletFloorletSensitivity) pointSensitivity))
               .collect(Collectors.toList());
-    SurfaceCurrencyParameterSensitivities sensiNorm = SurfaceCurrencyParameterSensitivities.of(sensitivitiesTotal);
-    ArgChecker.isTrue(sensiNorm.getSensitivities().size() == 1, "More than one surface parameter sensitivities exist");
-    return sensiNorm.getSensitivities().get(0);
+    SurfaceCurrencyParameterSensitivities sensi = SurfaceCurrencyParameterSensitivities.of(sensitivitiesTotal);
+    // sensi should be single SurfaceCurrencyParameterSensitivity or empty
+    ArgChecker.isTrue(sensi.getSensitivities().size() <= 1, "The underlying surface must be unique");
+    return sensi;
     }
 
   /**
