@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.SetMultimap;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.index.Index;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.market.curve.Curve;
@@ -37,6 +38,10 @@ import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
  */
 public class ImmutableRatesProviderGenerator
     implements RatesProviderGenerator {
+
+  // hard-coded reference data
+  // TODO: need to resolve before starting calibration
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
 
   /**
    * The underlying known data.
@@ -129,7 +134,7 @@ public class ImmutableRatesProviderGenerator
       startIndex += paramCount;
       // create the child curve
       Map<CurveInfoType<?>, Object> infoMap = additionalInfoMap(curveDefn, jacobians);
-      Curve curve = curveDefn.curve(knownProvider.getValuationDate(), curveParams, infoMap);
+      Curve curve = curveDefn.curve(knownProvider.getValuationDate(), REF_DATA, curveParams, infoMap);
       // put child curve into maps
       Set<Currency> currencies = discountCurveNames.get(curveDefn.getName());
       for (Currency currency : currencies) {

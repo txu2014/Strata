@@ -11,6 +11,7 @@ import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.market.ValueType;
 
@@ -74,9 +75,10 @@ public interface NodalCurveDefinition {
    * If present, the size of the parameter metadata list will match the number of parameters of this curve.
    *
    * @param valuationDate  the valuation date used when calibrating the curve
+   * @param refData  the reference data
    * @return the metadata
    */
-  public abstract CurveMetadata metadata(LocalDate valuationDate);
+  public abstract CurveMetadata metadata(LocalDate valuationDate, ReferenceData refData);
 
   /**
    * Creates the curve from an array of parameter values.
@@ -85,11 +87,12 @@ public interface NodalCurveDefinition {
    * The size of the array must match the {@linkplain #getParameterCount() count of parameters}.
    * 
    * @param valuationDate  the valuation date
+   * @param refData  the reference data
    * @param parameters  the array of parameters
    * @return the curve
    */
-  public default NodalCurve curve(LocalDate valuationDate, DoubleArray parameters) {
-    return curve(valuationDate, parameters, ImmutableMap.of());
+  public default NodalCurve curve(LocalDate valuationDate, ReferenceData refData, DoubleArray parameters) {
+    return curve(valuationDate, refData, parameters, ImmutableMap.of());
   }
 
   /**
@@ -100,12 +103,14 @@ public interface NodalCurveDefinition {
    * Any additional information may be added to the curve metadata.
    * 
    * @param valuationDate  the valuation date
+   * @param refData  the reference data
    * @param parameters  the array of parameters
    * @param additionalInfo  the additional curve information, such as information about calibration
    * @return the curve
    */
   public abstract NodalCurve curve(
       LocalDate valuationDate,
+      ReferenceData refData,
       DoubleArray parameters,
       Map<CurveInfoType<?>, Object> additionalInfo);
 
