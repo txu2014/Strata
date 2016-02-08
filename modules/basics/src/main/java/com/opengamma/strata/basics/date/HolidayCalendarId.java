@@ -89,7 +89,7 @@ public final class HolidayCalendarId
       this.resolver =
           refData -> ids.stream()
               .map(r -> refData.getValue(r))
-              .reduce(HolidayCalendars.NO_HOLIDAYS, HolidayCalendar::combineWith);
+              .reduce(HolidayCalendars.NO_HOLIDAYS, HolidayCalendar::combinedWith);
     } else {
       this.name = name;
       this.resolver = refData -> refData.getValue(this);
