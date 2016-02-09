@@ -7,8 +7,9 @@ package com.opengamma.strata.pricer.capfloor;
 
 import static com.opengamma.strata.basics.PayReceive.PAY;
 import static com.opengamma.strata.basics.PayReceive.RECEIVE;
+import static com.opengamma.strata.basics.PutCall.CALL;
+import static com.opengamma.strata.basics.PutCall.PUT;
 import static com.opengamma.strata.basics.currency.Currency.EUR;
-import static com.opengamma.strata.basics.date.HolidayCalendars.EUTA;
 import static com.opengamma.strata.basics.index.IborIndices.EUR_EURIBOR_3M;
 import static com.opengamma.strata.collect.TestHelper.date;
 import static com.opengamma.strata.collect.TestHelper.dateUtc;
@@ -21,12 +22,6 @@ import java.time.ZonedDateTime;
 import org.testng.annotations.Test;
 
 import com.opengamma.strata.basics.currency.CurrencyAmount;
-import com.opengamma.strata.basics.date.BusinessDayAdjustment;
-import com.opengamma.strata.basics.date.BusinessDayConventions;
-import com.opengamma.strata.basics.schedule.Frequency;
-import com.opengamma.strata.basics.schedule.PeriodicSchedule;
-import com.opengamma.strata.basics.schedule.RollConventions;
-import com.opengamma.strata.basics.schedule.StubConvention;
 import com.opengamma.strata.basics.value.ValueSchedule;
 import com.opengamma.strata.collect.DoubleArrayMath;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
@@ -38,9 +33,7 @@ import com.opengamma.strata.pricer.impl.capfloor.BlackIborCapletFloorletPeriodPr
 import com.opengamma.strata.pricer.impl.capfloor.IborCapletFloorletDataSet;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
 import com.opengamma.strata.product.capfloor.ExpandedIborCapFloorLeg;
-import com.opengamma.strata.product.capfloor.IborCapFloorLeg;
 import com.opengamma.strata.product.capfloor.IborCapletFloorletPeriod;
-import com.opengamma.strata.product.swap.IborRateCalculation;
 
 /**
  * Test {@link BlackIborCapFloorLegPricer}.
@@ -48,35 +41,16 @@ import com.opengamma.strata.product.swap.IborRateCalculation;
 @Test
 public class BlackIborCapFloorLegPricerTest {
 
-  private static final IborRateCalculation RATE_CALCULATION = IborRateCalculation.of(EUR_EURIBOR_3M);
   private static final double STRIKE = 0.015;
   private static final double NOTIONAL_VALUE = 100_000_000;
   private static final ValueSchedule STRIKE_SCHEDULE = ValueSchedule.of(STRIKE);
   private static final ValueSchedule NOTIONAL = ValueSchedule.of(NOTIONAL_VALUE);
   private static final LocalDate START = LocalDate.of(2011, 3, 17);
   private static final LocalDate END = LocalDate.of(2016, 3, 17);
-  private static final Frequency FREQUENCY = Frequency.of(EUR_EURIBOR_3M.getTenor().getPeriod());
-  private static final BusinessDayAdjustment BUSINESS_ADJ = BusinessDayAdjustment.of(
-      BusinessDayConventions.MODIFIED_FOLLOWING, EUTA);
-  private static final PeriodicSchedule PAYMENT_SCHEDULE =
-      PeriodicSchedule.of(START, END, FREQUENCY, BUSINESS_ADJ, StubConvention.NONE, RollConventions.NONE);
-  private static final ExpandedIborCapFloorLeg CAP = IborCapFloorLeg.builder()
-      .calculation(RATE_CALCULATION)
-      .capSchedule(STRIKE_SCHEDULE)
-      .notional(NOTIONAL)
-      .paymentSchedule(PAYMENT_SCHEDULE)
-      .payReceive(RECEIVE)
-      .build()
-      .expand();
-  private static final ExpandedIborCapFloorLeg FLOOR = IborCapFloorLeg.builder()
-      .calculation(RATE_CALCULATION)
-      .floorSchedule(STRIKE_SCHEDULE)
-      .notional(NOTIONAL)
-      .paymentSchedule(PAYMENT_SCHEDULE)
-      .payReceive(PAY)
-      .build()
-      .expand();
-
+  private static final ExpandedIborCapFloorLeg CAP =
+      IborCapFloorDataSet.createCapFloorLeg(EUR_EURIBOR_3M, START, END, STRIKE_SCHEDULE, NOTIONAL, CALL, RECEIVE).expand();
+  private static final ExpandedIborCapFloorLeg FLOOR =
+      IborCapFloorDataSet.createCapFloorLeg(EUR_EURIBOR_3M, START, END, STRIKE_SCHEDULE, NOTIONAL, PUT, PAY).expand();
   // valuation before start
   private static final ZonedDateTime VALUATION = dateUtc(2011, 1, 20);
   private static final ImmutableRatesProvider RATES =

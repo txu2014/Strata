@@ -84,7 +84,7 @@ public class VolatilityIborCapFloorProductPricer {
   }
 
   /**
-   * Calculates the present value of the cap/floor product.
+   * Calculates the present value delta of the cap/floor product.
    * <p>
    * The present value of the product is the value on the valuation date.
    * <p>
@@ -107,7 +107,7 @@ public class VolatilityIborCapFloorProductPricer {
   }
 
   /**
-   * Calculates the present value of the cap/floor product.
+   * Calculates the present value gamma of the cap/floor product.
    * <p>
    * The present value of the product is the value on the valuation date.
    * <p>
@@ -130,7 +130,7 @@ public class VolatilityIborCapFloorProductPricer {
   }
 
   /**
-   * Calculates the present value of the cap/floor product.
+   * Calculates the present value theta of the cap/floor product.
    * <p>
    * The present value of the product is the value on the valuation date.
    * <p>
@@ -179,7 +179,7 @@ public class VolatilityIborCapFloorProductPricer {
   }
 
   /**
-   * Calculates the present value curve sensitivity the implied volatility of the cap/floor product.
+   * Calculates the present value volatility sensitivity of the cap/floor product.
    * <p>
    * The present value sensitivity of the product is the sensitivity of the present value to the Black volatility.
    * 
