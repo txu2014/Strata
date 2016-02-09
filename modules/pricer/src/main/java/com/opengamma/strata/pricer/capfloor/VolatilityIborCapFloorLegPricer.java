@@ -169,8 +169,8 @@ public class VolatilityIborCapFloorLegPricer {
   /**
    * Calculates the present value volatility sensitivity of the cap/floor leg.
    * <p>
-   * The present value sensitivity of the leg is the sensitivity of the present value to
-   * the volatility values.
+   * The present value volatility sensitivity of the leg is the sensitivity of the present value to the volatility 
+   * values.
    * 
    * @param capFloorLeg  the cap/floor leg
    * @param ratesProvider  the rates provider 
@@ -191,7 +191,7 @@ public class VolatilityIborCapFloorLegPricer {
   }
 
   /**
-   * Calculates the current cash of the leg. 
+   * Calculates the current cash of the cap/floor leg. 
    * 
    * @param capFloorLeg  the cap/floor leg
    * @param ratesProvider  the rates provider 

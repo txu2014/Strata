@@ -12,8 +12,8 @@ import com.opengamma.strata.pricer.capfloor.BlackIborCapletFloorletVolatilities;
 /**
  * Pricer for caplet/floorlet in a log-normal or Black model. 
  * <p>
- * The value of the caplet/floorlet after expiry is a fixed currency amount or zero depending on an observed index rate. 
- * The value is zero if valuation date is after payment date of the cap/floor.  
+ * The value of the caplet/floorlet after expiry is a fixed payoff amount. The value is zero if valuation date is 
+ * after payment date of the caplet/floorlet. 
  */
 public class BlackIborCapletFloorletPeriodPricer
     extends VolatilityIborCapletFloorletPeriodPricer {
@@ -21,7 +21,7 @@ public class BlackIborCapletFloorletPeriodPricer
   /**
    * Default implementation.
    */
-  static final public BlackIborCapletFloorletPeriodPricer DEFAULT = new BlackIborCapletFloorletPeriodPricer();
+  public static final BlackIborCapletFloorletPeriodPricer DEFAULT = new BlackIborCapletFloorletPeriodPricer();
 
   @Override
   protected void validate(IborCapletFloorletVolatilities volatilities) {

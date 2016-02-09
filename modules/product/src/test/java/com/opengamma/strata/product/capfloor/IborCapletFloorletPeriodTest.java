@@ -51,6 +51,7 @@ public class IborCapletFloorletPeriodTest {
     LocalDate endExp = EUR_EURIBOR_3M.calculateMaturityFromEffective(startExp);
     assertEquals(test.getCaplet().getAsDouble(), STRIKE);
     assertEquals(test.getFloorlet().isPresent(), false);
+    assertEquals(test.getStrike(), STRIKE);
     assertEquals(test.getStartDate(), startExp);
     assertEquals(test.getEndDate(), endExp);
     assertEquals(test.getPaymentDate(), test.getEndDate());
@@ -80,6 +81,7 @@ public class IborCapletFloorletPeriodTest {
         .build();
     assertEquals(test.getFloorlet().getAsDouble(), STRIKE);
     assertEquals(test.getCaplet().isPresent(), false);
+    assertEquals(test.getStrike(), STRIKE);
     assertEquals(test.getStartDate(), START);
     assertEquals(test.getEndDate(), END);
     assertEquals(test.getUnadjustedStartDate(), START_UNADJ);

@@ -105,7 +105,7 @@ public class VolatilityIborCapFloorTradePricer {
 
   //-------------------------------------------------------------------------
   /**
-   * Calculates the currency exposure of the trade.
+   * Calculates the currency exposure of the Ibor cap/floor trade.
    * 
    * @param trade  the Ibor cap/floor trade
    * @param ratesProvider  the rates provider
@@ -126,7 +126,7 @@ public class VolatilityIborCapFloorTradePricer {
   }
 
   /**
-   * Calculates the current cash of the trade.
+   * Calculates the current cash of the Ibor cap/floor trade.
    * 
    * @param trade  the Ibor cap/floor trade
    * @param ratesProvider  the rates provider
