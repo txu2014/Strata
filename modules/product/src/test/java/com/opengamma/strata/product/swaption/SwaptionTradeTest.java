@@ -11,6 +11,7 @@ import static com.opengamma.strata.basics.date.HolidayCalendars.USNY;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
+import static com.opengamma.strata.collect.TestHelper.date;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
@@ -27,6 +28,7 @@ import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.Tenor;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConventions;
@@ -37,6 +39,7 @@ import com.opengamma.strata.product.swap.type.FixedIborSwapConventions;
 @Test
 public class SwaptionTradeTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final double FIXED_RATE = 0.015;
   private static final double NOTIONAL = 100000000d;
   private static final Swap SWAP = FixedIborSwapConventions.USD_FIXED_6M_LIBOR_3M
@@ -48,7 +51,7 @@ public class SwaptionTradeTest {
   private static final LocalTime EXPIRY_TIME = LocalTime.of(11, 0);
   private static final ZoneId ZONE = ZoneId.of("Z");
   private static final SwaptionSettlement PHYSICAL_SETTLE = PhysicalSettlement.DEFAULT;
-  private static final Swaption SWAPTION = Swaption.builder()
+  static final Swaption SWAPTION = Swaption.builder()
       .expiryDate(ADJUSTABLE_EXPIRY_DATE)
       .expiryTime(EXPIRY_TIME)
       .expiryZone(ZONE)
@@ -56,14 +59,30 @@ public class SwaptionTradeTest {
       .swaptionSettlement(PHYSICAL_SETTLE)
       .underlying(SWAP)
       .build();
-  private static final TradeInfo TRADE_INFO = TradeInfo.builder().tradeDate(LocalDate.of(2014, 3, 14)).build();
-  private static final Payment PREMIUM = Payment.of(CurrencyAmount.of(Currency.USD, -3150000d), LocalDate.of(2014, 3, 17));
+  private static final TradeInfo TRADE_INFO = TradeInfo.builder().tradeDate(date(2014, 3, 14)).build();
+  private static final Payment PREMIUM = Payment.of(CurrencyAmount.of(Currency.USD, -3150000d), date(2014, 3, 17));
+
+  //-------------------------------------------------------------------------
+  public void test_of() {
+    SwaptionTrade test = SwaptionTrade.of(TRADE_INFO, SWAPTION, PREMIUM);
+    assertEquals(test.getPremium(), PREMIUM);
+    assertEquals(test.getProduct(), SWAPTION);
+    assertEquals(test.getTradeInfo(), TRADE_INFO);
+  }
 
   public void test_builder() {
     SwaptionTrade test = SwaptionTrade.builder().premium(PREMIUM).product(SWAPTION).tradeInfo(TRADE_INFO).build();
     assertEquals(test.getPremium(), PREMIUM);
     assertEquals(test.getProduct(), SWAPTION);
     assertEquals(test.getTradeInfo(), TRADE_INFO);
+  }
+
+  //-------------------------------------------------------------------------
+  public void test_resolve() {
+    SwaptionTrade test = SwaptionTrade.of(TRADE_INFO, SWAPTION, PREMIUM);
+    assertEquals(test.resolve(REF_DATA).getPremium(), PREMIUM);
+    assertEquals(test.resolve(REF_DATA).getProduct(), SWAPTION.resolve(REF_DATA));
+    assertEquals(test.resolve(REF_DATA).getTradeInfo(), TRADE_INFO);
   }
 
   //-------------------------------------------------------------------------

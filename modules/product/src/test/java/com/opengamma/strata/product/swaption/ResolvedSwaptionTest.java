@@ -7,11 +7,12 @@ package com.opengamma.strata.product.swaption;
 
 import static com.opengamma.strata.basics.LongShort.LONG;
 import static com.opengamma.strata.basics.LongShort.SHORT;
+import static com.opengamma.strata.basics.currency.Currency.USD;
+import static com.opengamma.strata.basics.index.IborIndices.USD_LIBOR_3M;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertSame;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -26,10 +27,10 @@ import com.opengamma.strata.product.swap.ResolvedSwap;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConventions;
 
 /**
- * Test {@link ExpandedSwaption}.
+ * Test {@link ResolvedSwaption}.
  */
 @Test
-public class ExpandedSwaptionTest {
+public class ResolvedSwaptionTest {
 
   private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate TRADE_DATE = LocalDate.of(2014, 6, 12); // starts on 2014/6/19
@@ -47,7 +48,7 @@ public class ExpandedSwaptionTest {
       .build();
 
   public void test_builder() {
-    ExpandedSwaption test = ExpandedSwaption.builder()
+    ResolvedSwaption test = ResolvedSwaption.builder()
         .expiryDate(EXPIRY_DATE)
         .expiryTime(EXPIRY_TIME)
         .expiryZone(ZONE)
@@ -62,23 +63,13 @@ public class ExpandedSwaptionTest {
     assertEquals(test.getLongShort(), LONG);
     assertEquals(test.getSwaptionSettlement(), PHYSICAL_SETTLE);
     assertEquals(test.getUnderlying(), SWAP);
-  }
-
-  public void test_expand() {
-    ExpandedSwaption base = ExpandedSwaption.builder()
-        .expiryDate(EXPIRY_DATE)
-        .expiryTime(EXPIRY_TIME)
-        .expiryZone(ZONE)
-        .longShort(LONG)
-        .swaptionSettlement(PHYSICAL_SETTLE)
-        .underlying(SWAP)
-        .build();
-    assertSame(base.expand(), base);
+    assertEquals(test.getCurrency(), USD);
+    assertEquals(test.getIndex(), USD_LIBOR_3M);
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    ExpandedSwaption test1 = ExpandedSwaption.builder()
+    ResolvedSwaption test1 = ResolvedSwaption.builder()
         .expiryDate(EXPIRY_DATE)
         .expiryTime(EXPIRY_TIME)
         .expiryZone(ZONE)
@@ -87,7 +78,7 @@ public class ExpandedSwaptionTest {
         .underlying(SWAP)
         .build();
     coverImmutableBean(test1);
-    ExpandedSwaption test2 = ExpandedSwaption.builder()
+    ResolvedSwaption test2 = ResolvedSwaption.builder()
         .expiryDate(LocalDate.of(2014, 6, 12))
         .expiryTime(LocalTime.of(14, 0))
         .expiryZone(ZoneId.of("GMT"))
@@ -100,7 +91,7 @@ public class ExpandedSwaptionTest {
   }
 
   public void test_serialization() {
-    ExpandedSwaption test = ExpandedSwaption.builder()
+    ResolvedSwaption test = ResolvedSwaption.builder()
         .expiryDate(EXPIRY_DATE)
         .expiryTime(EXPIRY_TIME)
         .expiryZone(ZONE)

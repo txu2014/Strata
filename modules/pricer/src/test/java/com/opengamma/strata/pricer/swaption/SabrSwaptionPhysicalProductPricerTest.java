@@ -52,6 +52,7 @@ import com.opengamma.strata.product.swap.SwapLegType;
 import com.opengamma.strata.product.swaption.CashSettlement;
 import com.opengamma.strata.product.swaption.CashSettlementMethod;
 import com.opengamma.strata.product.swaption.PhysicalSettlement;
+import com.opengamma.strata.product.swaption.ResolvedSwaption;
 import com.opengamma.strata.product.swaption.Swaption;
 import com.opengamma.strata.product.swaption.SwaptionSettlement;
 
@@ -80,46 +81,51 @@ public class SabrSwaptionPhysicalProductPricerTest {
       .cashSettlementMethod(CashSettlementMethod.PAR_YIELD)
       .settlementDate(SWAP_REC.getStartDate())
       .build();
-  private static final Swaption SWAPTION_PAY_LONG = Swaption.builder()
+  private static final ResolvedSwaption SWAPTION_PAY_LONG = Swaption.builder()
       .expiryDate(AdjustableDate.of(MATURITY_DATE.toLocalDate()))
       .expiryTime(MATURITY_DATE.toLocalTime())
       .expiryZone(MATURITY_DATE.getZone())
       .longShort(LongShort.LONG)
       .swaptionSettlement(PHYSICAL_SETTLE)
       .underlying(SWAP_PAY)
-      .build();
-  private static final Swaption SWAPTION_PAY_SHORT = Swaption.builder()
+      .build().
+      resolve(REF_DATA);
+  private static final ResolvedSwaption SWAPTION_PAY_SHORT = Swaption.builder()
       .expiryDate(AdjustableDate.of(MATURITY_DATE.toLocalDate()))
       .expiryTime(MATURITY_DATE.toLocalTime())
       .expiryZone(MATURITY_DATE.getZone())
       .longShort(LongShort.SHORT)
       .swaptionSettlement(PHYSICAL_SETTLE)
       .underlying(SWAP_PAY)
-      .build();
-  private static final Swaption SWAPTION_REC_LONG = Swaption.builder()
+      .build().
+      resolve(REF_DATA);
+  private static final ResolvedSwaption SWAPTION_REC_LONG = Swaption.builder()
       .expiryDate(AdjustableDate.of(MATURITY_DATE.toLocalDate()))
       .expiryTime(MATURITY_DATE.toLocalTime())
       .expiryZone(MATURITY_DATE.getZone())
       .longShort(LongShort.LONG)
       .swaptionSettlement(PHYSICAL_SETTLE)
       .underlying(SWAP_REC)
-      .build();
-  private static final Swaption SWAPTION_REC_SHORT = Swaption.builder()
+      .build().
+      resolve(REF_DATA);
+  private static final ResolvedSwaption SWAPTION_REC_SHORT = Swaption.builder()
       .expiryDate(AdjustableDate.of(MATURITY_DATE.toLocalDate()))
       .expiryTime(MATURITY_DATE.toLocalTime())
       .expiryZone(MATURITY_DATE.getZone())
       .longShort(LongShort.SHORT)
       .swaptionSettlement(PHYSICAL_SETTLE)
       .underlying(SWAP_REC)
-      .build();
-  private static final Swaption SWAPTION_CASH = Swaption.builder()
+      .build().
+      resolve(REF_DATA);
+  private static final ResolvedSwaption SWAPTION_CASH = Swaption.builder()
       .expiryDate(AdjustableDate.of(MATURITY_DATE.toLocalDate()))
       .expiryTime(MATURITY_DATE.toLocalTime())
       .expiryZone(MATURITY_DATE.getZone())
       .longShort(LongShort.LONG)
       .swaptionSettlement(CASH_SETTLE)
       .underlying(SWAP_REC)
-      .build();
+      .build().
+      resolve(REF_DATA);
   // providers
   private static final ImmutableRatesProvider RATE_PROVIDER =
       SwaptionSabrRateVolatilityDataSet.getRatesProviderUsd(VAL_DATE);

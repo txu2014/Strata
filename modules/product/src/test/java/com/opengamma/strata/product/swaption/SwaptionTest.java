@@ -131,7 +131,7 @@ public class SwaptionTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_expand() {
+  public void test_resolve() {
     Swaption base = Swaption.builder()
         .expiryDate(ADJUSTABLE_EXPIRY_DATE)
         .expiryTime(EXPIRY_TIME)
@@ -140,7 +140,7 @@ public class SwaptionTest {
         .swaptionSettlement(PHYSICAL_SETTLE)
         .underlying(SWAP)
         .build();
-    ExpandedSwaption test = base.expand();
+    ResolvedSwaption test = base.resolve(REF_DATA);
     assertEquals(test.getExpiryDate(), ADJUSTMENT.adjust(EXPIRY_DATE));
     assertEquals(test.getExpiryTime(), EXPIRY_TIME);
     assertEquals(test.getExpiryZone(), ZONE);
