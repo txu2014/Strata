@@ -26,7 +26,7 @@ import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.swap.ExpandedSwapLeg;
+import com.opengamma.strata.product.swap.ResolvedSwapLeg;
 
 /**
  * An expanded Ibor cap/floor product, with dates calculated ready for pricing.
@@ -59,7 +59,7 @@ public final class ExpandedIborCapFloor
   * These periodic payments are not made for typical cap/floor products. Instead the premium is paid upfront. 
   */
   @PropertyDefinition(get = "optional")
-  private final ExpandedSwapLeg payLeg;
+  private final ResolvedSwapLeg payLeg;
 
   //-------------------------------------------------------------------------
   /**
@@ -82,7 +82,7 @@ public final class ExpandedIborCapFloor
    * @param payLeg  the pay leg
    * @return the cap/floor
    */
-  public static ExpandedIborCapFloor of(ExpandedIborCapFloorLeg capFloorLeg, ExpandedSwapLeg payLeg) {
+  public static ExpandedIborCapFloor of(ExpandedIborCapFloorLeg capFloorLeg, ResolvedSwapLeg payLeg) {
     ArgChecker.notNull(capFloorLeg, "capFloorLeg");
     ArgChecker.notNull(payLeg, "payLeg");
     return new ExpandedIborCapFloor(capFloorLeg, payLeg);
@@ -125,7 +125,7 @@ public final class ExpandedIborCapFloor
 
   private ExpandedIborCapFloor(
       ExpandedIborCapFloorLeg capFloorLeg,
-      ExpandedSwapLeg payLeg) {
+      ResolvedSwapLeg payLeg) {
     JodaBeanUtils.notNull(capFloorLeg, "capFloorLeg");
     this.capFloorLeg = capFloorLeg;
     this.payLeg = payLeg;
@@ -166,7 +166,7 @@ public final class ExpandedIborCapFloor
    * These periodic payments are not made for typical cap/floor products. Instead the premium is paid upfront.
    * @return the optional value of the property, not null
    */
-  public Optional<ExpandedSwapLeg> getPayLeg() {
+  public Optional<ResolvedSwapLeg> getPayLeg() {
     return Optional.ofNullable(payLeg);
   }
 
@@ -220,8 +220,8 @@ public final class ExpandedIborCapFloor
     /**
      * The meta-property for the {@code payLeg} property.
      */
-    private final MetaProperty<ExpandedSwapLeg> payLeg = DirectMetaProperty.ofImmutable(
-        this, "payLeg", ExpandedIborCapFloor.class, ExpandedSwapLeg.class);
+    private final MetaProperty<ResolvedSwapLeg> payLeg = DirectMetaProperty.ofImmutable(
+        this, "payLeg", ExpandedIborCapFloor.class, ResolvedSwapLeg.class);
     /**
      * The meta-properties.
      */
@@ -275,7 +275,7 @@ public final class ExpandedIborCapFloor
      * The meta-property for the {@code payLeg} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<ExpandedSwapLeg> payLeg() {
+    public MetaProperty<ResolvedSwapLeg> payLeg() {
       return payLeg;
     }
 
@@ -309,7 +309,7 @@ public final class ExpandedIborCapFloor
   private static final class Builder extends DirectFieldsBeanBuilder<ExpandedIborCapFloor> {
 
     private ExpandedIborCapFloorLeg capFloorLeg;
-    private ExpandedSwapLeg payLeg;
+    private ResolvedSwapLeg payLeg;
 
     /**
      * Restricted constructor.
@@ -337,7 +337,7 @@ public final class ExpandedIborCapFloor
           this.capFloorLeg = (ExpandedIborCapFloorLeg) newValue;
           break;
         case -995239866:  // payLeg
-          this.payLeg = (ExpandedSwapLeg) newValue;
+          this.payLeg = (ResolvedSwapLeg) newValue;
           break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);

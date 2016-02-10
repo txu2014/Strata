@@ -30,14 +30,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.index.Index;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.product.rate.IborRateObservation;
 
 /**
  * Test.
  */
 @Test
-public class ExpandedSwapLegTest {
+public class ResolvedSwapLegTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate DATE_2014_06_30 = date(2014, 6, 30);
   private static final LocalDate DATE_2014_09_30 = date(2014, 9, 30);
   private static final LocalDate DATE_2014_12_30 = date(2014, 12, 30);
@@ -82,7 +84,7 @@ public class ExpandedSwapLegTest {
       .build();
 
   public void test_builder() {
-    ExpandedSwapLeg test = ExpandedSwapLeg.builder()
+    ResolvedSwapLeg test = ResolvedSwapLeg.builder()
         .type(IBOR)
         .payReceive(RECEIVE)
         .paymentPeriods(RPP1)
@@ -98,7 +100,7 @@ public class ExpandedSwapLegTest {
   }
 
   public void test_builder_invalidMixedCurrency() {
-    assertThrowsIllegalArg(() -> ExpandedSwapLeg.builder()
+    assertThrowsIllegalArg(() -> ResolvedSwapLeg.builder()
         .type(IBOR)
         .payReceive(RECEIVE)
         .paymentPeriods(RPP3)
@@ -108,7 +110,7 @@ public class ExpandedSwapLegTest {
 
   //-------------------------------------------------------------------------
   public void test_findPaymentPeriod() {
-    ExpandedSwapLeg test = ExpandedSwapLeg.builder()
+    ResolvedSwapLeg test = ResolvedSwapLeg.builder()
         .type(IBOR)
         .payReceive(RECEIVE)
         .paymentPeriods(RPP1, RPP2)
@@ -123,7 +125,7 @@ public class ExpandedSwapLegTest {
   }
 
   public void test_collectIndices() {
-    ExpandedSwapLeg test = ExpandedSwapLeg.builder()
+    ResolvedSwapLeg test = ResolvedSwapLeg.builder()
         .type(IBOR)
         .payReceive(RECEIVE)
         .paymentPeriods(RPP1)
@@ -134,26 +136,26 @@ public class ExpandedSwapLegTest {
     assertEquals(builder.build(), ImmutableSet.of(GBP_LIBOR_3M));
   }
 
-  public void test_expand() {
-    ExpandedSwapLeg test = ExpandedSwapLeg.builder()
+  public void test_resolve() {
+    ResolvedSwapLeg test = ResolvedSwapLeg.builder()
         .type(IBOR)
         .payReceive(RECEIVE)
         .paymentPeriods(RPP1)
         .paymentEvents(NOTIONAL_EXCHANGE)
         .build();
-    assertSame(test.expand(), test);
+    assertSame(test.resolve(REF_DATA), test);
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    ExpandedSwapLeg test = ExpandedSwapLeg.builder()
+    ResolvedSwapLeg test = ResolvedSwapLeg.builder()
         .type(IBOR)
         .payReceive(RECEIVE)
         .paymentPeriods(RPP1)
         .paymentEvents(NOTIONAL_EXCHANGE)
         .build();
     coverImmutableBean(test);
-    ExpandedSwapLeg test2 = ExpandedSwapLeg.builder()
+    ResolvedSwapLeg test2 = ResolvedSwapLeg.builder()
         .type(FIXED)
         .payReceive(PAY)
         .paymentPeriods(RPP2)
@@ -162,7 +164,7 @@ public class ExpandedSwapLegTest {
   }
 
   public void test_serialization() {
-    ExpandedSwapLeg test = ExpandedSwapLeg.builder()
+    ResolvedSwapLeg test = ResolvedSwapLeg.builder()
         .type(IBOR)
         .payReceive(RECEIVE)
         .paymentPeriods(RPP1)

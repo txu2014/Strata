@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.basics.schedule.StubConvention;
@@ -38,6 +39,7 @@ import com.opengamma.strata.product.swap.IborRateCalculation;
 import com.opengamma.strata.product.swap.NotionalSchedule;
 import com.opengamma.strata.product.swap.PaymentSchedule;
 import com.opengamma.strata.product.swap.RateCalculationSwapLeg;
+import com.opengamma.strata.product.swap.ResolvedSwapTrade;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.SwapLeg;
 import com.opengamma.strata.product.swap.SwapTrade;
@@ -46,6 +48,8 @@ import com.opengamma.strata.product.swap.SwapTrade;
  * Vague performance test.
  */
 public class SwapPricePerformance {
+
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
 
   public static void main(String[] args) throws Exception {
     System.out.println("Go");
@@ -96,10 +100,11 @@ public class SwapPricePerformance {
           .build())
       .build();
 
-  private static final SwapTrade TRADE1 = SwapTrade.builder()
+  private static final ResolvedSwapTrade TRADE1 = SwapTrade.builder()
       .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
       .product(Swap.of(PAY1, RECEIVE1))
-      .build();
+      .build()
+      .resolve(REF_DATA);
   private static final RatesProvider PROVIDER = SwapEnd2EndTest.provider();
 
   public double test_VanillaFixedVsLibor1mSwap() {
@@ -131,10 +136,11 @@ public class SwapPricePerformance {
           .build())
       .build();
 
-  private static final SwapTrade TRADE2 = SwapTrade.builder()
+  private static final ResolvedSwapTrade TRADE2 = SwapTrade.builder()
       .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
       .product(Swap.of(PAY2, RECEIVE2))
-      .build();
+      .build()
+      .resolve(REF_DATA);
 
   public double test_VanillaFixedVsLibor3mSwap() {
     DiscountingSwapTradePricer pricer = swapPricer();
@@ -165,10 +171,11 @@ public class SwapPricePerformance {
           .build())
       .build();
 
-  private static final SwapTrade TRADE3 = SwapTrade.builder()
+  private static final ResolvedSwapTrade TRADE3 = SwapTrade.builder()
       .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2013, 9, 10)).build())
       .product(Swap.of(PAY3, RECEIVE3))
-      .build();
+      .build()
+      .resolve(REF_DATA);
 
   public double test_VanillaFixedVsLibor3mSwapWithFixing() {
     DiscountingSwapTradePricer pricer = swapPricer();
@@ -216,10 +223,11 @@ public class SwapPricePerformance {
           .build())
       .build();
 
-  private static final SwapTrade TRADE4 = SwapTrade.builder()
+  private static final ResolvedSwapTrade TRADE4 = SwapTrade.builder()
       .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 8, 27)).build())
       .product(Swap.of(PAY4, RECEIVE4))
-      .build();
+      .build()
+      .resolve(REF_DATA);
 
   public double test_BasisLibor3mVsLibor6mSwapWithSpread() {
     DiscountingSwapTradePricer pricer = swapPricer();
@@ -267,10 +275,11 @@ public class SwapPricePerformance {
           .build())
       .build();
 
-  private static final SwapTrade TRADE5 = SwapTrade.builder()
+  private static final ResolvedSwapTrade TRADE5 = SwapTrade.builder()
       .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 8, 27)).build())
       .product(Swap.of(RECEIVE5, PAY5))
-      .build();
+      .build()
+      .resolve(REF_DATA);
 
   public double test_BasisCompoundedLibor1mVsLibor3mSwap() {
     DiscountingSwapTradePricer pricer = swapPricer();
