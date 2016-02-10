@@ -20,17 +20,16 @@ import com.opengamma.strata.market.explain.ExplainKey;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.product.swap.ResolvedSwapLeg;
 import com.opengamma.strata.product.swap.KnownAmountPaymentPeriod;
 import com.opengamma.strata.product.swap.PaymentEvent;
 import com.opengamma.strata.product.swap.PaymentPeriod;
 import com.opengamma.strata.product.swap.RatePaymentPeriod;
-import com.opengamma.strata.product.swap.SwapLeg;
+import com.opengamma.strata.product.swap.ResolvedSwapLeg;
 
 /**
  * Pricer for for rate swap legs.
  * <p>
- * This function provides the ability to price a {@link SwapLeg}.
+ * This function provides the ability to price a {@link ResolvedSwapLeg}.
  * The product is priced by pricing each period and event.
  */
 public class DiscountingSwapLegPricer {
