@@ -16,24 +16,24 @@ import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static com.opengamma.strata.collect.TestHelper.date;
 import static com.opengamma.strata.product.fra.FraDiscountingMethod.ISDA;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertSame;
 
 import org.testng.annotations.Test;
 
+import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.product.rate.IborRateObservation;
 
 /**
- * Test.
+ * Test {@link ResolvedFra}.
  */
 @Test
-public class ExpandedFraTest {
+public class ResolvedFraTest {
 
   private static final double NOTIONAL_1M = 1_000_000d;
   private static final double NOTIONAL_2M = 2_000_000d;
 
   //-------------------------------------------------------------------------
   public void test_builder() {
-    ExpandedFra test = ExpandedFra.builder()
+    ResolvedFra test = ResolvedFra.builder()
         .paymentDate(date(2015, 6, 16))
         .startDate(date(2015, 6, 15))
         .endDate(date(2015, 9, 15))
@@ -53,10 +53,11 @@ public class ExpandedFraTest {
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getNotional(), NOTIONAL_1M, 0d);
     assertEquals(test.getDiscounting(), ISDA);
+    assertEquals(test.allIndices(), ImmutableSet.of(GBP_LIBOR_3M));
   }
 
   public void test_builder_datesInOrder() {
-    assertThrowsIllegalArg(() -> ExpandedFra.builder()
+    assertThrowsIllegalArg(() -> ResolvedFra.builder()
         .notional(NOTIONAL_1M)
         .paymentDate(date(2015, 6, 15))
         .startDate(date(2015, 6, 15))
@@ -66,24 +67,9 @@ public class ExpandedFraTest {
         .build());
   }
 
-  public void test_expand() {
-    ExpandedFra test = ExpandedFra.builder()
-        .paymentDate(date(2015, 6, 16))
-        .startDate(date(2015, 6, 15))
-        .endDate(date(2015, 9, 15))
-        .yearFraction(0.25d)
-        .fixedRate(0.25d)
-        .floatingRate(IborRateObservation.of(GBP_LIBOR_3M, date(2015, 6, 12)))
-        .currency(GBP)
-        .notional(NOTIONAL_1M)
-        .discounting(ISDA)
-        .build();
-    assertSame(test.expand(), test);
-  }
-
   //-------------------------------------------------------------------------
   public void coverage() {
-    ExpandedFra test = ExpandedFra.builder()
+    ResolvedFra test = ResolvedFra.builder()
         .paymentDate(date(2015, 6, 16))
         .startDate(date(2015, 6, 15))
         .endDate(date(2015, 9, 15))
@@ -95,7 +81,7 @@ public class ExpandedFraTest {
         .discounting(ISDA)
         .build();
     coverImmutableBean(test);
-    ExpandedFra test2 = ExpandedFra.builder()
+    ResolvedFra test2 = ResolvedFra.builder()
         .paymentDate(date(2015, 6, 17))
         .startDate(date(2015, 6, 16))
         .endDate(date(2015, 9, 16))
@@ -110,7 +96,7 @@ public class ExpandedFraTest {
   }
 
   public void test_serialization() {
-    ExpandedFra test = ExpandedFra.builder()
+    ResolvedFra test = ResolvedFra.builder()
         .paymentDate(date(2015, 6, 16))
         .startDate(date(2015, 6, 15))
         .endDate(date(2015, 9, 15))

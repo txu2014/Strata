@@ -40,6 +40,7 @@ import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.basics.date.TenorAdjustment;
 import com.opengamma.strata.basics.index.IborIndexId;
 import com.opengamma.strata.basics.index.ImmutableIborIndex;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.product.rate.IborInterpolatedRateObservation;
 import com.opengamma.strata.product.rate.IborRateObservation;
 
@@ -49,6 +50,7 @@ import com.opengamma.strata.product.rate.IborRateObservation;
 @Test
 public class FraTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final double NOTIONAL_1M = 1_000_000d;
   private static final double NOTIONAL_2M = 2_000_000d;
   private static final BusinessDayAdjustment BDA_MOD_FOLLOW = BusinessDayAdjustment.of(MODIFIED_FOLLOWING, GBLO);
@@ -187,7 +189,7 @@ public class FraTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_expand_Ibor() {
+  public void test_resolve_Ibor() {
     Fra fra = Fra.builder()
         .buySell(BUY)
         .notional(NOTIONAL_1M)
@@ -198,7 +200,7 @@ public class FraTest {
         .index(GBP_LIBOR_3M)
         .fixingDateOffset(MINUS_TWO_DAYS)
         .build();
-    ExpandedFra test = fra.expand();
+    ResolvedFra test = fra.resolve(REF_DATA);
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getNotional(), NOTIONAL_1M, 0d);
     assertEquals(test.getStartDate(), date(2015, 6, 15));
@@ -210,7 +212,7 @@ public class FraTest {
     assertEquals(test.getDiscounting(), ISDA);
   }
 
-  public void test_expand_IborInterpolated() {
+  public void test_resolve_IborInterpolated() {
     Fra fra = Fra.builder()
         .buySell(SELL)
         .notional(NOTIONAL_1M)
@@ -222,7 +224,7 @@ public class FraTest {
         .indexInterpolated(GBP_LIBOR_2M)
         .fixingDateOffset(MINUS_TWO_DAYS)
         .build();
-    ExpandedFra test = fra.expand();
+    ResolvedFra test = fra.resolve(REF_DATA);
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getNotional(), -NOTIONAL_1M, 0d); // sell
     assertEquals(test.getStartDate(), date(2015, 6, 12));
