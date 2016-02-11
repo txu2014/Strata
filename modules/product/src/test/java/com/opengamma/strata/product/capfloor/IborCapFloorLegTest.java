@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.DaysAdjustment;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.basics.schedule.StubConvention;
@@ -43,6 +44,7 @@ import com.opengamma.strata.product.swap.IborRateCalculation;
 @Test
 public class IborCapFloorLegTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate START = LocalDate.of(2011, 3, 17);
   private static final LocalDate END = LocalDate.of(2012, 3, 17);
   private static final IborRateCalculation RATE_CALCULATION = IborRateCalculation.of(EUR_EURIBOR_3M);
@@ -156,7 +158,7 @@ public class IborCapFloorLegTest {
         .build());
   }
 
-  public void test_expand_cap() {
+  public void test_resolve_cap() {
     IborRateCalculation rateCalc = IborRateCalculation.builder()
         .index(EUR_EURIBOR_3M)
         .fixingRelativeTo(FixingRelativeTo.PERIOD_END)
@@ -172,12 +174,12 @@ public class IborCapFloorLegTest {
         .build();
     LocalDate[] unadjustedDates =
         new LocalDate[] {START, START.plusMonths(3), START.plusMonths(6), START.plusMonths(9), START.plusMonths(12)};
-    IborCapletFloorletPeriod[] periods = new IborCapletFloorletPeriod[4];
+    IborCapFloorPeriod[] periods = new IborCapFloorPeriod[4];
     for (int i = 0; i < 4; ++i) {
       LocalDate start = BUSS_ADJ.adjust(unadjustedDates[i]);
       LocalDate end = BUSS_ADJ.adjust(unadjustedDates[i + 1]);
       double yearFraction = EUR_EURIBOR_3M.getDayCount().relativeYearFraction(start, end);
-      periods[i] = IborCapletFloorletPeriod.builder()
+      periods[i] = IborCapFloorPeriod.builder()
           .caplet(CAP.getInitialValue())
           .currency(EUR)
           .startDate(start)
@@ -191,15 +193,15 @@ public class IborCapFloorLegTest {
           .yearFraction(yearFraction)
           .build();
     }
-    ExpandedIborCapFloorLeg expected = ExpandedIborCapFloorLeg.builder()
+    ResolvedIborCapFloorLeg expected = ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(periods)
         .payReceive(RECEIVE)
         .build();
-    ExpandedIborCapFloorLeg computed = base.expand();
+    ResolvedIborCapFloorLeg computed = base.resolve(REF_DATA);;
     assertEquals(computed, expected);
   }
 
-  public void test_expand_floor() {
+  public void test_resolve_floor() {
     IborCapFloorLeg base = IborCapFloorLeg.builder()
         .calculation(RATE_CALCULATION)
         .floorSchedule(FLOOR)
@@ -211,12 +213,12 @@ public class IborCapFloorLegTest {
         .build();
     LocalDate[] unadjustedDates =
         new LocalDate[] {START, START.plusMonths(3), START.plusMonths(6), START.plusMonths(9), START.plusMonths(12)};
-    IborCapletFloorletPeriod[] periods = new IborCapletFloorletPeriod[4];
+    IborCapFloorPeriod[] periods = new IborCapFloorPeriod[4];
     for (int i = 0; i < 4; ++i) {
       LocalDate start = BUSS_ADJ.adjust(unadjustedDates[i]);
       LocalDate end = BUSS_ADJ.adjust(unadjustedDates[i + 1]);
       double yearFraction = EUR_EURIBOR_3M.getDayCount().relativeYearFraction(start, end);
-      periods[i] = IborCapletFloorletPeriod.builder()
+      periods[i] = IborCapFloorPeriod.builder()
           .floorlet(STRIKES[i])
           .currency(GBP)
           .startDate(start)
@@ -230,11 +232,11 @@ public class IborCapFloorLegTest {
           .yearFraction(yearFraction)
           .build();
     }
-    ExpandedIborCapFloorLeg expected = ExpandedIborCapFloorLeg.builder()
+    ResolvedIborCapFloorLeg expected = ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(periods)
         .payReceive(PAY)
         .build();
-    ExpandedIborCapFloorLeg computed = base.expand();
+    ResolvedIborCapFloorLeg computed = base.resolve(REF_DATA);;
     assertEquals(computed, expected);
   }
 

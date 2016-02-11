@@ -87,15 +87,15 @@ public class CmsTest {
 
   public void test_resolve_twoLegs() {
     Cms base = Cms.of(CMS_LEG, PAY_LEG);
-    ExpandedCms test = base.expand();
-    assertEquals(test.getCmsLeg(), CMS_LEG.expand());
+    ResolvedCms test = base.resolve(REF_DATA);;
+    assertEquals(test.getCmsLeg(), CMS_LEG.resolve(REF_DATA));
     assertEquals(test.getPayLeg().get(), PAY_LEG.resolve(REF_DATA));
   }
 
   public void test_resolve_oneLeg() {
     Cms base = Cms.of(CMS_LEG);
-    ExpandedCms test = base.expand();
-    assertEquals(test.getCmsLeg(), CMS_LEG.expand());
+    ResolvedCms test = base.resolve(REF_DATA);;
+    assertEquals(test.getCmsLeg(), CMS_LEG.resolve(REF_DATA));
     assertFalse(test.getPayLeg().isPresent());
   }
 

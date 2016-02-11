@@ -53,6 +53,10 @@ import com.opengamma.strata.product.swap.type.IborRateSwapLegConvention;
  * If {@code caplet} ({@code floorlet}) is not null, the payment is a caplet (floorlet). 
  * If both of {@code caplet} and {@code floorlet} are null, this class represents a CMS coupon payment.
  * Thus at least one of the fields must be null.
+ * <p>
+ * A {@code CmsPeriod} is bound to data that changes over time, such as holiday calendars.
+ * If the data changes, such as the addition of a new holiday, the resolved form will not be updated.
+ * Care must be taken when placing the resolved form in a cache or persistence layer.
  */
 @BeanDefinition
 public final class CmsPeriod
@@ -149,10 +153,11 @@ public final class CmsPeriod
    */
   @PropertyDefinition(get = "optional")
   private final Double floorlet;
-
+  /**
+   * The day count of the period.
+   */
   @PropertyDefinition(validate = "notNull")
   private final DayCount dayCount;
-
   /**
    * The swap index.
    * <p>
@@ -436,7 +441,7 @@ public final class CmsPeriod
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the dayCount.
+   * Gets the day count of the period.
    * @return the value of the property, not null
    */
   public DayCount getDayCount() {
@@ -1152,7 +1157,7 @@ public final class CmsPeriod
     }
 
     /**
-     * Sets the dayCount.
+     * Sets the day count of the period.
      * @param dayCount  the new value, not null
      * @return this, for chaining, not null
      */

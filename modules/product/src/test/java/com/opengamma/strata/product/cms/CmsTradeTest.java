@@ -25,6 +25,7 @@ import com.opengamma.strata.basics.currency.Payment;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.DaysAdjustment;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.basics.schedule.RollConventions;
@@ -44,6 +45,7 @@ import com.opengamma.strata.product.swap.SwapIndices;
 @Test
 public class CmsTradeTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final ValueSchedule NOTIONAL = ValueSchedule.of(1.0e6);
   private static final SwapIndex INDEX = SwapIndices.EUR_EURIBOR_1100_10Y;
   private static final LocalDate START = LocalDate.of(2015, 10, 21);
@@ -57,7 +59,8 @@ public class CmsTradeTest {
 
   private static final LocalDate TRADE = LocalDate.of(2015, 9, 21);
   private static final LocalDate SETTLE = LocalDate.of(2015, 9, 23);
-  private static final TradeInfo INFO = TradeInfo.builder().tradeDate(TRADE).settlementDate(SETTLE).build();
+  private static final TradeInfo TRADE_INFO = TradeInfo.builder().tradeDate(TRADE).settlementDate(SETTLE).build();
+  private static final Payment PREMIUM = Payment.of(CurrencyAmount.of(EUR, -0.001 * 1.0e6), SETTLE);
 
   private static final Cms CAP = Cms.of(
       CmsLeg.builder()
@@ -67,7 +70,6 @@ public class CmsTradeTest {
           .payReceive(RECEIVE)
           .paymentSchedule(SCHEDULE)
           .build());
-  private static final Payment PREMIUM = Payment.of(CurrencyAmount.of(EUR, -0.001 * 1.0e6), SETTLE);
   private static final Cms CMS = Cms.of(
       CmsLeg.builder()
           .capSchedule(STRIKE)
@@ -85,30 +87,63 @@ public class CmsTradeTest {
           .notionalSchedule(NotionalSchedule.of(CurrencyAmount.of(EUR, 1.0e6)))
           .build());
 
+  //-------------------------------------------------------------------------
   public void test_builder() {
-    CmsTrade test = CmsTrade.builder().product(CAP).premium(PREMIUM).tradeInfo(INFO).build();
+    CmsTrade test = CmsTrade.builder()
+        .tradeInfo(TRADE_INFO)
+        .product(CAP)
+        .premium(PREMIUM)
+        .build();
     assertEquals(test.getPremium().get(), PREMIUM);
     assertEquals(test.getProduct(), CAP);
-    assertEquals(test.getTradeInfo(), INFO);
+    assertEquals(test.getTradeInfo(), TRADE_INFO);
   }
 
   public void test_builder_noPrem() {
-    CmsTrade test = CmsTrade.builder().product(CMS).tradeInfo(INFO).build();
+    CmsTrade test = CmsTrade.builder()
+        .tradeInfo(TRADE_INFO)
+        .product(CMS)
+        .build();
     assertFalse(test.getPremium().isPresent());
     assertEquals(test.getProduct(), CMS);
-    assertEquals(test.getTradeInfo(), INFO);
+    assertEquals(test.getTradeInfo(), TRADE_INFO);
+  }
+
+  //-------------------------------------------------------------------------
+  public void test_resolve() {
+    CmsTrade test = CmsTrade.builder()
+        .tradeInfo(TRADE_INFO)
+        .product(CMS)
+        .premium(PREMIUM)
+        .build();
+    ResolvedCmsTrade expected = ResolvedCmsTrade.builder()
+        .tradeInfo(TRADE_INFO)
+        .product(CMS.resolve(REF_DATA))
+        .premium(PREMIUM)
+        .build();
+    assertEquals(test.resolve(REF_DATA), expected);
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    CmsTrade test1 = CmsTrade.builder().product(CAP).premium(PREMIUM).tradeInfo(INFO).build();
-    coverImmutableBean(test1);
-    CmsTrade test2 = CmsTrade.builder().product(CMS).tradeInfo(TradeInfo.EMPTY).build();
-    coverBeanEquals(test1, test2);
+    CmsTrade test = CmsTrade.builder()
+        .tradeInfo(TRADE_INFO)
+        .product(CAP)
+        .premium(PREMIUM)
+        .build();
+    coverImmutableBean(test);
+    CmsTrade test2 = CmsTrade.builder()
+        .product(CMS)
+        .build();
+    coverBeanEquals(test, test2);
   }
 
   public void test_serialization() {
-    CmsTrade test = CmsTrade.builder().product(CAP).premium(PREMIUM).tradeInfo(INFO).build();
+    CmsTrade test = CmsTrade.builder()
+        .tradeInfo(TRADE_INFO)
+        .product(CAP)
+        .premium(PREMIUM)
+        .build();
     assertSerialization(test);
   }
 

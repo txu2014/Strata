@@ -16,24 +16,24 @@ import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static com.opengamma.strata.product.swap.SwapLegType.FIXED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertSame;
 
 import java.time.LocalDate;
 
 import org.testng.annotations.Test;
 
 import com.opengamma.strata.product.rate.FixedRateObservation;
-import com.opengamma.strata.product.swap.ResolvedSwapLeg;
 import com.opengamma.strata.product.swap.RateAccrualPeriod;
 import com.opengamma.strata.product.swap.RatePaymentPeriod;
+import com.opengamma.strata.product.swap.ResolvedSwapLeg;
 import com.opengamma.strata.product.swap.SwapIndex;
 import com.opengamma.strata.product.swap.SwapIndices;
 
 /**
- * Test {@link ExpandedCms}.
+ * Test {@link ResolvedCms}.
  */
 @Test
-public class ExpandedCmsTest {
+public class ResolvedCmsTest {
+
   private static final SwapIndex INDEX = SwapIndices.GBP_LIBOR_1100_15Y;
   private static final LocalDate DATE_1 = LocalDate.of(2015, 10, 22);
   private static final LocalDate DATE_2 = LocalDate.of(2016, 10, 24);
@@ -58,7 +58,7 @@ public class ExpandedCmsTest {
       .yearFraction(YEAR_FRACTION_2)
       .dayCount(ACT_360)
       .build();
-  private static final ExpandedCmsLeg CMS_LEG = ExpandedCmsLeg.builder()
+  static final ResolvedCmsLeg CMS_LEG = ResolvedCmsLeg.builder()
       .cmsPeriods(CMS_PERIOD_1, CMS_PERIOD_2)
       .payReceive(RECEIVE)
       .build();
@@ -86,43 +86,38 @@ public class ExpandedCmsTest {
       .currency(GBP)
       .notional(-NOTIONAL)
       .build();
-  private static final ResolvedSwapLeg PAY_LEG = ResolvedSwapLeg.builder()
+  static final ResolvedSwapLeg PAY_LEG = ResolvedSwapLeg.builder()
       .paymentPeriods(PAY_PERIOD_1, PAY_PERIOD_2)
       .type(FIXED)
       .payReceive(PAY)
       .build();
 
   public void test_of_twoLegs() {
-    ExpandedCms test = ExpandedCms.of(CMS_LEG, PAY_LEG);
+    ResolvedCms test = ResolvedCms.of(CMS_LEG, PAY_LEG);
     assertEquals(test.getCmsLeg(), CMS_LEG);
     assertEquals(test.getPayLeg().get(), PAY_LEG);
   }
 
   public void test_of_oneLeg() {
-    ExpandedCms test = ExpandedCms.of(CMS_LEG);
+    ResolvedCms test = ResolvedCms.of(CMS_LEG);
     assertEquals(test.getCmsLeg(), CMS_LEG);
     assertFalse(test.getPayLeg().isPresent());
   }
 
-  public void test_expand() {
-    ExpandedCms test = ExpandedCms.of(CMS_LEG, PAY_LEG);
-    assertSame(test.expand(), test);
-  }
-
   //-------------------------------------------------------------------------
   public void coverage() {
-    ExpandedCms test1 = ExpandedCms.of(CMS_LEG, PAY_LEG);
+    ResolvedCms test1 = ResolvedCms.of(CMS_LEG, PAY_LEG);
     coverImmutableBean(test1);
-    ExpandedCmsLeg cmsLeg = ExpandedCmsLeg.builder()
+    ResolvedCmsLeg cmsLeg = ResolvedCmsLeg.builder()
         .cmsPeriods(CMS_PERIOD_1)
         .payReceive(RECEIVE)
         .build();
-    ExpandedCms test2 = ExpandedCms.of(cmsLeg);
+    ResolvedCms test2 = ResolvedCms.of(cmsLeg);
     coverBeanEquals(test1, test2);
   }
 
   public void test_serialization() {
-    ExpandedCms test = ExpandedCms.of(CMS_LEG, PAY_LEG);
+    ResolvedCms test = ResolvedCms.of(CMS_LEG, PAY_LEG);
     assertSerialization(test);
   }
 

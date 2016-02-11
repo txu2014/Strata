@@ -25,14 +25,14 @@ import com.google.common.collect.ImmutableList;
 import com.opengamma.strata.product.rate.IborRateObservation;
 
 /**
- * Test {@link ExpandedIborCapFloorLeg}.
+ * Test {@link ResolvedIborCapFloorLeg}.
  */
 @Test
-public class ExpandedIborCapFloorLegTest {
+public class ResolvedIborCapFloorLegTest {
 
   private static final double STRIKE = 0.0125;
   private static final double NOTIONAL = 1.0e6;
-  private static final IborCapletFloorletPeriod PERIOD_1 = IborCapletFloorletPeriod.builder()
+  private static final IborCapFloorPeriod PERIOD_1 = IborCapFloorPeriod.builder()
       .caplet(STRIKE)
       .notional(NOTIONAL)
       .currency(EUR)
@@ -45,7 +45,7 @@ public class ExpandedIborCapFloorLegTest {
           IborRateObservation.of(EUR_EURIBOR_3M, LocalDate.of(2011, 6, 15)))
       .yearFraction(0.2556)
       .build();
-  private static final IborCapletFloorletPeriod PERIOD_2 = IborCapletFloorletPeriod.builder()
+  private static final IborCapFloorPeriod PERIOD_2 = IborCapFloorPeriod.builder()
       .caplet(STRIKE)
       .notional(NOTIONAL)
       .currency(EUR)
@@ -58,7 +58,7 @@ public class ExpandedIborCapFloorLegTest {
           IborRateObservation.of(EUR_EURIBOR_3M, LocalDate.of(2011, 9, 15)))
       .yearFraction(0.2611)
       .build();
-  private static final IborCapletFloorletPeriod PERIOD_3 = IborCapletFloorletPeriod.builder()
+  private static final IborCapFloorPeriod PERIOD_3 = IborCapFloorPeriod.builder()
       .caplet(STRIKE)
       .notional(NOTIONAL)
       .currency(EUR)
@@ -71,7 +71,7 @@ public class ExpandedIborCapFloorLegTest {
           IborRateObservation.of(EUR_EURIBOR_3M, LocalDate.of(2011, 12, 15)))
       .yearFraction(0.2528)
       .build();
-  private static final IborCapletFloorletPeriod PERIOD_4 = IborCapletFloorletPeriod.builder()
+  private static final IborCapFloorPeriod PERIOD_4 = IborCapFloorPeriod.builder()
       .caplet(STRIKE)
       .notional(NOTIONAL)
       .currency(EUR)
@@ -86,7 +86,7 @@ public class ExpandedIborCapFloorLegTest {
       .build();
 
   public void test_builder() {
-    ExpandedIborCapFloorLeg test = ExpandedIborCapFloorLeg.builder()
+    ResolvedIborCapFloorLeg test = ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(PERIOD_1, PERIOD_2, PERIOD_3, PERIOD_4)
         .payReceive(RECEIVE)
         .build();
@@ -100,7 +100,7 @@ public class ExpandedIborCapFloorLegTest {
 
   public void test_builder_fail() {
     // two currencies
-    IborCapletFloorletPeriod periodGbp = IborCapletFloorletPeriod.builder()
+    IborCapFloorPeriod periodGbp = IborCapFloorPeriod.builder()
         .caplet(STRIKE)
         .notional(NOTIONAL)
         .currency(GBP)
@@ -113,12 +113,12 @@ public class ExpandedIborCapFloorLegTest {
             IborRateObservation.of(EUR_EURIBOR_3M, LocalDate.of(2011, 9, 15)))
         .yearFraction(0.2611)
         .build();
-    assertThrowsIllegalArg(() -> ExpandedIborCapFloorLeg.builder()
+    assertThrowsIllegalArg(() -> ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(PERIOD_1, periodGbp)
         .payReceive(RECEIVE)
         .build());
     // two indices
-    IborCapletFloorletPeriod periodLibor = IborCapletFloorletPeriod.builder()
+    IborCapFloorPeriod periodLibor = IborCapFloorPeriod.builder()
         .caplet(STRIKE)
         .notional(NOTIONAL)
         .currency(EUR)
@@ -131,7 +131,7 @@ public class ExpandedIborCapFloorLegTest {
             IborRateObservation.of(GBP_LIBOR_3M, LocalDate.of(2011, 9, 15)))
         .yearFraction(0.2611)
         .build();
-    assertThrowsIllegalArg(() -> ExpandedIborCapFloorLeg.builder()
+    assertThrowsIllegalArg(() -> ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(PERIOD_1, periodLibor)
         .payReceive(RECEIVE)
         .build());
@@ -139,12 +139,12 @@ public class ExpandedIborCapFloorLegTest {
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    ExpandedIborCapFloorLeg test1 = ExpandedIborCapFloorLeg.builder()
+    ResolvedIborCapFloorLeg test1 = ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(PERIOD_1, PERIOD_2, PERIOD_3, PERIOD_4)
         .payReceive(RECEIVE)
         .build();
     coverImmutableBean(test1);
-    ExpandedIborCapFloorLeg test2 = ExpandedIborCapFloorLeg.builder()
+    ResolvedIborCapFloorLeg test2 = ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(PERIOD_2, PERIOD_3)
         .payReceive(PAY)
         .build();
@@ -152,7 +152,7 @@ public class ExpandedIborCapFloorLegTest {
   }
 
   public void test_serialization() {
-    ExpandedIborCapFloorLeg test = ExpandedIborCapFloorLeg.builder()
+    ResolvedIborCapFloorLeg test = ResolvedIborCapFloorLeg.builder()
         .capletFloorletPeriods(PERIOD_1, PERIOD_2, PERIOD_3, PERIOD_4)
         .payReceive(RECEIVE)
         .build();

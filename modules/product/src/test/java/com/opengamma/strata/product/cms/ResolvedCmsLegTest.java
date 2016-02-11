@@ -24,10 +24,10 @@ import com.opengamma.strata.product.swap.SwapIndex;
 import com.opengamma.strata.product.swap.SwapIndices;
 
 /**
- * Test {@link ExpandedCmsLeg}.
+ * Test {@link ResolvedCmsLeg}.
  */
 @Test
-public class ExpandedCmsLegTest {
+public class ResolvedCmsLegTest {
   private static final SwapIndex INDEX = SwapIndices.GBP_LIBOR_1100_15Y;
   private static final LocalDate DATE_1 = LocalDate.of(2015, 10, 22);
   private static final LocalDate DATE_2 = LocalDate.of(2016, 10, 24);
@@ -56,7 +56,7 @@ public class ExpandedCmsLegTest {
       .build();
 
   public void test_builder() {
-    ExpandedCmsLeg test = ExpandedCmsLeg.builder()
+    ResolvedCmsLeg test = ResolvedCmsLeg.builder()
         .payReceive(RECEIVE)
         .cmsPeriods(PERIOD_1, PERIOD_2)
         .build();
@@ -80,7 +80,7 @@ public class ExpandedCmsLegTest {
         .yearFraction(YEAR_FRACTION_2)
         .dayCount(ACT_360)
         .build();
-    assertThrowsIllegalArg(() -> ExpandedCmsLeg.builder().payReceive(RECEIVE).cmsPeriods(PERIOD_1, period3).build());
+    assertThrowsIllegalArg(() -> ResolvedCmsLeg.builder().payReceive(RECEIVE).cmsPeriods(PERIOD_1, period3).build());
     CmsPeriod period4 = CmsPeriod.builder()
         .caplet(STRIKE)
         .index(INDEX)
@@ -90,12 +90,12 @@ public class ExpandedCmsLegTest {
         .yearFraction(YEAR_FRACTION_2)
         .dayCount(ACT_360)
         .currency(EUR).build();
-    assertThrowsIllegalArg(() -> ExpandedCmsLeg.builder().payReceive(RECEIVE).cmsPeriods(PERIOD_1, period4).build());
+    assertThrowsIllegalArg(() -> ResolvedCmsLeg.builder().payReceive(RECEIVE).cmsPeriods(PERIOD_1, period4).build());
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    ExpandedCmsLeg test1 = ExpandedCmsLeg.builder()
+    ResolvedCmsLeg test1 = ResolvedCmsLeg.builder()
         .payReceive(RECEIVE)
         .cmsPeriods(PERIOD_1, PERIOD_2)
         .build();
@@ -117,7 +117,7 @@ public class ExpandedCmsLegTest {
         .yearFraction(YEAR_FRACTION_2)
         .dayCount(ACT_360)
         .build();
-    ExpandedCmsLeg test2 = ExpandedCmsLeg.builder()
+    ResolvedCmsLeg test2 = ResolvedCmsLeg.builder()
         .payReceive(PAY)
         .cmsPeriods(p1, p2)
         .build();
@@ -125,7 +125,7 @@ public class ExpandedCmsLegTest {
   }
 
   public void test_serialization() {
-    ExpandedCmsLeg test = ExpandedCmsLeg.builder()
+    ResolvedCmsLeg test = ResolvedCmsLeg.builder()
         .payReceive(RECEIVE)
         .cmsPeriods(PERIOD_1, PERIOD_2)
         .build();

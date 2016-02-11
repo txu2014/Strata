@@ -23,10 +23,10 @@ import com.opengamma.strata.basics.PutCall;
 import com.opengamma.strata.product.rate.IborRateObservation;
 
 /**
- * Test {@link IborCapletFloorletPeriod}.
+ * Test {@link IborCapFloorPeriod}.
  */
 @Test
-public class IborCapletFloorletPeriodTest {
+public class IborCapFloorPeriodTest {
 
   private static final LocalDate FIXING = LocalDate.of(2011, 1, 4);
   private static final double STRIKE = 0.04;
@@ -40,7 +40,7 @@ public class IborCapletFloorletPeriodTest {
   private static final double YEAR_FRACTION = 0.251d;
 
   public void test_builder_min() {
-    IborCapletFloorletPeriod test = IborCapletFloorletPeriod.builder()
+    IborCapFloorPeriod test = IborCapFloorPeriod.builder()
         .caplet(STRIKE)
         .notional(NOTIONAL)
         .rateObservation(RATE_OBSERVATION)
@@ -64,7 +64,7 @@ public class IborCapletFloorletPeriodTest {
   }
 
   public void test_builder_full() {
-    IborCapletFloorletPeriod test = IborCapletFloorletPeriod.builder()
+    IborCapFloorPeriod test = IborCapFloorPeriod.builder()
         .startDate(START)
         .endDate(END)
         .unadjustedStartDate(START_UNADJ)
@@ -94,17 +94,17 @@ public class IborCapletFloorletPeriodTest {
 
   public void test_builder_fail() {
     // rate observation missing
-    assertThrowsIllegalArg(() -> IborCapletFloorletPeriod.builder()
+    assertThrowsIllegalArg(() -> IborCapFloorPeriod.builder()
         .caplet(STRIKE)
         .notional(NOTIONAL)
         .build());
     // cap and floor missing
-    assertThrowsIllegalArg(() -> IborCapletFloorletPeriod.builder()
+    assertThrowsIllegalArg(() -> IborCapFloorPeriod.builder()
         .notional(NOTIONAL)
         .rateObservation(RATE_OBSERVATION)
         .build());
     // cap and floor present
-    assertThrowsIllegalArg(() -> IborCapletFloorletPeriod.builder()
+    assertThrowsIllegalArg(() -> IborCapFloorPeriod.builder()
         .caplet(STRIKE)
         .floorlet(STRIKE)
         .notional(NOTIONAL)
@@ -114,13 +114,13 @@ public class IborCapletFloorletPeriodTest {
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    IborCapletFloorletPeriod test1 = IborCapletFloorletPeriod.builder()
+    IborCapFloorPeriod test1 = IborCapFloorPeriod.builder()
         .caplet(STRIKE)
         .notional(NOTIONAL)
         .rateObservation(RATE_OBSERVATION)
         .build();
     coverImmutableBean(test1);
-    IborCapletFloorletPeriod test2 = IborCapletFloorletPeriod.builder()
+    IborCapFloorPeriod test2 = IborCapFloorPeriod.builder()
         .floorlet(STRIKE)
         .notional(-NOTIONAL)
         .rateObservation(IborRateObservation.of(USD_LIBOR_6M, LocalDate.of(2013, 2, 15)))
@@ -129,7 +129,7 @@ public class IborCapletFloorletPeriodTest {
   }
 
   public void test_serialization() {
-    IborCapletFloorletPeriod test = IborCapletFloorletPeriod.builder()
+    IborCapFloorPeriod test = IborCapFloorPeriod.builder()
         .caplet(STRIKE)
         .notional(NOTIONAL)
         .rateObservation(RATE_OBSERVATION)
