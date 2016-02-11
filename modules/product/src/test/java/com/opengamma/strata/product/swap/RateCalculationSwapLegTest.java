@@ -587,8 +587,8 @@ public class RateCalculationSwapLegTest {
         .payReceive(PAY)
         .type(SwapLegType.INFLATION)
         .build();
-    ResolvedSwapLeg testExpand = test.resolve(REF_DATA);
-    assertEquals(testExpand, expected);
+    ResolvedSwapLeg testResolved = test.resolve(REF_DATA);
+    assertEquals(testResolved, expected);
 
   }
 
