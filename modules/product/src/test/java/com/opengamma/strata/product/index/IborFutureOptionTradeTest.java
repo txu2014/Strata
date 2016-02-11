@@ -35,7 +35,7 @@ import com.opengamma.strata.product.UnitSecurity;
 import com.opengamma.strata.product.common.FutureOptionPremiumStyle;
 
 /**
- * Test IborFutureOptionSecurityTrade.
+ * Test {@link IborFutureOptionTrade}.
  */
 @Test
 public class IborFutureOptionTradeTest {

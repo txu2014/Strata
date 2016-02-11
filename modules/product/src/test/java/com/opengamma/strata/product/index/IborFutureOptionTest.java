@@ -27,6 +27,7 @@ import java.time.ZonedDateTime;
 import org.testng.annotations.Test;
 
 import com.google.common.reflect.TypeToken;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.basics.value.Rounding;
 import com.opengamma.strata.collect.id.IdentifiableBean;
 import com.opengamma.strata.collect.id.LinkResolver;
@@ -37,11 +38,12 @@ import com.opengamma.strata.product.UnitSecurity;
 import com.opengamma.strata.product.common.FutureOptionPremiumStyle;
 
 /**
- * Test IborFutureOption. 
+ * Test {@link IborFutureOption}. 
  */
 @Test
 public class IborFutureOptionTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final double NOTIONAL_1 = 1_000d;
   private static final LocalDate LAST_TRADE_DATE_1 = date(2015, 6, 15);
   private static final LocalDate LAST_TRADE_DATE_2 = date(2015, 9, 16);
@@ -169,6 +171,27 @@ public class IborFutureOptionTest {
       }
     };
     assertSame(test.resolveLinks(resolver), test);
+  }
+
+  //-------------------------------------------------------------------------
+  public void test_resolve() {
+    IborFutureOption test = IborFutureOption.builder()
+        .putCall(CALL)
+        .strikePrice(STRIKE_PRICE)
+        .expiryDate(EXPIRY_DATE)
+        .expiryTime(EXPIRY_TIME)
+        .expiryZone(EXPIRY_ZONE)
+        .premiumStyle(FutureOptionPremiumStyle.DAILY_MARGIN)
+        .underlyingLink(SecurityLink.resolved(IBOR_FUTURE_SECURITY_1))
+        .build();
+    ResolvedIborFutureOption expected = ResolvedIborFutureOption.builder()
+        .putCall(CALL)
+        .strikePrice(STRIKE_PRICE)
+        .expiry(EXPIRY_DATE.atTime(EXPIRY_TIME).atZone(EXPIRY_ZONE))
+        .premiumStyle(FutureOptionPremiumStyle.DAILY_MARGIN)
+        .underlying(IBOR_FUTURE_1.resolve(REF_DATA))
+        .build();
+    assertEquals(test.resolve(REF_DATA), expected);
   }
 
   //-------------------------------------------------------------------------
