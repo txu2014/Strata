@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
+ * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
  *
  * Please see distribution for license.
  */
@@ -20,71 +20,60 @@ import org.testng.annotations.Test;
 
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.FxRate;
-import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.product.TradeInfo;
 
 /**
- * Test {@link FxNdfTrade}.
+ * Test {@link ResolvedFxNdfTrade}.
  */
 @Test
-public class FxNdfTradeTest {
+public class ResolvedFxNdfTradeTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final FxRate FX_RATE = FxRate.of(GBP, USD, 1.5d);
+  private static final FxRate FX_RATE2 = FxRate.of(GBP, USD, 1.6d);
   private static final double NOTIONAL = 100_000_000;
-  private static final LocalDate PAYMENT_DATE = LocalDate.of(2015, 3, 19);
   private static final CurrencyAmount CURRENCY_NOTIONAL = CurrencyAmount.of(GBP, NOTIONAL);
-  private static final FxNdf PRODUCT = FxNdf.builder()
+  private static final LocalDate PAYMENT_DATE = LocalDate.of(2015, 3, 19);
+  private static final ResolvedFxNdf NDF1 = ResolvedFxNdf.builder()
       .agreedFxRate(FX_RATE)
-      .settlementCurrencyNotional(CURRENCY_NOTIONAL)
       .index(GBP_USD_WM)
       .paymentDate(PAYMENT_DATE)
+      .settlementCurrencyNotional(CURRENCY_NOTIONAL)
+      .build();
+  private static final ResolvedFxNdf NDF2 = ResolvedFxNdf.builder()
+      .agreedFxRate(FX_RATE2)
+      .index(GBP_USD_WM)
+      .paymentDate(PAYMENT_DATE)
+      .settlementCurrencyNotional(CURRENCY_NOTIONAL)
       .build();
   private static final TradeInfo TRADE_INFO = TradeInfo.builder().tradeDate(date(2015, 1, 15)).build();
 
   //-------------------------------------------------------------------------
-  public void test_of() {
-    FxNdfTrade test = FxNdfTrade.of(TRADE_INFO, PRODUCT);
-    assertEquals(test.getProduct(), PRODUCT);
-    assertEquals(test.getTradeInfo(), TRADE_INFO);
-  }
-
   public void test_builder() {
-    FxNdfTrade test = FxNdfTrade.builder()
-        .product(PRODUCT)
+    ResolvedFxNdfTrade test = ResolvedFxNdfTrade.builder()
         .tradeInfo(TRADE_INFO)
+        .product(NDF1)
         .build();
-    assertEquals(test.getProduct(), PRODUCT);
     assertEquals(test.getTradeInfo(), TRADE_INFO);
-  }
-
-  //-------------------------------------------------------------------------
-  public void test_resolve() {
-    FxNdfTrade test = FxNdfTrade.builder()
-        .product(PRODUCT)
-        .tradeInfo(TRADE_INFO)
-        .build();
-    ResolvedFxNdfTrade expected = ResolvedFxNdfTrade.of(TRADE_INFO, PRODUCT.resolve(REF_DATA));
-    assertEquals(test.resolve(REF_DATA), expected);
+    assertEquals(test.getProduct(), NDF1);
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    FxNdfTrade test1 = FxNdfTrade.builder()
-        .product(PRODUCT)
+    ResolvedFxNdfTrade test = ResolvedFxNdfTrade.builder()
         .tradeInfo(TRADE_INFO)
+        .product(NDF1)
         .build();
-    coverImmutableBean(test1);
-    FxNdfTrade test2 = FxNdfTrade.builder()
-        .product(PRODUCT)
+    coverImmutableBean(test);
+    ResolvedFxNdfTrade test2 = ResolvedFxNdfTrade.builder()
+        .product(NDF2)
         .build();
-    coverBeanEquals(test1, test2);
+    coverBeanEquals(test, test2);
   }
 
   public void test_serialization() {
-    FxNdfTrade test = FxNdfTrade.builder()
-        .product(PRODUCT)
-        .tradeInfo(TRADE_INFO)
+    ResolvedFxNdfTrade test = ResolvedFxNdfTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(date(2014, 6, 30)).build())
+        .product(NDF1)
         .build();
     assertSerialization(test);
   }

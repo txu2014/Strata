@@ -24,6 +24,7 @@ import com.opengamma.strata.basics.PutCall;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.FxRate;
 import com.opengamma.strata.basics.currency.Payment;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.product.TradeInfo;
 
 /**
@@ -32,6 +33,7 @@ import com.opengamma.strata.product.TradeInfo;
 @Test
 public class FxVanillaOptionTradeTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate EXPIRY_DATE = LocalDate.of(2015, 2, 14);
   private static final LocalTime EXPIRY_TIME = LocalTime.of(12, 15);
   private static final ZoneId EXPIRY_ZONE = ZoneId.of("Z");
@@ -55,6 +57,7 @@ public class FxVanillaOptionTradeTest {
   private static final TradeInfo TRADE_INFO = TradeInfo.builder().tradeDate(date(2014, 11, 12)).build();
   private static final Payment PREMIUM = Payment.of(CurrencyAmount.of(EUR, NOTIONAL * 0.05), date(2014, 11, 14));
 
+  //-------------------------------------------------------------------------
   public void test_builder() {
     FxVanillaOptionTrade test = FxVanillaOptionTrade.builder()
         .product(FX_OPTION)
@@ -66,6 +69,22 @@ public class FxVanillaOptionTradeTest {
     assertEquals(test.getPremium(), PREMIUM);
   }
 
+  //-------------------------------------------------------------------------
+  public void test_resolve() {
+    FxVanillaOptionTrade test = FxVanillaOptionTrade.builder()
+        .product(FX_OPTION)
+        .tradeInfo(TRADE_INFO)
+        .premium(PREMIUM)
+        .build();
+    ResolvedFxVanillaOptionTrade expected = ResolvedFxVanillaOptionTrade.builder()
+        .tradeInfo(TRADE_INFO)
+        .product(FX_OPTION.resolve(REF_DATA))
+        .premium(PREMIUM)
+        .build();
+    assertEquals(test.resolve(REF_DATA), expected);
+  }
+
+  //-------------------------------------------------------------------------
   public void coverage() {
     FxVanillaOptionTrade test1 = FxVanillaOptionTrade.builder()
         .product(FX_OPTION)

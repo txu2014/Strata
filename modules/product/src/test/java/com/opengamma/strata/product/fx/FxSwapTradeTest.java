@@ -16,6 +16,7 @@ import static org.testng.Assert.assertEquals;
 import org.testng.annotations.Test;
 
 import com.opengamma.strata.basics.currency.CurrencyAmount;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.product.TradeInfo;
 
 /**
@@ -24,6 +25,7 @@ import com.opengamma.strata.product.TradeInfo;
 @Test
 public class FxSwapTradeTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final CurrencyAmount GBP_P1000 = CurrencyAmount.of(GBP, 1_000);
   private static final CurrencyAmount GBP_M1000 = CurrencyAmount.of(GBP, -1_000);
   private static final CurrencyAmount USD_P1550 = CurrencyAmount.of(USD, 1_550);
@@ -34,6 +36,12 @@ public class FxSwapTradeTest {
   private static final TradeInfo TRADE_INFO = TradeInfo.builder().tradeDate(date(2011, 11, 14)).build();
 
   //-------------------------------------------------------------------------
+  public void test_of() {
+    FxSwapTrade test = FxSwapTrade.of(TRADE_INFO, PRODUCT);
+    assertEquals(test.getProduct(), PRODUCT);
+    assertEquals(test.getTradeInfo(), TRADE_INFO);
+  }
+
   public void test_builder() {
     FxSwapTrade test = FxSwapTrade.builder()
         .product(PRODUCT)
@@ -41,6 +49,16 @@ public class FxSwapTradeTest {
         .build();
     assertEquals(test.getTradeInfo(), TRADE_INFO);
     assertEquals(test.getProduct(), PRODUCT);
+  }
+
+  //-------------------------------------------------------------------------
+  public void test_resolve() {
+    FxSwapTrade test = FxSwapTrade.builder()
+        .product(PRODUCT)
+        .tradeInfo(TRADE_INFO)
+        .build();
+    ResolvedFxSwapTrade expected = ResolvedFxSwapTrade.of(TRADE_INFO, PRODUCT.resolve(REF_DATA));
+    assertEquals(test.resolve(REF_DATA), expected);
   }
 
   //-------------------------------------------------------------------------

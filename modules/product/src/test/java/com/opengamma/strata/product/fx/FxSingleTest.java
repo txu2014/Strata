@@ -23,6 +23,7 @@ import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.FxRate;
 import com.opengamma.strata.basics.currency.Payment;
+import com.opengamma.strata.basics.market.ReferenceData;
 
 /**
  * Test {@link FxSingle}.
@@ -30,6 +31,7 @@ import com.opengamma.strata.basics.currency.Payment;
 @Test
 public class FxSingleTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final CurrencyAmount GBP_P1000 = CurrencyAmount.of(GBP, 1_000);
   private static final CurrencyAmount GBP_M1000 = CurrencyAmount.of(GBP, -1_000);
   private static final CurrencyAmount USD_P1600 = CurrencyAmount.of(USD, 1_600);
@@ -161,9 +163,9 @@ public class FxSingleTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_expand() {
+  public void test_resolve() {
     FxSingle fwd = FxSingle.of(GBP_P1000, USD_M1600, DATE_2015_06_30);
-    ExpandedFxSingle test = fwd.expand();
+    ResolvedFxSingle test = fwd.resolve(REF_DATA);
     assertEquals(test.getBaseCurrencyPayment(), Payment.of(GBP_P1000, DATE_2015_06_30));
     assertEquals(test.getCounterCurrencyPayment(), Payment.of(USD_M1600, DATE_2015_06_30));
     assertEquals(test.getPaymentDate(), DATE_2015_06_30);
