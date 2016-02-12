@@ -262,17 +262,17 @@ public class BondFuturesJpyEnd2EndTest {
     double priceMar = PRODUCT_PRICER.price(FUTURE_PRODUCT_MAR, RATES_PROVIDER) * HUNDRED;
     double priceMarRounded = FUTURE_PRODUCT_MAR.getRounding().round(priceMar);
     assertEquals(priceMar, 151.83071796298776, TOL * HUNDRED);
-    assertEquals(priceMarRounded, 151.83, TOL * HUNDRED); // 151.89
+    assertEquals(priceMarRounded, 151.83, TOL * HUNDRED);
     // June
     double priceJun = PRODUCT_PRICER.price(FUTURE_PRODUCT_JUN, RATES_PROVIDER) * HUNDRED;
     double priceJunRounded = FUTURE_PRODUCT_JUN.getRounding().round(priceJun);
     assertEquals(priceJun, 151.25027452317593, TOL * HUNDRED);
-    assertEquals(priceJunRounded, 151.25, TOL * HUNDRED); // 151.29
+    assertEquals(priceJunRounded, 151.25, TOL * HUNDRED);
     // September
     double priceSep = PRODUCT_PRICER.price(FUTURE_PRODUCT_SEP, RATES_PROVIDER) * HUNDRED;
     double priceSepRounded = FUTURE_PRODUCT_SEP.getRounding().round(priceSep);
     assertEquals(priceSep, 151.08452213883535, TOL * HUNDRED);
-    assertEquals(priceSepRounded, 151.08, TOL * HUNDRED); // 151.15
+    assertEquals(priceSepRounded, 151.08, TOL * HUNDRED);
   }
 
   public void priceSensitivity() {
@@ -316,14 +316,14 @@ public class BondFuturesJpyEnd2EndTest {
 
   public void presentValue() {
     // March
-    CurrencyAmount pvMar = TRADE_PRICER.presentValue(FUTURE_TRADE_MAR, RATES_PROVIDER, REF_PRICE_MAR);
-    assertEquals(pvMar.getAmount(), -1.5073169282037012E10, TOL * NOTIONAL);
+    CurrencyAmount pvMar = TRADE_PRICER.presentValue(FUTURE_TRADE_MAR, RATES_PROVIDER, REF_PRICE_MAR * ONE_PERCENT);
+    assertEquals(pvMar.getAmount(), -419282.03701224923, TOL * NOTIONAL);
     // June
-    CurrencyAmount pvJun = TRADE_PRICER.presentValue(FUTURE_TRADE_JUN, RATES_PROVIDER, REF_PRICE_JUN);
-    assertEquals(pvJun.getAmount(), -1.5021749725476822E10, TOL * NOTIONAL);
+    CurrencyAmount pvJun = TRADE_PRICER.presentValue(FUTURE_TRADE_JUN, RATES_PROVIDER, REF_PRICE_JUN * ONE_PERCENT);
+    assertEquals(pvJun.getAmount(), -479725.4768240452, TOL * NOTIONAL);
     // September
-    CurrencyAmount pvSep = TRADE_PRICER.presentValue(FUTURE_TRADE_SEP, RATES_PROVIDER, REF_PRICE_SEP);
-    assertEquals(pvSep.getAmount(), -1.5009915477861166E10, TOL * NOTIONAL);
+    CurrencyAmount pvSep = TRADE_PRICER.presentValue(FUTURE_TRADE_SEP, RATES_PROVIDER, REF_PRICE_SEP * ONE_PERCENT);
+    assertEquals(pvSep.getAmount(), -525477.8611646593, TOL * NOTIONAL);
   }
 
   public void presentValueSensitivity() {
@@ -367,17 +367,14 @@ public class BondFuturesJpyEnd2EndTest {
 
   public void parSpread() {
     // March
-    double quotedPriceMar = 151.89 * ONE_PERCENT;
-    double priceMar = TRADE_PRICER.parSpread(FUTURE_TRADE_MAR, RATES_PROVIDER, quotedPriceMar) * HUNDRED;
-    assertEquals(priceMar, -0.05928203701224266, TOL * HUNDRED);
+    double psMar = TRADE_PRICER.parSpread(FUTURE_TRADE_MAR, RATES_PROVIDER, REF_PRICE_MAR * ONE_PERCENT) * HUNDRED;
+    assertEquals(psMar, -0.4192820370122474, TOL * HUNDRED);
     // June
-    double quotedPriceJun = 151.29 * ONE_PERCENT;
-    double priceJun = TRADE_PRICER.parSpread(FUTURE_TRADE_JUN, RATES_PROVIDER, quotedPriceJun) * HUNDRED;
-    assertEquals(priceJun, -0.03972547682404848, TOL * HUNDRED);
+    double psJun = TRADE_PRICER.parSpread(FUTURE_TRADE_JUN, RATES_PROVIDER, REF_PRICE_JUN * ONE_PERCENT) * HUNDRED;
+    assertEquals(psJun, -0.47972547682404443, TOL * HUNDRED);
     // September
-    double quotedPriceSep = 151.15 * ONE_PERCENT;
-    double priceSep = TRADE_PRICER.parSpread(FUTURE_TRADE_SEP, RATES_PROVIDER, quotedPriceSep) * HUNDRED;
-    assertEquals(priceSep, -0.06547786116464227, TOL * HUNDRED);
+    double psSep = TRADE_PRICER.parSpread(FUTURE_TRADE_SEP, RATES_PROVIDER, REF_PRICE_SEP * ONE_PERCENT) * HUNDRED;
+    assertEquals(psSep, -0.5254778611646582, TOL * HUNDRED);
   }
 
   public void parSpreadSensitivity() {
