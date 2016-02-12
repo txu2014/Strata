@@ -30,6 +30,7 @@ import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.market.ImmutableMarketData;
 import com.opengamma.strata.basics.market.MarketData;
 import com.opengamma.strata.basics.market.ObservableKey;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.market.ValueType;
 import com.opengamma.strata.market.curve.node.DummyFraCurveNode;
@@ -43,6 +44,7 @@ import com.opengamma.strata.market.key.QuoteKey;
 @Test
 public class CurveGroupDefinitionTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final ObservableKey GBP_LIBOR_1M_ID = QuoteKey.of(StandardId.of("OG", "Ticker1"));
   private static final ObservableKey GBP_LIBOR_3M_ID = QuoteKey.of(StandardId.of("OG", "Ticker3"));
   private static final DummyFraCurveNode NODE1 = DummyFraCurveNode.of(Period.ofMonths(1), GBP_LIBOR_1M, GBP_LIBOR_1M_ID);
@@ -156,10 +158,10 @@ public class CurveGroupDefinitionTest {
     MarketData marketData = ImmutableMarketData.builder(valuationDate)
         .addValues(ImmutableMap.of(GBP_LIBOR_1M_ID, 0.5d, GBP_LIBOR_3M_ID, 1.5d))
         .build();
-    Trade trade1 = NODE1.trade(valuationDate, marketData);
-    Trade trade2 = NODE2.trade(valuationDate, marketData);
+    Trade trade1 = NODE1.trade(valuationDate, marketData, REF_DATA);
+    Trade trade2 = NODE2.trade(valuationDate, marketData, REF_DATA);
     assertEquals(test.getTotalParameterCount(), 2);
-    assertEquals(test.trades(valuationDate, marketData), ImmutableList.of(trade1, trade2));
+    assertEquals(test.trades(valuationDate, marketData, REF_DATA), ImmutableList.of(trade1, trade2));
     assertEquals(test.initialGuesses(valuationDate, marketData), ImmutableList.of(0.5d, 1.5d));
   }
 

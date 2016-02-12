@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.collect.array.DoubleMatrix;
@@ -151,23 +152,25 @@ public final class CurveCalibrator {
    * The calibration is defined using {@link CurveGroupDefinition}.
    * Observable market data, time-series and FX are also needed to complete the calibration.
    *
-   * @param curveGroupDefn the curve group definition
-   * @param valuationDate the validation date
-   * @param marketData the market data required to build a trade for the instrument
-   * @param timeSeries the time-series
+   * @param curveGroupDefn  the curve group definition
+   * @param valuationDate  the validation date
+   * @param marketData  the market data required to build a trade for the instrument
+   * @param refData  the reference data, used to resolve the trades
+   * @param timeSeries  the time-series
    * @return the rates provider resulting from the calibration
    */
   public ImmutableRatesProvider calibrate(
       CurveGroupDefinition curveGroupDefn,
       LocalDate valuationDate,
       MarketData marketData,
+      ReferenceData refData,
       Map<Index, LocalDateDoubleTimeSeries> timeSeries) {
 
     ImmutableRatesProvider knownData = ImmutableRatesProvider.builder(valuationDate)
         .fxRateProvider(new MarketDataFxRateProvider(marketData))
         .timeSeries(timeSeries)
         .build();
-    return calibrate(ImmutableList.of(curveGroupDefn), knownData, marketData);
+    return calibrate(ImmutableList.of(curveGroupDefn), knownData, marketData, refData);
   }
 
   /**
@@ -178,15 +181,17 @@ public final class CurveCalibrator {
    * <p>
    * A curve must only exist in one group.
    *
-   * @param allGroupsDefn the curve group definitions
-   * @param knownData the starting data for the calibration
-   * @param marketData the market data required to build a trade for the instrument
+   * @param allGroupsDefn  the curve group definitions
+   * @param knownData  the starting data for the calibration
+   * @param marketData  the market data required to build a trade for the instrument
+   * @param refData  the reference data, used to resolve the trades
    * @return the rates provider resulting from the calibration
    */
   public ImmutableRatesProvider calibrate(
       List<CurveGroupDefinition> allGroupsDefn,
       ImmutableRatesProvider knownData,
-      MarketData marketData) {
+      MarketData marketData,
+      ReferenceData refData) {
 
     // perform calibration one group at a time, building up the result by mutating these variables
     ImmutableRatesProvider providerCombined = knownData;
@@ -194,7 +199,7 @@ public final class CurveCalibrator {
     ImmutableMap<CurveName, JacobianCalibrationMatrix> jacobians = ImmutableMap.of();
     for (CurveGroupDefinition groupDefn : allGroupsDefn) {
       // combine all data in the group into flat lists
-      ImmutableList<Trade> trades = groupDefn.trades(knownData.getValuationDate(), marketData);
+      ImmutableList<Trade> trades = groupDefn.trades(knownData.getValuationDate(), marketData, refData);
       ImmutableList<Double> initialGuesses = groupDefn.initialGuesses(knownData.getValuationDate(), marketData);
       ImmutableList<CurveParameterSize> orderGroup = toOrder(groupDefn);
       ImmutableList<CurveParameterSize> orderPrevAndGroup = ImmutableList.<CurveParameterSize>builder()
