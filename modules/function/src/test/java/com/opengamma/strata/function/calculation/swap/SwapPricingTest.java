@@ -33,6 +33,7 @@ import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.IborIndices;
 import com.opengamma.strata.basics.index.ImmutableIborIndex;
 import com.opengamma.strata.basics.index.Index;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.basics.schedule.StubConvention;
@@ -74,6 +75,7 @@ import com.opengamma.strata.product.swap.SwapTrade;
 @Test
 public class SwapPricingTest {
 
+  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final IborIndex USD_LIBOR_1M = lockIndexCalendar(IborIndices.USD_LIBOR_1M);
   private static final IborIndex USD_LIBOR_3M = lockIndexCalendar(IborIndices.USD_LIBOR_3M);
   private static final IborIndex USD_LIBOR_6M = lockIndexCalendar(IborIndices.USD_LIBOR_6M);
@@ -151,7 +153,8 @@ public class SwapPricingTest {
     // calculate results using the runner
     CalculationTasks tasks = CalculationTasks.of(rules, trades, columns);
     MarketDataRequirements reqs = tasks.getRequirements();
-    MarketEnvironment enhancedMarketData = marketDataFactory().buildMarketData(reqs, suppliedData, MarketDataConfig.empty());
+    MarketEnvironment enhancedMarketData = marketDataFactory()
+        .buildMarketData(reqs, MarketDataConfig.empty(), suppliedData, REF_DATA);
     // using the direct executor means there is no need to close/shutdown the runner
     CalculationTaskRunner runner = CalculationTaskRunner.of(MoreExecutors.newDirectExecutorService());
     Results results = runner.calculateSingleScenario(tasks, enhancedMarketData);
