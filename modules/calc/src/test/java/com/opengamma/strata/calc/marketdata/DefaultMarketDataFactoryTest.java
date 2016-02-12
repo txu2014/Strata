@@ -27,6 +27,7 @@ import com.opengamma.strata.basics.market.MarketDataId;
 import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.basics.market.ObservableId;
 import com.opengamma.strata.basics.market.ObservableKey;
+import com.opengamma.strata.basics.market.ReferenceData;
 import com.opengamma.strata.basics.market.TestObservableId;
 import com.opengamma.strata.basics.market.TestObservableKey;
 import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
@@ -1313,8 +1314,9 @@ public class DefaultMarketDataFactoryTest {
     @Override
     public MarketDataBox<TestMarketDataB> build(
         TestIdB id,
+        MarketDataConfig marketDataConfig,
         CalculationEnvironment marketData,
-        MarketDataConfig marketDataConfig) {
+        ReferenceData refData) {
 
       TestIdA idA = new TestIdA(id.str);
       TestIdC idC = new TestIdC(id.str);
@@ -1374,8 +1376,9 @@ public class DefaultMarketDataFactoryTest {
     @Override
     public MarketDataBox<TestMarketDataC> build(
         TestIdC id,
+        MarketDataConfig marketDataConfig,
         CalculationEnvironment marketData,
-        MarketDataConfig marketDataConfig) {
+        ReferenceData refData) {
 
       LocalDateDoubleTimeSeries timeSeries = marketData.getTimeSeries(new TestIdA(id.str));
       return MarketDataBox.ofSingleValue(new TestMarketDataC(timeSeries));
@@ -1517,8 +1520,9 @@ public class DefaultMarketDataFactoryTest {
     @Override
     public MarketDataBox<String> build(
         NonObservableId id,
+        MarketDataConfig marketDataConfig,
         CalculationEnvironment marketData,
-        MarketDataConfig marketDataConfig) {
+        ReferenceData refData) {
 
       MarketDataBox<Double> value = marketData.getValue(TestObservableId.of(StandardId.of("reqs", id.str)));
       return value.apply(v -> Double.toString(v));
