@@ -24,13 +24,17 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
-
 /**
  * An adjustable date.
  * <p>
  * This class combines an unadjusted date and the business day adjustment necessary to adjust it.
- * Calling the {@link #adjusted(ReferenceData)} method will return the adjusted date.
+ * Calling the {@link #adjusted()} method will return the adjusted date.
+ * 
+ * <h4>Usage</h4>
+ * {@code AdjustableDate} contains enough information to directly return the adjusted date:
+ * <pre>
+ *  LocalDate adjusted = adjustableDate.adjusted();
+ * </pre>
  */
 @BeanDefinition(builderScope = "private")
 public final class AdjustableDate
@@ -57,7 +61,7 @@ public final class AdjustableDate
    * Obtains an instance with no business day adjustment.
    * <p>
    * This creates an adjustable date from the specified date.
-   * No business day adjustment applies, thus the result of {@link #adjusted(ReferenceData)}
+   * No business day adjustment applies, thus the result of {@link #adjusted()}
    * is the specified date.
    * 
    * @param date  the date
@@ -71,7 +75,7 @@ public final class AdjustableDate
    * Obtains an instance with a business day adjustment.
    * <p>
    * This creates an adjustable date from the unadjusted date and business day adjustment.
-   * The adjusted date is accessible via {@link #adjusted(ReferenceData)}.
+   * The adjusted date is accessible via {@link #adjusted()}.
    * 
    * @param unadjusted  the unadjusted date
    * @param adjustment  the business day adjustment to apply to the unadjusted date
@@ -88,11 +92,10 @@ public final class AdjustableDate
    * This returns the adjusted date, calculated by applying the business day
    * adjustment to the unadjusted date.
    * 
-   * @param refData  the reference data to use
    * @return the adjusted date
    */
-  public LocalDate adjusted(ReferenceData refData) {
-    return adjustment.adjust(unadjusted, refData);
+  public LocalDate adjusted() {
+    return adjustment.adjust(unadjusted);
   }
 
   //-------------------------------------------------------------------------

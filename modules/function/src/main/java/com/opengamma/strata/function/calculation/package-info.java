@@ -6,9 +6,6 @@
 
 /**
  * Base package for calculation functions.
- * <p>
- * This package includes the market data wrappers for rates products.
- * These supply FX rates, discount curves and forward curves.
  */
 package com.opengamma.strata.function.calculation;
 

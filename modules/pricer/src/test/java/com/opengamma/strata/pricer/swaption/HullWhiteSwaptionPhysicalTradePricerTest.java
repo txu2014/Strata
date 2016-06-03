@@ -5,9 +5,9 @@
  */
 package com.opengamma.strata.pricer.swaption;
 
+import static com.opengamma.strata.basics.BuySell.SELL;
 import static com.opengamma.strata.basics.currency.Currency.USD;
 import static com.opengamma.strata.basics.index.IborIndices.USD_LIBOR_3M;
-import static com.opengamma.strata.product.common.BuySell.SELL;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -18,28 +18,26 @@ import java.time.ZoneId;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.LongShort;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.currency.Payment;
 import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.collect.DoubleArrayMath;
 import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.pricer.DiscountingPaymentPricer;
 import com.opengamma.strata.pricer.datasets.RatesProviderDataSets;
 import com.opengamma.strata.pricer.index.HullWhiteIborFutureDataSet;
 import com.opengamma.strata.pricer.index.HullWhiteOneFactorPiecewiseConstantParametersProvider;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
-import com.opengamma.strata.product.common.LongShort;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConventions;
 import com.opengamma.strata.product.swaption.PhysicalSettlement;
-import com.opengamma.strata.product.swaption.ResolvedSwaption;
-import com.opengamma.strata.product.swaption.ResolvedSwaptionTrade;
 import com.opengamma.strata.product.swaption.Swaption;
 import com.opengamma.strata.product.swaption.SwaptionSettlement;
+import com.opengamma.strata.product.swaption.SwaptionTrade;
 
 /**
  * Test {@link HullWhiteSwaptionPhysicalTradePricer}.
@@ -47,13 +45,12 @@ import com.opengamma.strata.product.swaption.SwaptionSettlement;
 @Test
 public class HullWhiteSwaptionPhysicalTradePricerTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate VAL_DATE = RatesProviderDataSets.VAL_DATE_2014_01_22;
   private static final LocalDate SWAPTION_EXERCISE_DATE = VAL_DATE.plusYears(5);
   private static final LocalTime SWAPTION_EXPIRY_TIME = LocalTime.of(11, 0);
   private static final ZoneId SWAPTION_EXPIRY_ZONE = ZoneId.of("America/New_York");
-  private static final LocalDate SWAP_EFFECTIVE_DATE =
-      USD_LIBOR_3M.calculateEffectiveFromFixing(SWAPTION_EXERCISE_DATE, REF_DATA);
+  private static final LocalDate SWAP_EFFECTIVE_DATE = USD_LIBOR_3M
+      .calculateEffectiveFromFixing(SWAPTION_EXERCISE_DATE);
   private static final int SWAP_TENOR_YEAR = 5;
   private static final Period SWAP_TENOR = Period.ofYears(SWAP_TENOR_YEAR);
   private static final LocalDate SWAP_MATURITY_DATE = SWAP_EFFECTIVE_DATE.plus(SWAP_TENOR);
@@ -64,29 +61,28 @@ public class HullWhiteSwaptionPhysicalTradePricerTest {
   private static final SwaptionSettlement PHYSICAL_SETTLE = PhysicalSettlement.DEFAULT;
 
   private static final double PREMIUM_AMOUNT = 100_000;
-  private static final ResolvedSwaption SWAPTION_LONG_REC = Swaption.builder()
+  private static final Swaption SWAPTION_LONG_REC = Swaption.builder()
       .swaptionSettlement(PHYSICAL_SETTLE)
       .expiryDate(AdjustableDate.of(SWAPTION_EXERCISE_DATE))
       .expiryTime(SWAPTION_EXPIRY_TIME)
       .expiryZone(SWAPTION_EXPIRY_ZONE)
       .longShort(LongShort.LONG)
       .underlying(SWAP_REC)
-      .build()
-      .resolve(REF_DATA);
+      .build();
   private static final Payment PREMIUM_FWD_PAY = Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT),
       SWAP_EFFECTIVE_DATE);
-  private static final ResolvedSwaptionTrade SWAPTION_PREFWD_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PREFWD_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_FWD_PAY)
       .build();
   private static final Payment PREMIUM_TRA_PAY = Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT), VAL_DATE);
-  private static final ResolvedSwaptionTrade SWAPTION_PRETOD_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PRETOD_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_TRA_PAY)
       .build();
   private static final Payment PREMIUM_PAST_PAY =
       Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT), VAL_DATE.minusDays(1));
-  private static final ResolvedSwaptionTrade SWAPTION_PREPAST_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PREPAST_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_PAST_PAY)
       .build();
@@ -97,7 +93,7 @@ public class HullWhiteSwaptionPhysicalTradePricerTest {
       HullWhiteSwaptionPhysicalTradePricer.DEFAULT;
   private static final DiscountingPaymentPricer PRICER_PAYMENT = DiscountingPaymentPricer.DEFAULT;
 
-  private static final ImmutableRatesProvider MULTI_USD = RatesProviderDataSets.multiUsd(VAL_DATE);
+  private static final ImmutableRatesProvider MULTI_USD = RatesProviderDataSets.MULTI_USD.toBuilder(VAL_DATE).build();
   private static final HullWhiteOneFactorPiecewiseConstantParametersProvider HW_PROVIDER =
       HullWhiteIborFutureDataSet.createHullWhiteProvider(VAL_DATE);
 
@@ -154,9 +150,9 @@ public class HullWhiteSwaptionPhysicalTradePricerTest {
     PointSensitivityBuilder pvcsProduct = PRICER_PRODUCT
         .presentValueSensitivity(SWAPTION_LONG_REC, MULTI_USD, HW_PROVIDER);
     PointSensitivityBuilder pvcsPremium = PRICER_PAYMENT.presentValueSensitivity(PREMIUM_FWD_PAY, MULTI_USD);
-    CurrencyParameterSensitivities pvpsTrade = MULTI_USD.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct =
-        MULTI_USD.parameterSensitivity(pvcsProduct.combinedWith(pvcsPremium).build());
+    CurveCurrencyParameterSensitivities pvpsTrade = MULTI_USD.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct =
+        MULTI_USD.curveParameterSensitivity(pvcsProduct.combinedWith(pvcsPremium).build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, TOL * NOTIONAL));
   }
 
@@ -165,8 +161,8 @@ public class HullWhiteSwaptionPhysicalTradePricerTest {
         .presentValueSensitivity(SWAPTION_PRETOD_LONG_REC, MULTI_USD, HW_PROVIDER);
     PointSensitivityBuilder pvcsProduct = PRICER_PRODUCT
         .presentValueSensitivity(SWAPTION_LONG_REC, MULTI_USD, HW_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade = MULTI_USD.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct = MULTI_USD.parameterSensitivity(pvcsProduct.build());
+    CurveCurrencyParameterSensitivities pvpsTrade = MULTI_USD.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct = MULTI_USD.curveParameterSensitivity(pvcsProduct.build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, TOL * NOTIONAL));
   }
 
@@ -175,8 +171,8 @@ public class HullWhiteSwaptionPhysicalTradePricerTest {
         .presentValueSensitivity(SWAPTION_PREPAST_LONG_REC, MULTI_USD, HW_PROVIDER);
     PointSensitivityBuilder pvcsProduct = PRICER_PRODUCT
         .presentValueSensitivity(SWAPTION_LONG_REC, MULTI_USD, HW_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade = MULTI_USD.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct = MULTI_USD.parameterSensitivity(pvcsProduct.build());
+    CurveCurrencyParameterSensitivities pvpsTrade = MULTI_USD.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct = MULTI_USD.curveParameterSensitivity(pvcsProduct.build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, TOL * NOTIONAL));
   }
 

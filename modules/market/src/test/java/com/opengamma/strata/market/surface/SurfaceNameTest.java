@@ -15,12 +15,9 @@ import org.testng.annotations.Test;
 @Test
 public class SurfaceNameTest {
 
-  public void test_of() {
+  public void coverage() {
     SurfaceName test = SurfaceName.of("Foo");
-    assertEquals(test.getName(), "Foo");
-    assertEquals(test.getMarketDataType(), Surface.class);
     assertEquals(test.toString(), "Foo");
-    assertEquals(test.compareTo(SurfaceName.of("Goo")) < 0, true);
   }
 
 }

@@ -14,25 +14,25 @@ import java.util.Map;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.FxRate;
-import com.opengamma.strata.calc.marketdata.MarketDataConfig;
+import com.opengamma.strata.basics.market.FxRateId;
+import com.opengamma.strata.basics.market.MarketDataBox;
+import com.opengamma.strata.basics.market.MarketDataFeed;
+import com.opengamma.strata.calc.marketdata.CalculationEnvironment;
 import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
-import com.opengamma.strata.data.FxRateId;
-import com.opengamma.strata.data.ObservableSource;
-import com.opengamma.strata.data.scenario.ImmutableScenarioMarketData;
-import com.opengamma.strata.data.scenario.MarketDataBox;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
-import com.opengamma.strata.market.observable.QuoteId;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
+import com.opengamma.strata.collect.id.StandardId;
+import com.opengamma.strata.market.id.QuoteId;
+import com.opengamma.strata.market.key.QuoteKey;
 
 @Test
 public class FxRateMarketDataFunctionTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
-  private static final QuoteId QUOTE_ID = QuoteId.of(StandardId.of("test", "EUR/USD"));
+  private static final QuoteKey QUOTE_KEY = QuoteKey.of(StandardId.of("test", "EUR/USD"));
+  private static final QuoteId QUOTE_ID = QUOTE_KEY.toMarketDataId(MarketDataFeed.NONE);
   private static final CurrencyPair CURRENCY_PAIR = CurrencyPair.of(Currency.EUR, Currency.USD);
   private static final FxRateId RATE_ID = FxRateId.of(CURRENCY_PAIR);
 
@@ -50,7 +50,7 @@ public class FxRateMarketDataFunctionTest {
 
   public void requirementsMissingConfig() {
     FxRateMarketDataFunction function = new FxRateMarketDataFunction();
-    String regex = "No configuration found .*FxRateConfig";
+    String regex = "No default configuration found with type .*FxRateConfig";
     assertThrowsIllegalArg(() -> function.requirements(RATE_ID, MarketDataConfig.empty()), regex);
   }
 
@@ -63,10 +63,11 @@ public class FxRateMarketDataFunctionTest {
   public void build() {
     FxRateMarketDataFunction function = new FxRateMarketDataFunction();
     MarketDataBox<Double> quoteBox = MarketDataBox.ofSingleValue(1.1d);
-    ScenarioMarketData marketData = ImmutableScenarioMarketData.builder(LocalDate.of(2011, 3, 8))
-        .addBox(QUOTE_ID, quoteBox)
+    CalculationEnvironment marketData = MarketEnvironment.builder()
+        .valuationDate(LocalDate.of(2011, 3, 8))
+        .addValue(QUOTE_ID, quoteBox)
         .build();
-    MarketDataBox<FxRate> rateBox = function.build(RATE_ID, config(), marketData, REF_DATA);
+    MarketDataBox<FxRate> rateBox = function.build(RATE_ID, marketData, config());
     assertThat(rateBox.isSingleValue()).isTrue();
     assertThat(rateBox.getSingleValue()).isEqualTo(FxRate.of(CURRENCY_PAIR, 1.1d));
   }
@@ -74,10 +75,11 @@ public class FxRateMarketDataFunctionTest {
   public void buildInverse() {
     FxRateMarketDataFunction function = new FxRateMarketDataFunction();
     MarketDataBox<Double> quoteBox = MarketDataBox.ofSingleValue(1.1d);
-    ScenarioMarketData marketData = ImmutableScenarioMarketData.builder(LocalDate.of(2011, 3, 8))
-        .addBox(QUOTE_ID, quoteBox)
+    CalculationEnvironment marketData = MarketEnvironment.builder()
+        .valuationDate(LocalDate.of(2011, 3, 8))
+        .addValue(QUOTE_ID, quoteBox)
         .build();
-    MarketDataBox<FxRate> rateBox = function.build(FxRateId.of(CURRENCY_PAIR.inverse()), config(), marketData, REF_DATA);
+    MarketDataBox<FxRate> rateBox = function.build(FxRateId.of(CURRENCY_PAIR.inverse()), marketData, config());
     assertThat(rateBox.isSingleValue()).isTrue();
     assertThat(rateBox.getSingleValue()).isEqualTo(FxRate.of(CURRENCY_PAIR, 1.1d));
   }
@@ -85,10 +87,11 @@ public class FxRateMarketDataFunctionTest {
   public void buildScenario() {
     FxRateMarketDataFunction function = new FxRateMarketDataFunction();
     MarketDataBox<Double> quoteBox = MarketDataBox.ofScenarioValues(1.1d, 1.2d, 1.3d);
-    ScenarioMarketData marketData = ImmutableScenarioMarketData.builder(LocalDate.of(2011, 3, 8))
-        .addBox(QUOTE_ID, quoteBox)
+    CalculationEnvironment marketData = MarketEnvironment.builder()
+        .valuationDate(LocalDate.of(2011, 3, 8))
+        .addValue(QUOTE_ID, quoteBox)
         .build();
-    MarketDataBox<FxRate> rateBox = function.build(RATE_ID, config(), marketData, REF_DATA);
+    MarketDataBox<FxRate> rateBox = function.build(RATE_ID, marketData, config());
     assertThat(rateBox.isSingleValue()).isFalse();
     assertThat(rateBox.getScenarioCount()).isEqualTo(3);
     assertThat(rateBox.getValue(0)).isEqualTo(FxRate.of(CURRENCY_PAIR, 1.1d));
@@ -98,23 +101,20 @@ public class FxRateMarketDataFunctionTest {
 
   public void buildMissingConfig() {
     FxRateMarketDataFunction function = new FxRateMarketDataFunction();
-    String regex = "No configuration found .*FxRateConfig";
-    assertThrowsIllegalArg(
-        () -> function.build(RATE_ID, MarketDataConfig.empty(), ScenarioMarketData.empty(), REF_DATA), regex);
+    String regex = "No default configuration found with type .*FxRateConfig";
+    assertThrowsIllegalArg(() -> function.build(RATE_ID, CalculationEnvironment.empty(), MarketDataConfig.empty()), regex);
   }
 
   public void buildNoConfigForPair() {
     FxRateMarketDataFunction function = new FxRateMarketDataFunction();
     String regex = "No FX rate configuration available for GBP/USD";
     CurrencyPair gbpUsd = CurrencyPair.of(Currency.GBP, Currency.USD);
-    assertThrowsIllegalArg(
-        () -> function.build(FxRateId.of(gbpUsd), config(), ScenarioMarketData.empty(), REF_DATA), regex);
+    assertThrowsIllegalArg(() -> function.build(FxRateId.of(gbpUsd), CalculationEnvironment.empty(), config()), regex);
   }
 
   private static MarketDataConfig config() {
-    Map<CurrencyPair, QuoteId> ratesMap = ImmutableMap.of(CURRENCY_PAIR, QUOTE_ID);
+    Map<CurrencyPair, QuoteKey> ratesMap = ImmutableMap.of(CURRENCY_PAIR, QUOTE_KEY);
     FxRateConfig fxRateConfig = FxRateConfig.builder().observableRates(ratesMap).build();
-    return MarketDataConfig.builder().add(ObservableSource.NONE, fxRateConfig).build();
+    return MarketDataConfig.builder().addDefault(fxRateConfig).build();
   }
-
 }

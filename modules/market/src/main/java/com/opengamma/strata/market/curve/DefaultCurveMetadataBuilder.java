@@ -5,6 +5,7 @@
  */
 package com.opengamma.strata.market.curve;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +14,6 @@ import com.google.common.collect.ImmutableList;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.ValueType;
-import com.opengamma.strata.market.param.ParameterMetadata;
 
 /**
  * Builder for curve metadata.
@@ -31,7 +31,8 @@ public final class DefaultCurveMetadataBuilder {
    * <p>
    * This type provides meaning to the x-values. For example, the x-value might
    * represent a year fraction, as represented using {@link ValueType#YEAR_FRACTION}.
-   * It defaults to {@link ValueType#UNKNOWN}.
+   * <p>
+   * If using the builder, this defaults to {@link ValueType#UNKNOWN}.
    */
   private ValueType xValueType = ValueType.UNKNOWN;
   /**
@@ -39,7 +40,8 @@ public final class DefaultCurveMetadataBuilder {
    * <p>
    * This type provides meaning to the y-values. For example, the y-value might
    * represent a zero rate, as represented using {@link ValueType#ZERO_RATE}.
-   * It defaults to {@link ValueType#UNKNOWN}.
+   * <p>
+   * If using the builder, this defaults to {@link ValueType#UNKNOWN}.
    */
   private ValueType yValueType = ValueType.UNKNOWN;
   /**
@@ -56,7 +58,7 @@ public final class DefaultCurveMetadataBuilder {
    * <p>
    * If present, the parameter metadata will match the number of parameters on the curve.
    */
-  private List<ParameterMetadata> parameterMetadata;
+  private List<CurveParameterMetadata> parameterMetadata;
 
   /**
    * Restricted constructor.
@@ -74,7 +76,7 @@ public final class DefaultCurveMetadataBuilder {
     this.xValueType = beanToCopy.getXValueType();
     this.yValueType = beanToCopy.getYValueType();
     this.info.putAll(beanToCopy.getInfo());
-    this.parameterMetadata = beanToCopy.getParameterMetadata().orElse(null);
+    this.parameterMetadata = beanToCopy.getParameterMetadata().map(m -> new ArrayList<>(m)).orElse(null);
   }
 
   //-----------------------------------------------------------------------
@@ -84,19 +86,9 @@ public final class DefaultCurveMetadataBuilder {
    * @param curveName  the curve name
    * @return this, for chaining
    */
-  public DefaultCurveMetadataBuilder curveName(String curveName) {
-    this.curveName = CurveName.of(curveName);
-    return this;
-  }
-
-  /**
-   * Sets the curve name.
-   * 
-   * @param curveName  the curve name
-   * @return this, for chaining
-   */
   public DefaultCurveMetadataBuilder curveName(CurveName curveName) {
-    this.curveName = ArgChecker.notNull(curveName, "curveName");
+    ArgChecker.notNull(curveName, "curveName");
+    this.curveName = curveName;
     return this;
   }
 
@@ -113,7 +105,8 @@ public final class DefaultCurveMetadataBuilder {
    * @return this, for chaining
    */
   public DefaultCurveMetadataBuilder xValueType(ValueType xValueType) {
-    this.xValueType = ArgChecker.notNull(xValueType, "xValueType");
+    ArgChecker.notNull(xValueType, "xValueType");
+    this.xValueType = xValueType;
     return this;
   }
 
@@ -130,7 +123,8 @@ public final class DefaultCurveMetadataBuilder {
    * @return this, for chaining
    */
   public DefaultCurveMetadataBuilder yValueType(ValueType yValueType) {
-    this.yValueType = ArgChecker.notNull(yValueType, "yValueType");
+    ArgChecker.notNull(yValueType, "yValueType");
+    this.yValueType = yValueType;
     return this;
   }
 
@@ -168,7 +162,6 @@ public final class DefaultCurveMetadataBuilder {
     return addInfo(CurveInfoType.JACOBIAN, jacobian);
   }
 
-  //-------------------------------------------------------------------------
   /**
    * Adds a single piece of additional information.
    * <p>
@@ -177,58 +170,83 @@ public final class DefaultCurveMetadataBuilder {
    * 
    * @param <T>  the type of the info
    * @param type  the type to store under
-   * @param value  the value to store, may be null
+   * @param instance  the instance to store, may be null
    * @return this, for chaining
    */
-  public <T> DefaultCurveMetadataBuilder addInfo(CurveInfoType<T> type, T value) {
+  public <T> DefaultCurveMetadataBuilder addInfo(CurveInfoType<T> type, T instance) {
     ArgChecker.notNull(type, "type");
-    if (value != null) {
-      this.info.put(type, value);
+    if (instance != null) {
+      this.info.put(type, instance);
     } else {
       this.info.remove(type);
     }
     return this;
   }
 
+  /**
+   * Adds additional information.
+   * <p>
+   * This is stored in the additional information map using {@code Map.putAll} semantics
+   * 
+   * @param info  the information to add
+   * @return this, for chaining
+   */
+  public DefaultCurveMetadataBuilder addInfo(Map<CurveInfoType<?>, Object> info) {
+    ArgChecker.notNull(info, "infoMap");
+    this.info.putAll(info);
+    return this;
+  }
+
   //-------------------------------------------------------------------------
   /**
-   * Sets the parameter-level metadata.
+   * Adds a single piece of parameter metadata.
    * <p>
-   * The parameter metadata must match the number of parameters on the curve.
-   * This will replace the existing parameter-level metadata.
+   * This is stored in the parameter metadata list.
    * 
    * @param parameterMetadata  the parameter metadata
    * @return this, for chaining
    */
-  public DefaultCurveMetadataBuilder parameterMetadata(List<? extends ParameterMetadata> parameterMetadata) {
-    this.parameterMetadata = ImmutableList.copyOf(parameterMetadata);
+  public DefaultCurveMetadataBuilder addParameterMetadata(CurveParameterMetadata parameterMetadata) {
+    if (this.parameterMetadata == null) {
+      this.parameterMetadata = new ArrayList<>();
+    }
+    this.parameterMetadata.add(parameterMetadata);
     return this;
   }
 
   /**
-   * Sets the parameter-level metadata.
+   * Sets the metadata about the parameters.
    * <p>
-   * The parameter metadata must match the number of parameters on the curve.
-   * This will replace the existing parameter-level metadata.
+   * If present, the parameter metadata will match the number of parameters on the curve.
+   * <p>
+   * This will replace all existing data in the metadata list.
    * 
-   * @param parameterMetadata  the parameter metadata
+   * @param parameterMetadata  the parameter metadata, may be null
    * @return this, for chaining
    */
-  public DefaultCurveMetadataBuilder parameterMetadata(ParameterMetadata... parameterMetadata) {
-    this.parameterMetadata = ImmutableList.copyOf(parameterMetadata);
+  public DefaultCurveMetadataBuilder parameterMetadata(List<? extends CurveParameterMetadata> parameterMetadata) {
+    if (parameterMetadata == null) {
+      this.parameterMetadata = null;
+    } else {
+      if (this.parameterMetadata == null) {
+        this.parameterMetadata = new ArrayList<>();
+      }
+      this.parameterMetadata.clear();
+      this.parameterMetadata.addAll(parameterMetadata);
+    }
     return this;
   }
 
   /**
-   * Clears the parameter-level metadata.
+   * Sets the {@code parameterMetadata} property in the builder from an array of objects.
    * <p>
-   * The existing parameter-level metadata will be removed.
+   * This will replace all existing data in the metadata list.
    * 
+   * @param parameterMetadata  the new value
    * @return this, for chaining
    */
-  public DefaultCurveMetadataBuilder clearParameterMetadata() {
-    this.parameterMetadata = null;
-    return this;
+  public DefaultCurveMetadataBuilder parameterMetadata(CurveParameterMetadata... parameterMetadata) {
+    return parameterMetadata(ImmutableList.copyOf(parameterMetadata));
   }
 
   //-------------------------------------------------------------------------

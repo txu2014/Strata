@@ -31,12 +31,14 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DateSequence;
 import com.opengamma.strata.basics.index.IborIndex;
-import com.opengamma.strata.product.SecurityId;
+import com.opengamma.strata.collect.id.StandardId;
+import com.opengamma.strata.product.Security;
+import com.opengamma.strata.product.SecurityLink;
 import com.opengamma.strata.product.TradeInfo;
+import com.opengamma.strata.product.UnitSecurity;
 import com.opengamma.strata.product.index.IborFuture;
 import com.opengamma.strata.product.index.IborFutureTrade;
 
@@ -121,44 +123,37 @@ public final class ImmutableIborFutureConvention
 
   //-------------------------------------------------------------------------
   @Override
-  public IborFutureTrade createTrade(
+  public IborFutureTrade toTrade(
       LocalDate tradeDate,
       Period minimumPeriod,
       int sequenceNumber,
-      double quantity,
+      long quantity,
       double notional,
-      double price,
-      ReferenceData refData) {
+      double price) {
 
-    LocalDate referenceDate = calculateReferenceDateFromTradeDate(tradeDate, minimumPeriod, sequenceNumber, refData);
+    LocalDate referenceDate = calculateReferenceDateFromTradeDate(tradeDate, minimumPeriod, sequenceNumber);
     double accrualFactor = index.getTenor().get(ChronoUnit.MONTHS) / 12.0;
-    LocalDate lastTradeDate = index.calculateFixingFromEffective(referenceDate, refData);
-    YearMonth m = YearMonth.from(lastTradeDate);
-    IborFuture product = IborFuture.builder()
-        .securityId(SecurityId.of("OG-Future", "Ibor-" + index.getName() + "-" + m.format(MONTH_YEAR_FORMAT)))
+    LocalDate lastTradeDate = index.calculateFixingFromEffective(referenceDate);
+    IborFuture underlying = IborFuture.builder()
         .index(index)
         .accrualFactor(accrualFactor)
         .lastTradeDate(lastTradeDate)
         .notional(notional).build();
-    TradeInfo info = TradeInfo.of(tradeDate);
-    return IborFutureTrade.builder()
-        .info(info)
-        .product(product)
-        .quantity(quantity)
-        .price(price)
+    YearMonth m = YearMonth.from(lastTradeDate);
+    Security<IborFuture> security = UnitSecurity.builder(underlying)
+        .standardId(StandardId.of("OG-Future", "Ibor-" + index.getName() + "-" + m.format(MONTH_YEAR_FORMAT)))
         .build();
+    SecurityLink<IborFuture> securityLink = SecurityLink.resolved(security);
+    TradeInfo info = TradeInfo.builder().tradeDate(tradeDate).build();
+    return IborFutureTrade.builder()
+        .quantity(quantity).initialPrice(price).securityLink(securityLink).tradeInfo(info).build();
   }
 
   @Override
-  public LocalDate calculateReferenceDateFromTradeDate(
-      LocalDate tradeDate,
-      Period minimumPeriod,
-      int sequenceNumber,
-      ReferenceData refData) {
-
+  public LocalDate calculateReferenceDateFromTradeDate(LocalDate tradeDate, Period minimumPeriod, int sequenceNumber) {
     LocalDate earliestDate = tradeDate.plus(minimumPeriod);
     LocalDate referenceDate = dateSequence.nthOrSame(earliestDate, sequenceNumber);
-    return businessDayAdjustment.adjust(referenceDate, refData);
+    return businessDayAdjustment.adjust(referenceDate);
   }
 
   //-------------------------------------------------------------------------

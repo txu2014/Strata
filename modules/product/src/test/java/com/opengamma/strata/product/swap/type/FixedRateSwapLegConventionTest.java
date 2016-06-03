@@ -5,13 +5,14 @@
  */
 package com.opengamma.strata.product.swap.type;
 
+import static com.opengamma.strata.basics.PayReceive.PAY;
 import static com.opengamma.strata.basics.currency.Currency.GBP;
 import static com.opengamma.strata.basics.currency.Currency.USD;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.FOLLOWING;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_FOLLOWING;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_365F;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.GBLO;
 import static com.opengamma.strata.basics.schedule.Frequency.P3M;
 import static com.opengamma.strata.basics.schedule.Frequency.P6M;
 import static com.opengamma.strata.basics.schedule.StubConvention.LONG_INITIAL;
@@ -19,7 +20,6 @@ import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
-import static com.opengamma.strata.product.common.PayReceive.PAY;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
@@ -89,7 +89,23 @@ public class FixedRateSwapLegConventionTest {
     assertThrowsIllegalArg(() -> FixedRateSwapLegConvention.builder().build());
   }
 
-  public void test_builderAllSpecified() {
+  //-------------------------------------------------------------------------
+  public void test_expand() {
+    FixedRateSwapLegConvention test = FixedRateSwapLegConvention.of(GBP, ACT_365F, P3M, BDA_MOD_FOLLOW).expand();
+    assertEquals(test.getCurrency(), GBP);
+    assertEquals(test.getDayCount(), ACT_365F);
+    assertEquals(test.getAccrualFrequency(), P3M);
+    assertEquals(test.getAccrualBusinessDayAdjustment(), BDA_MOD_FOLLOW);
+    assertEquals(test.getStartDateBusinessDayAdjustment(), BDA_MOD_FOLLOW);
+    assertEquals(test.getEndDateBusinessDayAdjustment(), BDA_MOD_FOLLOW);
+    assertEquals(test.getStubConvention(), StubConvention.SHORT_INITIAL);
+    assertEquals(test.getRollConvention(), RollConventions.NONE);
+    assertEquals(test.getPaymentFrequency(), P3M);
+    assertEquals(test.getPaymentDateOffset(), DaysAdjustment.NONE);
+    assertEquals(test.getCompoundingMethod(), CompoundingMethod.NONE);
+  }
+
+  public void test_expandAllSpecified() {
     FixedRateSwapLegConvention test = FixedRateSwapLegConvention.builder()
         .currency(USD)
         .dayCount(ACT_360)

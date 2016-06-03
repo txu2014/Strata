@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Iterator;
 
 import org.testng.annotations.Test;
 
@@ -25,12 +26,13 @@ import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.market.interpolator.CurveExtrapolators;
 import com.opengamma.strata.market.interpolator.CurveInterpolators;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.product.fx.FxOptionSensitivity;
+import com.opengamma.strata.market.sensitivity.FxOptionSensitivity;
 import com.opengamma.strata.market.surface.DefaultSurfaceMetadata;
 import com.opengamma.strata.market.surface.InterpolatedNodalSurface;
 import com.opengamma.strata.market.surface.NodalSurface;
-import com.opengamma.strata.market.surface.Surface;
+import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
+import com.opengamma.strata.market.surface.SurfaceParameterMetadata;
+import com.opengamma.strata.market.surface.meta.FxVolatilitySurfaceYearFractionNodeMetadata;
 import com.opengamma.strata.math.impl.interpolation.CombinedInterpolatorExtrapolator;
 import com.opengamma.strata.math.impl.interpolation.GridInterpolator2D;
 import com.opengamma.strata.math.impl.interpolation.Interpolator1D;
@@ -118,11 +120,12 @@ public class BlackVolatilitySurfaceFxProviderTest {
       for (int j = 0; j < NB_STRIKE; ++j) {
         FxOptionSensitivity sensi = FxOptionSensitivity.of(
             CURRENCY_PAIR, TEST_EXPIRY[i], TEST_STRIKE[j], FORWARD[i], GBP, 1d);
-        CurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
-        for (int k = 0; k < SURFACE.getParameterCount(); k++) {
-          double value = computed.getSensitivity().get(k);
-          double nodeExpiry = SURFACE.getXValues().get(k);
-          double nodeStrike = SURFACE.getYValues().get(k);
+        SurfaceCurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
+        Iterator<SurfaceParameterMetadata> itr = computed.getMetadata().getParameterMetadata().get().iterator();
+        for (double value : computed.getSensitivity().toArray()) {
+          FxVolatilitySurfaceYearFractionNodeMetadata meta = ((FxVolatilitySurfaceYearFractionNodeMetadata) itr.next());
+          double nodeExpiry = meta.getYearFraction();
+          double nodeStrike = meta.getStrike().getValue();
           double expected = nodeSensitivity(
               PROVIDER, CURRENCY_PAIR, TEST_EXPIRY[i], TEST_STRIKE[j], FORWARD[i], nodeExpiry, nodeStrike);
           assertEquals(value, expected, EPS);
@@ -136,11 +139,12 @@ public class BlackVolatilitySurfaceFxProviderTest {
       for (int j = 0; j < NB_STRIKE; ++j) {
         FxOptionSensitivity sensi = FxOptionSensitivity.of(
             CURRENCY_PAIR.inverse(), TEST_EXPIRY[i], 1d / TEST_STRIKE[j], 1d / FORWARD[i], GBP, 1d);
-        CurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
-        for (int k = 0; k < SURFACE.getParameterCount(); k++) {
-          double value = computed.getSensitivity().get(k);
-          double nodeExpiry = SURFACE.getXValues().get(k);
-          double nodeStrike = SURFACE.getYValues().get(k);
+        SurfaceCurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
+        Iterator<SurfaceParameterMetadata> itr = computed.getMetadata().getParameterMetadata().get().iterator();
+        for (double value : computed.getSensitivity().toArray()) {
+          FxVolatilitySurfaceYearFractionNodeMetadata meta = ((FxVolatilitySurfaceYearFractionNodeMetadata) itr.next());
+          double nodeExpiry = meta.getYearFraction();
+          double nodeStrike = meta.getStrike().getValue();
           double expected = nodeSensitivity(PROVIDER, CURRENCY_PAIR.inverse(),
               TEST_EXPIRY[i], 1d / TEST_STRIKE[j], 1d / FORWARD[i], nodeExpiry, nodeStrike);
           assertEquals(value, expected, EPS);
@@ -173,7 +177,7 @@ public class BlackVolatilitySurfaceFxProviderTest {
       double nodeExpiry,
       double nodeStrike) {
 
-    NodalSurface surface = (NodalSurface) provider.getSurface();
+    NodalSurface surface = provider.getSurface();
     DoubleArray xValues = surface.getXValues();
     DoubleArray yValues = surface.getYValues();
     DoubleArray zValues = surface.getZValues();
@@ -184,8 +188,8 @@ public class BlackVolatilitySurfaceFxProviderTest {
         index = i;
       }
     }
-    Surface surfaceUp = surface.withZValues(zValues.with(index, zValues.get(index) + EPS));
-    Surface surfaceDw = surface.withZValues(zValues.with(index, zValues.get(index) - EPS));
+    NodalSurface surfaceUp = surface.withZValues(zValues.with(index, zValues.get(index) + EPS));
+    NodalSurface surfaceDw = surface.withZValues(zValues.with(index, zValues.get(index) - EPS));
     BlackVolatilitySurfaceFxProvider provUp =
         BlackVolatilitySurfaceFxProvider.of(surfaceUp, CURRENCY_PAIR, ACT_365F, VAL_DATE_TIME);
     BlackVolatilitySurfaceFxProvider provDw =

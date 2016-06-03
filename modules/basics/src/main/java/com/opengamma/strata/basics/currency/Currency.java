@@ -75,7 +75,7 @@ public final class Currency
    */
   public static final Currency GBP = of("GBP");
   /**
-   * The currency 'CHF' - Swiss Franc.
+   * The currency 'EUR' - Swiss Franc.
    */
   public static final Currency CHF = of("CHF");
   /**

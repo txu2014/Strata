@@ -11,23 +11,20 @@ import java.util.Set;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.Currency;
-import com.opengamma.strata.calc.Measure;
-import com.opengamma.strata.calc.Measures;
-import com.opengamma.strata.calc.runner.CalculationFunction;
-import com.opengamma.strata.calc.runner.CalculationParameters;
-import com.opengamma.strata.calc.runner.FunctionRequirements;
-import com.opengamma.strata.calc.runner.FunctionUtils;
+import com.opengamma.strata.basics.currency.Payment;
+import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.marketdata.FunctionRequirements;
+import com.opengamma.strata.calc.runner.function.CalculationFunction;
+import com.opengamma.strata.calc.runner.function.FunctionUtils;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.function.calculation.RatesMarketDataLookup;
-import com.opengamma.strata.function.calculation.RatesScenarioMarketData;
+import com.opengamma.strata.market.key.DiscountCurveKey;
 import com.opengamma.strata.product.payment.BulletPayment;
 import com.opengamma.strata.product.payment.BulletPaymentTrade;
-import com.opengamma.strata.product.payment.ResolvedBulletPaymentTrade;
 
 /**
  * Perform calculations on a single {@code BulletPaymentTrade} for each of a set of scenarios.
@@ -69,35 +66,28 @@ public class BulletPaymentCalculationFunction
 
   //-------------------------------------------------------------------------
   @Override
-  public Class<BulletPaymentTrade> targetType() {
-    return BulletPaymentTrade.class;
-  }
-
-  @Override
   public Set<Measure> supportedMeasures() {
     return MEASURES;
   }
 
   @Override
-  public Currency naturalCurrency(BulletPaymentTrade trade, ReferenceData refData) {
-    return trade.getProduct().getCurrency();
+  public Currency naturalCurrency(BulletPaymentTrade target) {
+    return target.getProduct().getCurrency();
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public FunctionRequirements requirements(
-      BulletPaymentTrade trade,
-      Set<Measure> measures,
-      CalculationParameters parameters,
-      ReferenceData refData) {
-
-    // extract data from product
+  public FunctionRequirements requirements(BulletPaymentTrade trade, Set<Measure> measures) {
     BulletPayment product = trade.getProduct();
-    Currency currency = product.getCurrency();
 
-    // use lookup to build requirements
-    RatesMarketDataLookup ratesLookup = parameters.getParameter(RatesMarketDataLookup.class);
-    return ratesLookup.requirements(currency);
+    Set<DiscountCurveKey> discountCurveKeys =
+        ImmutableSet.of(DiscountCurveKey.of(product.getCurrency()));
+
+    return FunctionRequirements.builder()
+        .singleValueRequirements(discountCurveKeys)
+        .timeSeriesRequirements()
+        .outputCurrencies(product.getCurrency())
+        .build();
   }
 
   //-------------------------------------------------------------------------
@@ -105,21 +95,15 @@ public class BulletPaymentCalculationFunction
   public Map<Measure, Result<?>> calculate(
       BulletPaymentTrade trade,
       Set<Measure> measures,
-      CalculationParameters parameters,
-      ScenarioMarketData scenarioMarketData,
-      ReferenceData refData) {
+      CalculationMarketData scenarioMarketData) {
 
-    // resolve the trade once for all measures and all scenarios
-    ResolvedBulletPaymentTrade resolved = trade.resolve(refData);
-
-    // use lookup to query market data
-    RatesMarketDataLookup ratesLookup = parameters.getParameter(RatesMarketDataLookup.class);
-    RatesScenarioMarketData marketData = ratesLookup.marketDataView(scenarioMarketData);
+    // expand the trade once for all measures and all scenarios
+    Payment payment = trade.getProduct().expandToPayment();
 
     // loop around measures, calculating all scenarios for one measure
     Map<Measure, Result<?>> results = new HashMap<>();
     for (Measure measure : measures) {
-      results.put(measure, calculate(measure, resolved, marketData));
+      results.put(measure, calculate(measure, trade, payment, scenarioMarketData));
     }
     // The calculated value is the same for these two measures but they are handled differently WRT FX conversion
     FunctionUtils.duplicateResult(Measures.PRESENT_VALUE, Measures.PRESENT_VALUE_MULTI_CCY, results);
@@ -129,22 +113,24 @@ public class BulletPaymentCalculationFunction
   // calculate one measure
   private Result<?> calculate(
       Measure measure,
-      ResolvedBulletPaymentTrade trade,
-      RatesScenarioMarketData marketData) {
+      BulletPaymentTrade trade,
+      Payment product,
+      CalculationMarketData scenarioMarketData) {
 
     SingleMeasureCalculation calculator = CALCULATORS.get(measure);
     if (calculator == null) {
       return Result.failure(FailureReason.INVALID_INPUT, "Unsupported measure: {}", measure);
     }
-    return Result.of(() -> calculator.calculate(trade, marketData));
+    return Result.of(() -> calculator.calculate(trade, product, scenarioMarketData));
   }
 
   //-------------------------------------------------------------------------
   @FunctionalInterface
   interface SingleMeasureCalculation {
-    public abstract ScenarioArray<?> calculate(
-        ResolvedBulletPaymentTrade trade,
-        RatesScenarioMarketData marketData);
+    public abstract ScenarioResult<?> calculate(
+        BulletPaymentTrade trade,
+        Payment product,
+        CalculationMarketData marketData);
   }
 
 }

@@ -30,8 +30,6 @@ import com.opengamma.strata.collect.array.DoubleArray;
  * Hagan SABR formula.  
  * <p>
  * Reference: Hagan, P.; Kumar, D.; Lesniewski, A. & Woodward, D. "Managing smile risk", Wilmott Magazine, 2002, September, 84-108
- * <p>
- * OpenGamma documentation: SABR Implementation, OpenGamma documentation n. 33, April 2016.
  */
 @BeanDefinition(style = "light")
 public final class SabrHaganVolatilityFunctionProvider
@@ -51,7 +49,6 @@ public final class SabrHaganVolatilityFunctionProvider
   private static final double RHO_EPS = 1e-5;
   private static final double RHO_EPS_NEGATIVE = 1e-8;
   private static final double ATM_EPS = 1e-7;
-  private static final double MIN_VOL = 1e-6; // Minimal volatility, to avoid negative volatility for extreme parameters
 
   //-------------------------------------------------------------------------
   @Override
@@ -112,8 +109,9 @@ public final class SabrHaganVolatilityFunctionProvider
         vol = first * second * third;
       }
     }
-    //There is nothing to prevent the nu * nu * (2 - 3 * rho * rho) / 24 to be large negative, and hence the volatility negative
-     return Math.max(MIN_VOL, vol);
+    //There is nothing to prevent the nu * nu * (2 - 3 * rho * rho) / 24 part taking the third term, and hence the volatility negative
+    return vol;
+    // return Math.max(0.0, vol);
   }
 
   /**
@@ -179,11 +177,17 @@ public final class SabrHaganVolatilityFunctionProvider
       rzxz = 1.0 - 0.5 * z * rho; //small z expansion to z^2 terms
     } else {
       if (DoubleMath.fuzzyEquals(rhoStar, 0.0, RHO_EPS)) {
-        if (z < 1.0) {
-          xz = -Math.log(1.0d - z);
-          rzxz = z / xz;
+        if (z >= 1.0) {
+          if (rhoStar == 0.0) {
+            rzxz = 0.0;
+            xz = Double.POSITIVE_INFINITY;
+          } else {
+            xz = (Math.log(2 * (z - 1)) - Math.log(rhoStar));
+            rzxz = z / xz;
+          }
         } else {
-          throw new IllegalArgumentException("can't handle z>=1, rho=1");
+          xz = -Math.log(1 - z) - 0.5 * Math.pow(z / (z - 1.0), 2) * rhoStar;
+          rzxz = z / xz;
         }
       } else {
         double arg;
@@ -205,7 +209,7 @@ public final class SabrHaganVolatilityFunctionProvider
     double sf1 = sfK * (1 + betaStar * betaStar / 24 * (lnrfK * lnrfK) + Math.pow(betaStar, 4) / 1920 * Math.pow(lnrfK, 4));
     double sf2 = (1 + (Math.pow(betaStar * alpha / sfK, 2) / 24 + (rho * beta * nu * alpha) /
         (4 * sfK) + (2 - 3 * rho * rho) * nu * nu / 24) * timeToExpiry);
-    double volatility = Math.max(MIN_VOL, alpha / sf1 * rzxz * sf2);
+    double volatility = alpha / sf1 * rzxz * sf2;
 
     // Implementation note: Backward sweep.
     double vBar = 1;
@@ -218,11 +222,17 @@ public final class SabrHaganVolatilityFunctionProvider
       zBar = -rho / 2 * rzxzBar;
     } else {
       if (DoubleMath.fuzzyEquals(rhoStar, 0.0, RHO_EPS)) {
-        if (z < 1.0) {
-          xzBar = -z / (xz * xz) * rzxzBar;
-          zBar = 1.0d / xz * rzxzBar + 1.0d / (1.0d - z) * xzBar;
+        if (z >= 1.0) {
+          if (z == 1.0) {
+            zBar = 0.0;
+          } else {
+            double chiDz = 1 / (z - 1);
+            xzBar = -rzxzBar * z / (xz * xz);
+            zBar = volatility / z + chiDz * xzBar;
+          }
         } else {
-          throw new IllegalArgumentException("can't handle z>=1, rho=1");
+          zBar = -1.0 / Math.log(1 - z) * (1 + z / Math.log(1 - z) / (1 - z)) * rzxzBar;
+          xzBar = -z / (xz * xz) * rzxzBar;
         }
       } else {
         if (z < LARGE_NEG_Z) {
@@ -343,7 +353,7 @@ public final class SabrHaganVolatilityFunctionProvider
       xpp = (rho - f2) / Math.pow(sqrtf2, 3.0);
       f2x = f2 / x;
     }
-    double sigma = Math.max(MIN_VOL, alpha / f1 * f2x * (1 + f3 * timeToExpiry));
+    double sigma = alpha / f1 * f2x * (1 + f3 * timeToExpiry);
     // First level
     double h0Dbeta = -0.5;
     double sigmaDf1 = -sigma / f1;
@@ -488,10 +498,15 @@ public final class SabrHaganVolatilityFunctionProvider
 
     double rhoStar = 1 - rho;
     if (DoubleMath.fuzzyEquals(rhoStar, 0.0, RHO_EPS)) {
-      if (z < 1.0) {
-        return -z / Math.log(1.0d - z);
+      if (z > 1.0) {
+        if (rhoStar == 0.0) {
+          return 0.0;
+        }
+        return z / (Math.log(2 * (z - 1)) - Math.log(rhoStar));
+      } else if (z < 1.0) {
+        return z / (-Math.log(1 - z) - 0.5 * Math.pow(z / (z - 1.0), 2) * rhoStar);
       } else {
-        throw new IllegalArgumentException("can't handle z>=1, rho=1");
+        return 0.0;
       }
     }
 

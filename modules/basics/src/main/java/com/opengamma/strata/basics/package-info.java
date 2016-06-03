@@ -5,12 +5,7 @@
  */
 
 /**
- * Basic types for modelling reference data.
- * <p>
- * Reference data is used to capture the slow-moving data necessary to perform calculations,
- * such as holiday calendars and securities.
- * The main reference data interface is {@link com.opengamma.strata.basics.ReferenceData ReferenceData}
- * which is keyed by {@link com.opengamma.strata.basics.ReferenceDataId ReferenceDataId}.
+ * Basic tools to work with financial markets.
  */
 package com.opengamma.strata.basics;
 

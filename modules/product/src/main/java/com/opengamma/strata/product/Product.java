@@ -5,8 +5,10 @@
  */
 package com.opengamma.strata.product;
 
+import com.opengamma.strata.basics.Trade;
+
 /**
- * The product details of a financial instrument.
+ * A financial product that can be traded.
  * <p>
  * A product is a high level abstraction applicable to many different types.
  * For example, an Interest Rate Swap is a product, as is a Forward Rate Agreement (FRA).

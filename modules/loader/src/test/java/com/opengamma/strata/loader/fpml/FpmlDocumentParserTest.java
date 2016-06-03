@@ -5,6 +5,10 @@
  */
 package com.opengamma.strata.loader.fpml;
 
+import static com.opengamma.strata.basics.BuySell.BUY;
+import static com.opengamma.strata.basics.BuySell.SELL;
+import static com.opengamma.strata.basics.PayReceive.PAY;
+import static com.opengamma.strata.basics.PayReceive.RECEIVE;
 import static com.opengamma.strata.basics.currency.Currency.CHF;
 import static com.opengamma.strata.basics.currency.Currency.EUR;
 import static com.opengamma.strata.basics.currency.Currency.GBP;
@@ -15,12 +19,12 @@ import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_F
 import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
 import static com.opengamma.strata.basics.date.DayCounts.THIRTY_360_ISDA;
 import static com.opengamma.strata.basics.date.DayCounts.THIRTY_E_360;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.CHZU;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.EUTA;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.FRPA;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.SAT_SUN;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.USNY;
+import static com.opengamma.strata.basics.date.HolidayCalendars.CHZU;
+import static com.opengamma.strata.basics.date.HolidayCalendars.EUTA;
+import static com.opengamma.strata.basics.date.HolidayCalendars.FRPA;
+import static com.opengamma.strata.basics.date.HolidayCalendars.GBLO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.SAT_SUN;
+import static com.opengamma.strata.basics.date.HolidayCalendars.USNY;
 import static com.opengamma.strata.basics.index.IborIndices.CHF_LIBOR_3M;
 import static com.opengamma.strata.basics.index.IborIndices.CHF_LIBOR_6M;
 import static com.opengamma.strata.basics.index.IborIndices.EUR_EURIBOR_3M;
@@ -34,17 +38,10 @@ import static com.opengamma.strata.basics.index.OvernightIndices.EUR_EONIA;
 import static com.opengamma.strata.collect.TestHelper.assertEqualsBean;
 import static com.opengamma.strata.collect.TestHelper.assertThrows;
 import static com.opengamma.strata.collect.TestHelper.date;
-import static com.opengamma.strata.product.common.BuySell.BUY;
-import static com.opengamma.strata.product.common.BuySell.SELL;
-import static com.opengamma.strata.product.common.PayReceive.PAY;
-import static com.opengamma.strata.product.common.PayReceive.RECEIVE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.Period;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
@@ -56,18 +53,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
-import com.opengamma.strata.basics.ImmutableReferenceData;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
+import com.opengamma.strata.basics.PayReceive;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.FxRate;
 import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
-import com.opengamma.strata.basics.date.HolidayCalendarIds;
-import com.opengamma.strata.basics.date.HolidayCalendars;
+import com.opengamma.strata.basics.date.HolidayCalendar;
 import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.index.ImmutableFxIndex;
 import com.opengamma.strata.basics.index.PriceIndices;
@@ -78,11 +72,9 @@ import com.opengamma.strata.basics.schedule.RollConventions;
 import com.opengamma.strata.basics.value.ValueAdjustment;
 import com.opengamma.strata.basics.value.ValueSchedule;
 import com.opengamma.strata.basics.value.ValueStep;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.collect.io.ResourceLocator;
 import com.opengamma.strata.collect.io.XmlElement;
-import com.opengamma.strata.product.Trade;
-import com.opengamma.strata.product.common.LongShort;
-import com.opengamma.strata.product.common.PayReceive;
 import com.opengamma.strata.product.deposit.TermDeposit;
 import com.opengamma.strata.product.deposit.TermDepositTrade;
 import com.opengamma.strata.product.fra.Fra;
@@ -96,10 +88,11 @@ import com.opengamma.strata.product.fx.FxSwap;
 import com.opengamma.strata.product.fx.FxSwapTrade;
 import com.opengamma.strata.product.payment.BulletPayment;
 import com.opengamma.strata.product.payment.BulletPaymentTrade;
-import com.opengamma.strata.product.rate.FixedRateComputation;
-import com.opengamma.strata.product.rate.IborInterpolatedRateComputation;
-import com.opengamma.strata.product.rate.IborRateComputation;
+import com.opengamma.strata.product.rate.FixedRateObservation;
+import com.opengamma.strata.product.rate.IborInterpolatedRateObservation;
+import com.opengamma.strata.product.rate.IborRateObservation;
 import com.opengamma.strata.product.swap.CompoundingMethod;
+import com.opengamma.strata.product.swap.ExpandedSwapLeg;
 import com.opengamma.strata.product.swap.FixedRateCalculation;
 import com.opengamma.strata.product.swap.IborRateAveragingMethod;
 import com.opengamma.strata.product.swap.IborRateCalculation;
@@ -107,18 +100,13 @@ import com.opengamma.strata.product.swap.InflationRateCalculation;
 import com.opengamma.strata.product.swap.NotionalSchedule;
 import com.opengamma.strata.product.swap.OvernightRateCalculation;
 import com.opengamma.strata.product.swap.PaymentSchedule;
-import com.opengamma.strata.product.swap.PriceIndexCalculationMethod;
 import com.opengamma.strata.product.swap.RateAccrualPeriod;
 import com.opengamma.strata.product.swap.RateCalculationSwapLeg;
 import com.opengamma.strata.product.swap.RatePaymentPeriod;
 import com.opengamma.strata.product.swap.ResetSchedule;
-import com.opengamma.strata.product.swap.ResolvedSwapLeg;
 import com.opengamma.strata.product.swap.StubCalculation;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.SwapTrade;
-import com.opengamma.strata.product.swaption.PhysicalSettlement;
-import com.opengamma.strata.product.swaption.Swaption;
-import com.opengamma.strata.product.swaption.SwaptionTrade;
 
 /**
  * Test {@link FpmlDocumentParser}.
@@ -126,9 +114,7 @@ import com.opengamma.strata.product.swaption.SwaptionTrade;
 @Test
 public class FpmlDocumentParserTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
-  private static final HolidayCalendarId GBLO_USNY = GBLO.combinedWith(USNY);
-  private static final HolidayCalendarId GBLO_EUTA = GBLO.combinedWith(EUTA);
+  private static final HolidayCalendar GBLO_USNY = GBLO.combineWith(USNY);
 
   //-------------------------------------------------------------------------
   public void bulletPayment() {
@@ -139,7 +125,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), BulletPaymentTrade.class);
     BulletPaymentTrade bpTrade = (BulletPaymentTrade) trade;
-    assertEquals(bpTrade.getInfo().getTradeDate(), Optional.of(date(2001, 4, 29)));
+    assertEquals(bpTrade.getTradeInfo().getTradeDate(), Optional.of(date(2001, 4, 29)));
     BulletPayment bp = bpTrade.getProduct();
     assertEquals(bp.getPayReceive(), PAY);
     assertEquals(bp.getDate(), AdjustableDate.of(date(2001, 7, 27), BusinessDayAdjustment.of(MODIFIED_FOLLOWING, GBLO_USNY)));
@@ -155,7 +141,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), TermDepositTrade.class);
     TermDepositTrade tdTrade = (TermDepositTrade) trade;
-    assertEquals(tdTrade.getInfo().getTradeDate(), Optional.of(date(2002, 2, 14)));
+    assertEquals(tdTrade.getTradeInfo().getTradeDate(), Optional.of(date(2002, 2, 14)));
     TermDeposit td = tdTrade.getProduct();
     assertEquals(td.getBuySell(), BUY);
     assertEquals(td.getStartDate(), date(2002, 2, 14));
@@ -175,7 +161,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), FxSingleTrade.class);
     FxSingleTrade fxTrade = (FxSingleTrade) trade;
-    assertEquals(fxTrade.getInfo().getTradeDate(), Optional.of(date(2001, 10, 23)));
+    assertEquals(fxTrade.getTradeInfo().getTradeDate(), Optional.of(date(2001, 10, 23)));
     FxSingle fx = fxTrade.getProduct();
     assertEquals(fx.getBaseCurrencyAmount(), CurrencyAmount.of(GBP, 10000000));
     assertEquals(fx.getCounterCurrencyAmount(), CurrencyAmount.of(USD, -14800000));
@@ -191,7 +177,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), FxSingleTrade.class);
     FxSingleTrade fxTrade = (FxSingleTrade) trade;
-    assertEquals(fxTrade.getInfo().getTradeDate(), Optional.of(date(2001, 11, 19)));
+    assertEquals(fxTrade.getTradeInfo().getTradeDate(), Optional.of(date(2001, 11, 19)));
     FxSingle fx = fxTrade.getProduct();
     assertEquals(fx.getBaseCurrencyAmount(), CurrencyAmount.of(EUR, 10000000));
     assertEquals(fx.getCounterCurrencyAmount(), CurrencyAmount.of(USD, -9175000));
@@ -207,7 +193,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), FxNdfTrade.class);
     FxNdfTrade fxTrade = (FxNdfTrade) trade;
-    assertEquals(fxTrade.getInfo().getTradeDate(), Optional.of(date(2002, 1, 9)));
+    assertEquals(fxTrade.getTradeInfo().getTradeDate(), Optional.of(date(2002, 1, 9)));
     FxNdf fx = fxTrade.getProduct();
     assertEquals(fx.getSettlementCurrencyNotional(), CurrencyAmount.of(USD, 10000000));
     assertEquals(fx.getAgreedFxRate(), FxRate.of(USD, INR, 43.4));
@@ -229,7 +215,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), FxSwapTrade.class);
     FxSwapTrade fxTrade = (FxSwapTrade) trade;
-    assertEquals(fxTrade.getInfo().getTradeDate(), Optional.of(date(2002, 1, 23)));
+    assertEquals(fxTrade.getTradeInfo().getTradeDate(), Optional.of(date(2002, 1, 23)));
     FxSwap fx = fxTrade.getProduct();
     FxSingle nearLeg = fx.getNearLeg();
     assertEquals(nearLeg.getBaseCurrencyAmount(), CurrencyAmount.of(GBP, 10000000));
@@ -239,82 +225,6 @@ public class FpmlDocumentParserTest {
     assertEquals(farLeg.getBaseCurrencyAmount(), CurrencyAmount.of(GBP, -10000000));
     assertEquals(farLeg.getCounterCurrencyAmount(), CurrencyAmount.of(USD, 15000000));
     assertEquals(farLeg.getPaymentDate(), date(2002, 2, 25));
-  }
-
-  public void swaption() {
-    String location = "classpath:com/opengamma/strata/loader/fpml/ird-ex10-euro-swaption-relative.xml";
-    ByteSource resource = ResourceLocator.of(location).getByteSource();
-    List<Trade> trades = FpmlDocumentParser.of(FpmlPartySelector.matching("Party1")).parseTrades(resource);
-    assertEquals(trades.size(), 1);
-    Trade trade = trades.get(0);
-    assertEquals(trade.getClass(), SwaptionTrade.class);
-    SwaptionTrade swaptionTrade = (SwaptionTrade) trade;
-    assertEquals(swaptionTrade.getInfo().getTradeDate(), Optional.of(date(1992, 8, 30)));
-    Swaption swaption = swaptionTrade.getProduct();
-
-    //Test the parsing of the underlying swap
-    Swap swap = swaption.getUnderlying();
-    NotionalSchedule notional = NotionalSchedule.of(EUR, 50000000d);
-    RateCalculationSwapLeg payLeg = RateCalculationSwapLeg.builder()
-        .payReceive(PayReceive.PAY)
-        .accrualSchedule(PeriodicSchedule.builder()
-            .startDate(date(1994, 12, 14))
-            .endDate(date(1999, 12, 14))
-            .startDateBusinessDayAdjustment(BusinessDayAdjustment.NONE)
-            .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, FRPA))
-            .frequency(Frequency.P6M)
-            .rollConvention(RollConvention.ofDayOfMonth(14))
-            .build())
-        .paymentSchedule(PaymentSchedule.builder()
-            .paymentFrequency(Frequency.P6M)
-            .paymentDateOffset(DaysAdjustment.ofCalendarDays(0, BusinessDayAdjustment.of(MODIFIED_FOLLOWING, FRPA)))
-            .build())
-        .notionalSchedule(notional)
-        .calculation(IborRateCalculation.builder()
-            .index(EUR_LIBOR_6M)
-            .dayCount(ACT_360)
-            .fixingDateOffset(DaysAdjustment.ofBusinessDays(-2, GBLO))
-            .build())
-        .build();
-    RateCalculationSwapLeg recLeg = RateCalculationSwapLeg.builder()
-        .payReceive(PayReceive.RECEIVE)
-        .accrualSchedule(PeriodicSchedule.builder()
-            .startDate(date(1994, 12, 14))
-            .endDate(date(1999, 12, 14))
-            .startDateBusinessDayAdjustment(BusinessDayAdjustment.NONE)
-            .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, FRPA))
-            .frequency(Frequency.P12M)
-            .rollConvention(RollConvention.ofDayOfMonth(14))
-            .build())
-        .paymentSchedule(PaymentSchedule.builder()
-            .paymentFrequency(Frequency.P12M)
-            .paymentDateOffset(DaysAdjustment.ofCalendarDays(0, BusinessDayAdjustment.of(MODIFIED_FOLLOWING, FRPA)))
-            .build())
-        .notionalSchedule(notional)
-        .calculation(FixedRateCalculation.builder()
-            .dayCount(THIRTY_E_360)
-            .rate(ValueSchedule.of(0.06))
-            .build())
-        .build();
-    assertEqualsBean((Bean) swap.getLegs().get(0), payLeg);
-    assertEqualsBean((Bean) swap.getLegs().get(1), recLeg);
-
-    //Test the parsing of the option part of the swaption
-    Swap underylingSwap = Swap.of(payLeg, recLeg);
-    AdjustableDate expiryDate = AdjustableDate.of(
-        LocalDate.of(1993, 8, 28),
-        BusinessDayAdjustment.of(FOLLOWING, GBLO_EUTA));
-    LocalTime expiryTime = LocalTime.of(11, 0, 0);
-    ZoneId expiryZone = ZoneId.of("Europe/Brussels");
-    Swaption swaptionExpected = Swaption.builder()
-        .expiryDate(expiryDate)
-        .expiryZone(expiryZone)
-        .expiryTime(expiryTime)
-        .longShort(LongShort.LONG)
-        .swaptionSettlement(PhysicalSettlement.DEFAULT)
-        .underlying(underylingSwap)
-        .build();
-    assertEqualsBean((Bean) swaption, swaptionExpected);
   }
 
   //-------------------------------------------------------------------------
@@ -330,10 +240,10 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), FraTrade.class);
     FraTrade fraTrade = (FraTrade) trade;
-    assertEquals(fraTrade.getInfo().getTradeDate(), Optional.of(date(1991, 5, 14)));
+    assertEquals(fraTrade.getTradeInfo().getTradeDate(), Optional.of(date(1991, 5, 14)));
     StandardId party1id = StandardId.of("http://www.hsbc.com/swaps/trade-id", "MB87623");
     StandardId party2id = StandardId.of("http://www.abnamro.com/swaps/trade-id", "AA9876");
-    assertEquals(fraTrade.getInfo().getId(), Optional.of(interpolatedParty1 ? party1id : party2id));
+    assertEquals(fraTrade.getTradeInfo().getId(), Optional.of(interpolatedParty1 ? party1id : party2id));
     Fra fra = fraTrade.getProduct();
     assertEquals(fra.getBuySell(), interpolatedParty1 ? BUY : SELL);
     assertEquals(fra.getStartDate(), date(1991, 7, 17));
@@ -362,7 +272,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), FraTrade.class);
     FraTrade fraTrade = (FraTrade) trade;
-    assertEquals(fraTrade.getInfo().getTradeDate(), Optional.of(date(1991, 5, 14)));
+    assertEquals(fraTrade.getTradeInfo().getTradeDate(), Optional.of(date(1991, 5, 14)));
     Fra fra = fraTrade.getProduct();
     assertEquals(fra.getBuySell(), BUY);
     assertEquals(fra.getStartDate(), date(1991, 7, 17));
@@ -426,7 +336,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(1994, 12, 12)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(1994, 12, 12)));
     Swap swap = swapTrade.getProduct();
     NotionalSchedule notional = NotionalSchedule.of(EUR, 50000000d);
     RateCalculationSwapLeg payLeg = RateCalculationSwapLeg.builder()
@@ -483,7 +393,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(1994, 12, 12)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(1994, 12, 12)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.builder()
@@ -589,11 +499,11 @@ public class FpmlDocumentParserTest {
             .firstRegularStartDate(date(1995, 12, 14))
             .startDateBusinessDayAdjustment(BusinessDayAdjustment.NONE)
             .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, SAT_SUN))
-            .frequency(Frequency.P12M)
+            .frequency(Frequency.ofYears(1))
             .rollConvention(RollConvention.ofDayOfMonth(14))
             .build())
         .paymentSchedule(PaymentSchedule.builder()
-            .paymentFrequency(Frequency.P12M)
+            .paymentFrequency(Frequency.ofYears(1))
             .paymentDateOffset(DaysAdjustment.ofCalendarDays(0, BusinessDayAdjustment.of(MODIFIED_FOLLOWING, SAT_SUN)))
             .build())
         .notionalSchedule(notional)
@@ -602,12 +512,7 @@ public class FpmlDocumentParserTest {
             .rate(ValueSchedule.of(0.06))
             .build())
         .build();
-    ImmutableReferenceData refData = ImmutableReferenceData.of(ImmutableMap.of(
-        HolidayCalendarIds.GBLO, HolidayCalendars.SAT_SUN,
-        HolidayCalendarIds.EUTA, HolidayCalendars.SAT_SUN,
-        HolidayCalendarIds.SAT_SUN, HolidayCalendars.SAT_SUN,
-        HolidayCalendarIds.NO_HOLIDAYS, HolidayCalendars.NO_HOLIDAYS));
-    ResolvedSwapLeg expandedPayLeg = payLeg.resolve(refData);
+    ExpandedSwapLeg expandedPayLeg = payLeg.expand();
     assertEquals(expandedPayLeg.getPaymentPeriods().size(), 10);
     assertIborPaymentPeriod(expandedPayLeg, 0, "1995-06-14", "1995-01-16", "1995-06-14", 50000000d, "1995-01-12");
     assertIborPaymentPeriod(expandedPayLeg, 1, "1995-12-14", "1995-06-14", "1995-12-14", 50000000d, "1995-06-12");
@@ -619,7 +524,7 @@ public class FpmlDocumentParserTest {
     assertIborPaymentPeriod(expandedPayLeg, 7, "1998-12-14", "1998-06-15", "1998-12-14", 20000000d, "1998-06-11");
     assertIborPaymentPeriod(expandedPayLeg, 8, "1999-06-14", "1998-12-14", "1999-06-14", 10000000d, "1998-12-10");
     assertIborPaymentPeriod(expandedPayLeg, 9, "1999-12-14", "1999-06-14", "1999-12-14", 10000000d, "1999-06-10");
-    ResolvedSwapLeg expandedRecLeg = recLeg.resolve(refData);
+    ExpandedSwapLeg expandedRecLeg = recLeg.expand();
     assertEquals(expandedRecLeg.getPaymentPeriods().size(), 5);
     assertFixedPaymentPeriod(expandedRecLeg, 0, "1995-12-14", "1995-01-16", "1995-12-14", 50000000d, 0.06d);
     assertFixedPaymentPeriod(expandedRecLeg, 1, "1996-12-16", "1995-12-14", "1996-12-16", 40000000d, 0.06d);
@@ -637,7 +542,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(2000, 4, 25)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(2000, 4, 25)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.of(USD, 100000000d);
@@ -732,13 +637,7 @@ public class FpmlDocumentParserTest {
             .rate(ValueSchedule.of(0.0585))
             .build())
         .build();
-    ImmutableReferenceData refData = ImmutableReferenceData.of(ImmutableMap.of(
-        HolidayCalendarIds.GBLO, HolidayCalendars.SAT_SUN,
-        HolidayCalendarIds.EUTA, HolidayCalendars.SAT_SUN,
-        HolidayCalendarIds.USNY, HolidayCalendars.SAT_SUN,
-        HolidayCalendarIds.SAT_SUN, HolidayCalendars.SAT_SUN,
-        HolidayCalendarIds.NO_HOLIDAYS, HolidayCalendars.NO_HOLIDAYS));
-    ResolvedSwapLeg expandedRecLeg = recLeg.resolve(refData);
+    ExpandedSwapLeg expandedRecLeg = recLeg.expand();
     assertEquals(expandedRecLeg.getPaymentPeriods().size(), 4);
     assertIborPaymentPeriodCpd(expandedRecLeg, 0, 0, "2000-11-03", "2000-04-27", "2000-07-27", 100000000d, "2000-04-25");
     assertIborPaymentPeriodCpd(expandedRecLeg, 0, 1, "2000-11-03", "2000-07-27", "2000-10-27", 100000000d, "2000-07-25");
@@ -749,7 +648,7 @@ public class FpmlDocumentParserTest {
     // final cashflow dates do not match with GBLO, USNY, GBLO+USNY or SAT_SUN
 //    assertIborPaymentPeriodCpd(expandedRecLeg, 3, 0, "2002-05-06", "2001-10-29", "2002-01-29", 100000000d, "2001-10-25");
 //    assertIborPaymentPeriodCpd(expandedRecLeg, 3, 1, "2002-05-06", "2002-01-29", "2002-04-29", 100000000d, "2002-01-25");
-    ResolvedSwapLeg expandedPayLeg = payLeg.resolve(refData);
+    ExpandedSwapLeg expandedPayLeg = payLeg.expand();
     assertEquals(expandedPayLeg.getPaymentPeriods().size(), 4);
     assertFixedPaymentPeriod(expandedPayLeg, 0, "2000-11-03", "2000-04-27", "2000-10-27", 100000000d, 0.0585d);
     assertFixedPaymentPeriod(expandedPayLeg, 1, "2001-05-04", "2000-10-27", "2001-04-27", 100000000d, 0.0585d);
@@ -766,7 +665,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(2000, 4, 3)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(2000, 4, 3)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.of(EUR, 75000000d);
@@ -833,7 +732,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(2001, 1, 25)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(2001, 1, 25)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.of(EUR, 100000000d);
@@ -890,7 +789,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(2005, 7, 31)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(2005, 7, 31)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.of(USD, 100000000d);
@@ -952,7 +851,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(2005, 2, 20)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(2005, 2, 20)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.of(GBP, 100000d);
@@ -1011,7 +910,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(2009, 4, 29)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(2009, 4, 29)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.of(USD, 100000000d);
@@ -1072,7 +971,7 @@ public class FpmlDocumentParserTest {
     Trade trade = trades.get(0);
     assertEquals(trade.getClass(), SwapTrade.class);
     SwapTrade swapTrade = (SwapTrade) trade;
-    assertEquals(swapTrade.getInfo().getTradeDate(), Optional.of(date(2003, 11, 15)));
+    assertEquals(swapTrade.getTradeInfo().getTradeDate(), Optional.of(date(2003, 11, 15)));
     Swap swap = swapTrade.getProduct();
 
     NotionalSchedule notional = NotionalSchedule.of(EUR, 1d);
@@ -1115,7 +1014,7 @@ public class FpmlDocumentParserTest {
         .calculation(InflationRateCalculation.builder()
             .index(PriceIndices.US_CPI_U)
             .lag(Period.ofMonths(3))
-            .indexCalculationMethod(PriceIndexCalculationMethod.INTERPOLATED)
+            .interpolated(true)
             .build())
         .build();
     assertEqualsBean((Bean) swap.getLegs().get(0), payLeg);
@@ -1197,7 +1096,7 @@ public class FpmlDocumentParserTest {
     XmlElement tradeEl = XmlElement.ofChildren("trade", ImmutableMap.of("href", "foo"), ImmutableList.of(tradeHeaderEl));
     XmlElement rootEl = XmlElement.ofChildren("dataDocument", ImmutableList.of(tradeEl));
     FpmlDocument test =
-        new FpmlDocument(rootEl, ImmutableMap.of(), FpmlPartySelector.any(), FpmlTradeInfoParserPlugin.standard(), REF_DATA);
+        new FpmlDocument(rootEl, ImmutableMap.of(), FpmlPartySelector.any(), FpmlTradeInfoParserPlugin.standard());
     assertEquals(test.getFpmlRoot(), rootEl);
     assertEquals(test.getParties(), ImmutableListMultimap.of());
     assertEquals(test.getReferences(), ImmutableMap.of());
@@ -1212,7 +1111,7 @@ public class FpmlDocumentParserTest {
     XmlElement tradeEl = XmlElement.ofChildren("trade", ImmutableMap.of("href", "foo"), ImmutableList.of(tradeHeaderEl));
     XmlElement rootEl = XmlElement.ofChildren("dataDocument", ImmutableList.of(tradeEl));
     FpmlDocument test =
-        new FpmlDocument(rootEl, ImmutableMap.of(), FpmlPartySelector.any(), FpmlTradeInfoParserPlugin.standard(), REF_DATA);
+        new FpmlDocument(rootEl, ImmutableMap.of(), FpmlPartySelector.any(), FpmlTradeInfoParserPlugin.standard());
     assertEquals(test.convertFrequency("1", "M"), Frequency.P1M);
     assertEquals(test.convertFrequency("12", "M"), Frequency.P12M);
     assertEquals(test.convertFrequency("1", "Y"), Frequency.P12M);
@@ -1225,7 +1124,7 @@ public class FpmlDocumentParserTest {
     XmlElement tradeEl = XmlElement.ofChildren("trade", ImmutableMap.of("href", "foo"), ImmutableList.of(tradeHeaderEl));
     XmlElement rootEl = XmlElement.ofChildren("dataDocument", ImmutableList.of(tradeEl));
     FpmlDocument test =
-        new FpmlDocument(rootEl, ImmutableMap.of(), FpmlPartySelector.any(), FpmlTradeInfoParserPlugin.standard(), REF_DATA);
+        new FpmlDocument(rootEl, ImmutableMap.of(), FpmlPartySelector.any(), FpmlTradeInfoParserPlugin.standard());
     assertEquals(test.convertIndexTenor("1", "M"), Tenor.TENOR_1M);
     assertEquals(test.convertIndexTenor("12", "M"), Tenor.TENOR_12M);
     assertEquals(test.convertIndexTenor("1", "Y"), Tenor.TENOR_12M);
@@ -1234,7 +1133,7 @@ public class FpmlDocumentParserTest {
 
   //-------------------------------------------------------------------------
   private void assertIborPaymentPeriod(
-      ResolvedSwapLeg expandedPayLeg,
+      ExpandedSwapLeg expandedPayLeg,
       int index,
       String paymentDateStr,
       String startDateStr,
@@ -1249,17 +1148,17 @@ public class FpmlDocumentParserTest {
     RateAccrualPeriod ap = pp.getAccrualPeriods().get(0);
     assertEquals(ap.getStartDate().toString(), startDateStr);
     assertEquals(ap.getEndDate().toString(), endDateStr);
-    if (ap.getRateComputation() instanceof IborInterpolatedRateComputation) {
-      assertEquals(((IborInterpolatedRateComputation) ap.getRateComputation()).getFixingDate().toString(), fixingDateStr);
-    } else if (ap.getRateComputation() instanceof IborRateComputation) {
-      assertEquals(((IborRateComputation) ap.getRateComputation()).getFixingDate().toString(), fixingDateStr);
+    if (ap.getRateObservation() instanceof IborInterpolatedRateObservation) {
+      assertEquals(((IborInterpolatedRateObservation) ap.getRateObservation()).getFixingDate().toString(), fixingDateStr);
+    } else if (ap.getRateObservation() instanceof IborRateObservation) {
+      assertEquals(((IborRateObservation) ap.getRateObservation()).getFixingDate().toString(), fixingDateStr);
     } else {
       fail();
     }
   }
 
   private void assertIborPaymentPeriodCpd(
-      ResolvedSwapLeg expandedPayLeg,
+      ExpandedSwapLeg expandedPayLeg,
       int paymentIndex,
       int accrualIndex,
       String paymentDateStr,
@@ -1275,17 +1174,17 @@ public class FpmlDocumentParserTest {
     RateAccrualPeriod ap = pp.getAccrualPeriods().get(accrualIndex);
     assertEquals(ap.getStartDate().toString(), startDateStr);
     assertEquals(ap.getEndDate().toString(), endDateStr);
-    if (ap.getRateComputation() instanceof IborInterpolatedRateComputation) {
-      assertEquals(((IborInterpolatedRateComputation) ap.getRateComputation()).getFixingDate().toString(), fixingDateStr);
-    } else if (ap.getRateComputation() instanceof IborRateComputation) {
-      assertEquals(((IborRateComputation) ap.getRateComputation()).getFixingDate().toString(), fixingDateStr);
+    if (ap.getRateObservation() instanceof IborInterpolatedRateObservation) {
+      assertEquals(((IborInterpolatedRateObservation) ap.getRateObservation()).getFixingDate().toString(), fixingDateStr);
+    } else if (ap.getRateObservation() instanceof IborRateObservation) {
+      assertEquals(((IborRateObservation) ap.getRateObservation()).getFixingDate().toString(), fixingDateStr);
     } else {
       fail();
     }
   }
 
   private void assertFixedPaymentPeriod(
-      ResolvedSwapLeg expandedPayLeg,
+      ExpandedSwapLeg expandedPayLeg,
       int index,
       String paymentDateStr,
       String startDateStr,
@@ -1300,8 +1199,8 @@ public class FpmlDocumentParserTest {
     RateAccrualPeriod ap = pp.getAccrualPeriods().get(0);
     assertEquals(ap.getStartDate().toString(), startDateStr);
     assertEquals(ap.getEndDate().toString(), endDateStr);
-    if (ap.getRateComputation() instanceof FixedRateComputation) {
-      assertEquals(((FixedRateComputation) ap.getRateComputation()).getRate(), rate);
+    if (ap.getRateObservation() instanceof FixedRateObservation) {
+      assertEquals(((FixedRateObservation) ap.getRateObservation()).getRate(), rate);
     } else {
       fail();
     }

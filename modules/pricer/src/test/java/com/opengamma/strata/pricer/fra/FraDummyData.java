@@ -5,10 +5,10 @@
  */
 package com.opengamma.strata.pricer.fra;
 
+import static com.opengamma.strata.basics.BuySell.BUY;
+import static com.opengamma.strata.basics.BuySell.SELL;
 import static com.opengamma.strata.basics.index.IborIndices.GBP_LIBOR_3M;
 import static com.opengamma.strata.collect.TestHelper.date;
-import static com.opengamma.strata.product.common.BuySell.BUY;
-import static com.opengamma.strata.product.common.BuySell.SELL;
 
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.product.TradeInfo;
@@ -71,7 +71,7 @@ public class FraDummyData {
    * Fra trade.
    */
   public static final FraTrade FRA_TRADE = FraTrade.builder()
-      .info(TradeInfo.builder().tradeDate(date(2014, 6, 30)).build())
+      .tradeInfo(TradeInfo.builder().tradeDate(date(2014, 6, 30)).build())
       .product(FRA)
       .build();
 

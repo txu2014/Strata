@@ -8,17 +8,18 @@ package com.opengamma.strata.pricer.swaption;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 
+import com.opengamma.strata.basics.PutCall;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.market.product.swaption.SwaptionVolatilities;
+import com.opengamma.strata.market.view.SwaptionVolatilities;
 import com.opengamma.strata.pricer.impl.option.NormalFormulaRepository;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.DiscountingSwapProductPricer;
-import com.opengamma.strata.product.common.PutCall;
-import com.opengamma.strata.product.swap.ResolvedSwap;
-import com.opengamma.strata.product.swap.ResolvedSwapLeg;
+import com.opengamma.strata.product.swap.ExpandedSwap;
+import com.opengamma.strata.product.swap.ExpandedSwapLeg;
 import com.opengamma.strata.product.swap.Swap;
-import com.opengamma.strata.product.swaption.ResolvedSwaption;
+import com.opengamma.strata.product.swaption.ExpandedSwaption;
+import com.opengamma.strata.product.swaption.SwaptionProduct;
 
 /**
  * Pricer for swaption with physical settlement in a normal model on the swap rate.
@@ -56,28 +57,29 @@ public class NormalSwaptionPhysicalProductPricer
    * <p>
    * The guess volatility for the start of the root-finding process is 1%.
    * 
-   * @param swaption  the product
+   * @param swaption  the product to price
    * @param ratesProvider  the rates provider
    * @param dayCount  the day-count used to estimate the time between valuation date and swaption expiry
    * @param presentValue  the present value of the swaption product
    * @return the implied volatility associated to the present value
    */
   public double impliedVolatilityFromPresentValue(
-      ResolvedSwaption swaption,
+      SwaptionProduct swaption,
       RatesProvider ratesProvider,
       DayCount dayCount,
       double presentValue) {
 
-    double sign = swaption.getLongShort().sign();
+    ExpandedSwaption expanded = swaption.expand();
+    double sign = expanded.getLongShort().sign();
     ArgChecker.isTrue(presentValue * sign > 0, "Present value sign must be in line with the option Long/Short flag ");
-    validateSwaption(swaption);
+    validateSwaption(expanded);
     LocalDate valuationDate = ratesProvider.getValuationDate();
-    LocalDate expiryDate = swaption.getExpiryDate();
+    LocalDate expiryDate = expanded.getExpiryDate();
     ArgChecker.isTrue(expiryDate.isAfter(valuationDate),
         "Expiry must be after valuation date to compute an implied volatility");
     double expiry = dayCount.yearFraction(valuationDate, expiryDate);
-    ResolvedSwap underlying = swaption.getUnderlying();
-    ResolvedSwapLeg fixedLeg = fixedLeg(underlying);
+    ExpandedSwap underlying = expanded.getUnderlying();
+    ExpandedSwapLeg fixedLeg = fixedLeg(underlying);
     double forward = getSwapPricer().parRate(underlying, ratesProvider);
     double pvbp = getSwapPricer().getLegPricer().pvbp(fixedLeg, ratesProvider);
     double numeraire = Math.abs(pvbp);

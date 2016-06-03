@@ -13,16 +13,15 @@ import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 import com.opengamma.strata.basics.index.Index;
+import com.opengamma.strata.basics.market.ObservableId;
 import com.opengamma.strata.collect.MapStream;
 import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.io.CsvFile;
-import com.opengamma.strata.collect.io.CsvRow;
 import com.opengamma.strata.collect.io.ResourceLocator;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeriesBuilder;
-import com.opengamma.strata.data.ObservableId;
 import com.opengamma.strata.loader.LoaderUtils;
-import com.opengamma.strata.market.observable.IndexQuoteId;
+import com.opengamma.strata.market.id.IndexRateId;
 
 /**
  * Loads a set of historical fixing series into memory from CSV resources.
@@ -92,13 +91,13 @@ public final class FixingSeriesCsvLoader {
     Map<ObservableId, LocalDateDoubleTimeSeriesBuilder> builders = new HashMap<>();
     try {
       CsvFile csv = CsvFile.of(resource.getCharSource(), true);
-      for (CsvRow row : csv.rows()) {
-        String referenceStr = row.getField(REFERENCE_FIELD);
-        String dateStr = row.getField(DATE_FIELD);
-        String valueStr = row.getField(VALUE_FIELD);
+      for (int i = 0; i < csv.rowCount(); i++) {
+        String referenceStr = csv.field(i, REFERENCE_FIELD);
+        String dateStr = csv.field(i, DATE_FIELD);
+        String valueStr = csv.field(i, VALUE_FIELD);
 
         Index index = LoaderUtils.findIndex(referenceStr);
-        ObservableId id = IndexQuoteId.of(index);
+        ObservableId id = IndexRateId.of(index);
         LocalDate date = LocalDate.parse(dateStr);
         double value = Double.parseDouble(valueStr);
 

@@ -7,7 +7,6 @@ package com.opengamma.strata.pricer.rate;
 
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import org.joda.beans.Bean;
@@ -24,21 +23,23 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyPair;
+import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.index.FxIndex;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.PriceIndex;
+import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.MarketDataName;
-import com.opengamma.strata.market.product.DiscountFactors;
-import com.opengamma.strata.market.product.fx.FxForwardRates;
-import com.opengamma.strata.market.product.fx.FxIndexRates;
-import com.opengamma.strata.market.product.rate.IborIndexRates;
-import com.opengamma.strata.market.product.rate.OvernightIndexRates;
-import com.opengamma.strata.market.product.rate.PriceIndexValues;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
+import com.opengamma.strata.market.sensitivity.PointSensitivities;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.FxForwardRates;
+import com.opengamma.strata.market.view.FxIndexRates;
+import com.opengamma.strata.market.view.IborIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
+import com.opengamma.strata.market.view.PriceIndexValues;
 
 /**
  * A simple rates provider for overnight rates.
@@ -97,7 +98,7 @@ public class SimpleRatesProvider
 
   //-------------------------------------------------------------------------
   @Override
-  public <T> T data(MarketDataId<T> key) {
+  public <T> T data(MarketDataKey<T> key) {
     throw new UnsupportedOperationException();
   }
 
@@ -140,10 +141,15 @@ public class SimpleRatesProvider
   }
 
   @Override
-  public <T> Optional<T> findData(MarketDataName<T> name) {
-    return Optional.empty();
+  public CurveCurrencyParameterSensitivities curveParameterSensitivity(PointSensitivities pointSensitivities) {
+    throw new UnsupportedOperationException();
   }
 
+  @Override
+  public MultiCurrencyAmount currencyExposure(PointSensitivities pointSensitivities) {
+    throw new UnsupportedOperationException();
+  }
+  
   @Override
   public LocalDateDoubleTimeSeries timeSeries(Index index) {
     throw new UnsupportedOperationException();

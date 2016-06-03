@@ -10,6 +10,8 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -27,15 +29,22 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Doubles;
+import com.opengamma.strata.basics.PutCall;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.param.UnitParameterSensitivity;
-import com.opengamma.strata.market.product.capfloor.IborCapletFloorletSensitivity;
-import com.opengamma.strata.market.surface.Surface;
+import com.opengamma.strata.collect.array.DoubleArray;
+import com.opengamma.strata.collect.tuple.DoublesPair;
+import com.opengamma.strata.market.option.SimpleStrike;
+import com.opengamma.strata.market.sensitivity.IborCapletFloorletSensitivity;
+import com.opengamma.strata.market.surface.NodalSurface;
+import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
+import com.opengamma.strata.market.surface.SurfaceMetadata;
+import com.opengamma.strata.market.surface.SurfaceParameterMetadata;
+import com.opengamma.strata.market.surface.meta.GenericVolatilitySurfaceYearFractionMetadata;
 import com.opengamma.strata.pricer.impl.option.NormalFormulaRepository;
-import com.opengamma.strata.product.common.PutCall;
 
 /**
  * Volatility for Ibor caplet/floorlet in the normal or Bachelier model based on a surface.
@@ -52,7 +61,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
    * The order of the dimensions is expiry/strike.
    */
   @PropertyDefinition(validate = "notNull")
-  private final Surface surface;
+  private final NodalSurface surface;
   /**
    * The Ibor index.
    * <p>
@@ -68,7 +77,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
   /** 
    * The valuation date-time. 
    * <p>
-   * The volatilities are calibrated for this date-time. 
+   * All data items in this environment are calibrated for this date-time. 
    */
   @PropertyDefinition(validate = "notNull", overrideGet = true)
   private final ZonedDateTime valuationDateTime;
@@ -84,7 +93,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
    * @return the volatilities
    */
   public static NormalIborCapletFloorletExpiryStrikeVolatilities of(
-      Surface surface,
+      NodalSurface surface,
       IborIndex index,
       ZonedDateTime valuationDateTime,
       DayCount dayCount) {
@@ -104,7 +113,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
    * @return the volatilities
    */
   public static NormalIborCapletFloorletExpiryStrikeVolatilities of(
-      Surface surface,
+      NodalSurface surface,
       IborIndex index,
       LocalDate valuationDate,
       LocalTime valuationTime,
@@ -121,13 +130,49 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
   }
 
   @Override
-  public CurrencyParameterSensitivity parameterSensitivity(IborCapletFloorletSensitivity point) {
+  public SurfaceCurrencyParameterSensitivity surfaceCurrencyParameterSensitivity(IborCapletFloorletSensitivity point) {
     ArgChecker.isTrue(point.getIndex().equals(index),
         "Ibor index of provider must be the same as Ibor index of point sensitivity");
     double expiry = relativeTime(point.getExpiry());
     double strike = point.getStrike();
-    UnitParameterSensitivity unitSens = surface.zValueParameterSensitivity(expiry, strike);
-    return unitSens.multipliedBy(point.getCurrency(), point.getSensitivity());
+    // copy to ImmutableMap to lock order (keySet and values used separately but must match)
+    Map<DoublesPair, Double> result = ImmutableMap.copyOf(surface.zValueParameterSensitivity(expiry, strike));
+    SurfaceCurrencyParameterSensitivity parameterSensi = SurfaceCurrencyParameterSensitivity.of(
+        updateSurfaceMetadata(result.keySet()),
+        point.getCurrency(),
+        DoubleArray.copyOf(Doubles.toArray(result.values())));
+    return parameterSensi.multipliedBy(point.getSensitivity());
+  }
+
+  private SurfaceMetadata updateSurfaceMetadata(Set<DoublesPair> pairs) {
+    SurfaceMetadata surfaceMetadata = surface.getMetadata();
+    List<SurfaceParameterMetadata> sortedMetaList = new ArrayList<SurfaceParameterMetadata>();
+    if (surfaceMetadata.getParameterMetadata().isPresent()) {
+      List<SurfaceParameterMetadata> metaList =
+          new ArrayList<SurfaceParameterMetadata>(surfaceMetadata.getParameterMetadata().get());
+      for (DoublesPair pair : pairs) {
+        metadataLoop:
+        for (SurfaceParameterMetadata parameterMetadata : metaList) {
+          ArgChecker.isTrue(parameterMetadata instanceof GenericVolatilitySurfaceYearFractionMetadata,
+              "Surface parameter metadata must be instance of GenericVolatilitySurfaceYearFractionMetadata");
+          GenericVolatilitySurfaceYearFractionMetadata casted =
+              (GenericVolatilitySurfaceYearFractionMetadata) parameterMetadata;
+          if (pair.getFirst() == casted.getYearFraction() && pair.getSecond() == casted.getStrike().getValue()) {
+            sortedMetaList.add(casted);
+            metaList.remove(parameterMetadata);
+            break metadataLoop;
+          }
+        }
+      }
+      ArgChecker.isTrue(metaList.size() == 0, "Mismatch between surface parameter metadata list and doubles pair list");
+    } else {
+      for (DoublesPair pair : pairs) {
+        GenericVolatilitySurfaceYearFractionMetadata parameterMetadata =
+            GenericVolatilitySurfaceYearFractionMetadata.of(pair.getFirst(), SimpleStrike.of(pair.getSecond()));
+        sortedMetaList.add(parameterMetadata);
+      }
+    }
+    return surfaceMetadata.withParameterMetadata(sortedMetaList);
   }
 
   //-------------------------------------------------------------------------
@@ -185,7 +230,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
   private static final long serialVersionUID = 1L;
 
   private NormalIborCapletFloorletExpiryStrikeVolatilities(
-      Surface surface,
+      NodalSurface surface,
       IborIndex index,
       DayCount dayCount,
       ZonedDateTime valuationDateTime) {
@@ -221,7 +266,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
    * The order of the dimensions is expiry/strike.
    * @return the value of the property, not null
    */
-  public Surface getSurface() {
+  public NodalSurface getSurface() {
     return surface;
   }
 
@@ -250,7 +295,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
   /**
    * Gets the valuation date-time.
    * <p>
-   * The volatilities are calibrated for this date-time.
+   * All data items in this environment are calibrated for this date-time.
    * @return the value of the property, not null
    */
   @Override
@@ -309,8 +354,8 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
     /**
      * The meta-property for the {@code surface} property.
      */
-    private final MetaProperty<Surface> surface = DirectMetaProperty.ofImmutable(
-        this, "surface", NormalIborCapletFloorletExpiryStrikeVolatilities.class, Surface.class);
+    private final MetaProperty<NodalSurface> surface = DirectMetaProperty.ofImmutable(
+        this, "surface", NormalIborCapletFloorletExpiryStrikeVolatilities.class, NodalSurface.class);
     /**
      * The meta-property for the {@code index} property.
      */
@@ -377,7 +422,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
      * The meta-property for the {@code surface} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<Surface> surface() {
+    public MetaProperty<NodalSurface> surface() {
       return surface;
     }
 
@@ -438,7 +483,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
    */
   private static final class Builder extends DirectFieldsBeanBuilder<NormalIborCapletFloorletExpiryStrikeVolatilities> {
 
-    private Surface surface;
+    private NodalSurface surface;
     private IborIndex index;
     private DayCount dayCount;
     private ZonedDateTime valuationDateTime;
@@ -470,7 +515,7 @@ public final class NormalIborCapletFloorletExpiryStrikeVolatilities
     public Builder set(String propertyName, Object newValue) {
       switch (propertyName.hashCode()) {
         case -1853231955:  // surface
-          this.surface = (Surface) newValue;
+          this.surface = (NodalSurface) newValue;
           break;
         case 100346066:  // index
           this.index = (IborIndex) newValue;

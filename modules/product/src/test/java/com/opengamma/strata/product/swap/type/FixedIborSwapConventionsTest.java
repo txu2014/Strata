@@ -14,7 +14,8 @@ import java.time.LocalDate;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.BuySell;
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.date.BusinessDayConvention;
 import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.DayCount;
@@ -23,9 +24,7 @@ import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.IborIndices;
 import com.opengamma.strata.basics.schedule.Frequency;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.common.PayReceive;
-import com.opengamma.strata.product.swap.ResolvedSwap;
+import com.opengamma.strata.product.swap.ExpandedSwap;
 import com.opengamma.strata.product.swap.SwapTrade;
 
 /**
@@ -37,8 +36,6 @@ import com.opengamma.strata.product.swap.SwapTrade;
 @Test
 public class FixedIborSwapConventionsTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
-
   @DataProvider(name = "spotLag")
   static Object[][] data_spot_lag() {
     return new Object[][] {
@@ -48,7 +45,6 @@ public class FixedIborSwapConventionsTest {
         {FixedIborSwapConventions.EUR_FIXED_1Y_EURIBOR_6M, 2},
         {FixedIborSwapConventions.GBP_FIXED_1Y_LIBOR_3M, 0},
         {FixedIborSwapConventions.GBP_FIXED_6M_LIBOR_6M, 0},
-        {FixedIborSwapConventions.GBP_FIXED_3M_LIBOR_3M, 0},
         {FixedIborSwapConventions.JPY_FIXED_6M_TIBORJ_3M, 2},
         {FixedIborSwapConventions.JPY_FIXED_6M_LIBOR_6M, 2},
         {FixedIborSwapConventions.CHF_FIXED_1Y_LIBOR_3M, 2},
@@ -71,7 +67,6 @@ public class FixedIborSwapConventionsTest {
         {FixedIborSwapConventions.EUR_FIXED_1Y_EURIBOR_6M, Frequency.P12M},
         {FixedIborSwapConventions.GBP_FIXED_1Y_LIBOR_3M, Frequency.P12M},
         {FixedIborSwapConventions.GBP_FIXED_6M_LIBOR_6M, Frequency.P6M},
-        {FixedIborSwapConventions.GBP_FIXED_3M_LIBOR_3M, Frequency.P3M},
         {FixedIborSwapConventions.JPY_FIXED_6M_TIBORJ_3M, Frequency.P6M},
         {FixedIborSwapConventions.JPY_FIXED_6M_LIBOR_6M, Frequency.P6M},
         {FixedIborSwapConventions.CHF_FIXED_1Y_LIBOR_3M, Frequency.P12M},
@@ -94,7 +89,6 @@ public class FixedIborSwapConventionsTest {
         {FixedIborSwapConventions.EUR_FIXED_1Y_EURIBOR_6M, DayCounts.THIRTY_U_360},
         {FixedIborSwapConventions.GBP_FIXED_1Y_LIBOR_3M, DayCounts.ACT_365F},
         {FixedIborSwapConventions.GBP_FIXED_6M_LIBOR_6M, DayCounts.ACT_365F},
-        {FixedIborSwapConventions.GBP_FIXED_3M_LIBOR_3M, DayCounts.ACT_365F},
         {FixedIborSwapConventions.JPY_FIXED_6M_TIBORJ_3M, DayCounts.ACT_365F},
         {FixedIborSwapConventions.JPY_FIXED_6M_LIBOR_6M, DayCounts.ACT_365F},
         {FixedIborSwapConventions.CHF_FIXED_1Y_LIBOR_3M, DayCounts.THIRTY_U_360},
@@ -117,7 +111,6 @@ public class FixedIborSwapConventionsTest {
         {FixedIborSwapConventions.EUR_FIXED_1Y_EURIBOR_6M, IborIndices.EUR_EURIBOR_6M},
         {FixedIborSwapConventions.GBP_FIXED_1Y_LIBOR_3M, IborIndices.GBP_LIBOR_3M},
         {FixedIborSwapConventions.GBP_FIXED_6M_LIBOR_6M, IborIndices.GBP_LIBOR_6M},
-        {FixedIborSwapConventions.GBP_FIXED_3M_LIBOR_3M, IborIndices.GBP_LIBOR_3M},
         {FixedIborSwapConventions.JPY_FIXED_6M_TIBORJ_3M, IborIndices.JPY_TIBOR_JAPAN_3M},
         {FixedIborSwapConventions.JPY_FIXED_6M_LIBOR_6M, IborIndices.JPY_LIBOR_6M},
         {FixedIborSwapConventions.CHF_FIXED_1Y_LIBOR_3M, IborIndices.CHF_LIBOR_3M},
@@ -149,7 +142,6 @@ public class FixedIborSwapConventionsTest {
         {FixedIborSwapConventions.EUR_FIXED_1Y_EURIBOR_6M, BusinessDayConventions.MODIFIED_FOLLOWING},
         {FixedIborSwapConventions.GBP_FIXED_1Y_LIBOR_3M, BusinessDayConventions.MODIFIED_FOLLOWING},
         {FixedIborSwapConventions.GBP_FIXED_6M_LIBOR_6M, BusinessDayConventions.MODIFIED_FOLLOWING},
-        {FixedIborSwapConventions.GBP_FIXED_3M_LIBOR_3M, BusinessDayConventions.MODIFIED_FOLLOWING},
         {FixedIborSwapConventions.JPY_FIXED_6M_TIBORJ_3M, BusinessDayConventions.MODIFIED_FOLLOWING},
         {FixedIborSwapConventions.JPY_FIXED_6M_LIBOR_6M, BusinessDayConventions.MODIFIED_FOLLOWING},
         {FixedIborSwapConventions.CHF_FIXED_1Y_LIBOR_3M, BusinessDayConventions.MODIFIED_FOLLOWING},
@@ -170,7 +162,6 @@ public class FixedIborSwapConventionsTest {
         {FixedIborSwapConventions.EUR_FIXED_1Y_EURIBOR_6M, Tenor.TENOR_18M},
         {FixedIborSwapConventions.GBP_FIXED_1Y_LIBOR_3M, Tenor.TENOR_18M},
         {FixedIborSwapConventions.GBP_FIXED_6M_LIBOR_6M, Tenor.TENOR_9M},
-        {FixedIborSwapConventions.GBP_FIXED_3M_LIBOR_3M, Tenor.TENOR_10M},
         {FixedIborSwapConventions.JPY_FIXED_6M_TIBORJ_3M, Tenor.TENOR_9M},
         {FixedIborSwapConventions.JPY_FIXED_6M_TIBORJ_3M, Tenor.TENOR_9M},
         {FixedIborSwapConventions.USD_FIXED_1Y_LIBOR_3M, Tenor.TENOR_18M},
@@ -181,9 +172,9 @@ public class FixedIborSwapConventionsTest {
   @Test(dataProvider = "stubIbor")
   public void test_stub_ibor(FixedIborSwapConvention convention, Tenor tenor) {
     LocalDate tradeDate = LocalDate.of(2015, 10, 20);
-    SwapTrade swap = convention.createTrade(tradeDate, tenor, BuySell.BUY, 1, 0.01, REF_DATA);
-    ResolvedSwap swapResolved = swap.getProduct().resolve(REF_DATA);
-    LocalDate endDate = swapResolved.getLeg(PayReceive.PAY).get().getEndDate();
+    SwapTrade swap = convention.toTrade(tradeDate, tenor, BuySell.BUY, 1, 0.01);
+    ExpandedSwap swapExpanded = swap.getProduct().expand();
+    LocalDate endDate = swapExpanded.getLeg(PayReceive.PAY).get().getEndDate();
     assertTrue(endDate.isAfter(tradeDate.plus(tenor).minusMonths(1)));
     assertTrue(endDate.isBefore(tradeDate.plus(tenor).plusMonths(1)));
   }

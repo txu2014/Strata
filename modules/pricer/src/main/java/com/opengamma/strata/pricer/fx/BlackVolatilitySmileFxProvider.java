@@ -30,23 +30,26 @@ import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.collect.array.DoubleMatrix;
+import com.opengamma.strata.market.ValueType;
 import com.opengamma.strata.market.option.DeltaStrike;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.param.ParameterMetadata;
-import com.opengamma.strata.market.product.fx.FxOptionSensitivity;
-import com.opengamma.strata.market.product.fx.FxVolatilitySurfaceYearFractionParameterMetadata;
+import com.opengamma.strata.market.sensitivity.FxOptionSensitivity;
+import com.opengamma.strata.market.surface.DefaultSurfaceMetadata;
+import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
 import com.opengamma.strata.market.surface.SurfaceName;
+import com.opengamma.strata.market.surface.SurfaceParameterMetadata;
+import com.opengamma.strata.market.surface.meta.FxVolatilitySurfaceYearFractionNodeMetadata;
 
 /**
  * Data provider of volatility for FX options in the lognormal or Black-Scholes model. 
  * <p>
  * The volatility is represented by a term structure of interpolated smile, 
- * {@link SmileDeltaTermStructure}, which represents expiry dependent smile formed of
+ * {@link SmileDeltaTermStructureParametersStrikeInterpolation}, which represents expiry dependent smile formed of
  * ATM, risk reversal and strangle as used in FX market.
  */
 @BeanDefinition
 final class BlackVolatilitySmileFxProvider
     implements BlackVolatilityFxProvider, ImmutableBean {
+  // NOTE: This class is package scoped, as the Smile data provider API is effectively still in Beta
 
   /**
    * The volatility model. 
@@ -55,7 +58,7 @@ final class BlackVolatilitySmileFxProvider
    * and strangle as used in FX market.
    */
   @PropertyDefinition(validate = "notNull")
-  private final SmileDeltaTermStructure smile;
+  private final SmileDeltaTermStructureParametersStrikeInterpolation smile;
   /**
    * The currency pair for which the volatility data are presented.
    */
@@ -84,7 +87,7 @@ final class BlackVolatilitySmileFxProvider
    * @return the provider
    */
   public static BlackVolatilitySmileFxProvider of(
-      SmileDeltaTermStructure smile,
+      SmileDeltaTermStructureParametersStrikeInterpolation smile,
       CurrencyPair currencyPair,
       DayCount dayCount,
       ZonedDateTime valuationTime) {
@@ -94,11 +97,12 @@ final class BlackVolatilitySmileFxProvider
 
   //-------------------------------------------------------------------------
   @Override
-  public double getVolatility(CurrencyPair currencyPair, double expiryTime, double strike, double forward) {
+  public double getVolatility(CurrencyPair currencyPair, ZonedDateTime expiryDateTime, double strike, double forward) {
+    double expiryTime = relativeTime(expiryDateTime);
     if (currencyPair.isInverse(this.currencyPair)) {
-      return smile.volatility(expiryTime, 1d / strike, 1d / forward);
+      return smile.getVolatility(expiryTime, 1d / strike, 1d / forward);
     }
-    return smile.volatility(expiryTime, strike, forward);
+    return smile.getVolatility(expiryTime, strike, forward);
   }
 
   //-------------------------------------------------------------------------
@@ -110,18 +114,18 @@ final class BlackVolatilitySmileFxProvider
   }
 
   @Override
-  public CurrencyParameterSensitivity surfaceParameterSensitivity(FxOptionSensitivity point) {
+  public SurfaceCurrencyParameterSensitivity surfaceParameterSensitivity(FxOptionSensitivity point) {
     double expiryTime = relativeTime(point.getExpiryDateTime());
     double strike = currencyPair.isInverse(point.getCurrencyPair()) ? 1d / point.getStrike() : point.getStrike();
     double forward = currencyPair.isInverse(point.getCurrencyPair()) ? 1d / point.getForward() : point.getForward();
     double pointValue = point.getSensitivity();
-    DoubleMatrix bucketedSensi = smile.volatilityAndSensitivities(expiryTime, strike, forward).getSensitivities();
-    double[] times = smile.getTimeToExpiry().toArray();
+    DoubleMatrix bucketedSensi = smile.getVolatilityAndSensitivities(expiryTime, strike, forward).getSensitivities();
+    double[] times = smile.getTimeToExpiry();
     int nTimes = times.length;
     List<Double> sensiList = new ArrayList<Double>();
-    List<ParameterMetadata> paramList = new ArrayList<ParameterMetadata>();
+    List<SurfaceParameterMetadata> paramList = new ArrayList<SurfaceParameterMetadata>();
     for (int i = 0; i < nTimes; ++i) {
-      DoubleArray deltas = smile.getVolatilityTerm().get(i).getDelta();
+      DoubleArray deltas = smile.getVolatilityTerm()[i].getDelta();
       int nDeltas = deltas.size();
       int nDeltasTotal = 2 * nDeltas + 1;
       double[] deltasTotal = new double[nDeltasTotal]; // absolute delta
@@ -132,13 +136,20 @@ final class BlackVolatilitySmileFxProvider
       for (int j = 0; j < nDeltasTotal; ++j) {
         sensiList.add(bucketedSensi.get(i, j) * pointValue);
         DeltaStrike absoluteDelta = DeltaStrike.of(deltasTotal[j]);
-        ParameterMetadata parameterMetadata = FxVolatilitySurfaceYearFractionParameterMetadata.of(
+        SurfaceParameterMetadata parameterMetadata = FxVolatilitySurfaceYearFractionNodeMetadata.of(
             times[i], absoluteDelta, currencyPair);
         paramList.add(parameterMetadata);
       }
     }
-    SurfaceName name = SurfaceName.of(smile.getName());  // TODO: SmileName
-    return CurrencyParameterSensitivity.of(name, paramList, point.getCurrency(), DoubleArray.copyOf(sensiList));
+    DefaultSurfaceMetadata metadata = DefaultSurfaceMetadata.builder()
+        .dayCount(dayCount)
+        .parameterMetadata(paramList)
+        .surfaceName(SurfaceName.of(smile.getName()))
+        .xValueType(ValueType.YEAR_FRACTION)
+        .yValueType(ValueType.STRIKE)
+        .zValueType(ValueType.VOLATILITY)
+        .build();
+    return SurfaceCurrencyParameterSensitivity.of(metadata, point.getCurrency(), DoubleArray.copyOf(sensiList));
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -164,7 +175,7 @@ final class BlackVolatilitySmileFxProvider
   }
 
   private BlackVolatilitySmileFxProvider(
-      SmileDeltaTermStructure smile,
+      SmileDeltaTermStructureParametersStrikeInterpolation smile,
       CurrencyPair currencyPair,
       DayCount dayCount,
       ZonedDateTime valuationDateTime) {
@@ -201,7 +212,7 @@ final class BlackVolatilitySmileFxProvider
    * and strangle as used in FX market.
    * @return the value of the property, not null
    */
-  public SmileDeltaTermStructure getSmile() {
+  public SmileDeltaTermStructureParametersStrikeInterpolation getSmile() {
     return smile;
   }
 
@@ -294,8 +305,8 @@ final class BlackVolatilitySmileFxProvider
     /**
      * The meta-property for the {@code smile} property.
      */
-    private final MetaProperty<SmileDeltaTermStructure> smile = DirectMetaProperty.ofImmutable(
-        this, "smile", BlackVolatilitySmileFxProvider.class, SmileDeltaTermStructure.class);
+    private final MetaProperty<SmileDeltaTermStructureParametersStrikeInterpolation> smile = DirectMetaProperty.ofImmutable(
+        this, "smile", BlackVolatilitySmileFxProvider.class, SmileDeltaTermStructureParametersStrikeInterpolation.class);
     /**
      * The meta-property for the {@code currencyPair} property.
      */
@@ -362,7 +373,7 @@ final class BlackVolatilitySmileFxProvider
      * The meta-property for the {@code smile} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<SmileDeltaTermStructure> smile() {
+    public MetaProperty<SmileDeltaTermStructureParametersStrikeInterpolation> smile() {
       return smile;
     }
 
@@ -423,7 +434,7 @@ final class BlackVolatilitySmileFxProvider
    */
   public static final class Builder extends DirectFieldsBeanBuilder<BlackVolatilitySmileFxProvider> {
 
-    private SmileDeltaTermStructure smile;
+    private SmileDeltaTermStructureParametersStrikeInterpolation smile;
     private CurrencyPair currencyPair;
     private DayCount dayCount;
     private ZonedDateTime valuationDateTime;
@@ -466,7 +477,7 @@ final class BlackVolatilitySmileFxProvider
     public Builder set(String propertyName, Object newValue) {
       switch (propertyName.hashCode()) {
         case 109556488:  // smile
-          this.smile = (SmileDeltaTermStructure) newValue;
+          this.smile = (SmileDeltaTermStructureParametersStrikeInterpolation) newValue;
           break;
         case 1005147787:  // currencyPair
           this.currencyPair = (CurrencyPair) newValue;
@@ -525,7 +536,7 @@ final class BlackVolatilitySmileFxProvider
      * @param smile  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder smile(SmileDeltaTermStructure smile) {
+    public Builder smile(SmileDeltaTermStructureParametersStrikeInterpolation smile) {
       JodaBeanUtils.notNull(smile, "smile");
       this.smile = smile;
       return this;

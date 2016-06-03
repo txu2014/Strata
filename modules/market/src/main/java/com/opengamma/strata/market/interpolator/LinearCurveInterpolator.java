@@ -97,7 +97,7 @@ final class LinearCurveInterpolator
 
     //-------------------------------------------------------------------------
     @Override
-    protected double doInterpolate(double xValue) {
+    double doInterpolate(double xValue) {
       // x-value is less than the x-value of the last node (lowerIndex < intervalCount)
       int lowerIndex = lowerBoundIndex(xValue, xValues);
       double x1 = xValues[lowerIndex];
@@ -106,7 +106,7 @@ final class LinearCurveInterpolator
     }
 
     @Override
-    protected double doFirstDerivative(double xValue) {
+    double doFirstDerivative(double xValue) {
       int lowerIndex = lowerBoundIndex(xValue, xValues);
       // check if x-value is at the last node
       if (lowerIndex == intervalCount) {
@@ -117,7 +117,7 @@ final class LinearCurveInterpolator
     }
 
     @Override
-    protected DoubleArray doParameterSensitivity(double xValue) {
+    DoubleArray doParameterSensitivity(double xValue) {
       double[] result = new double[yValues.length];
       int lowerIndex = lowerBoundIndex(xValue, xValues);
       // check if x-value is at the last node

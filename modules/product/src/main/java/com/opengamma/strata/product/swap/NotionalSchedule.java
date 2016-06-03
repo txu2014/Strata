@@ -28,7 +28,6 @@ import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.value.ValueSchedule;
@@ -189,15 +188,13 @@ public final class NotionalSchedule
    * 
    * @param payPeriods  the payment periods
    * @param initialExchangeDate  the date of the initial notional exchange
-   * @param refData  the reference data to use
    * @return the list of payment events
    */
   ImmutableList<PaymentEvent> createEvents(
       List<RatePaymentPeriod> payPeriods,
-      LocalDate initialExchangeDate,
-      ReferenceData refData) {
+      LocalDate initialExchangeDate) {
 
-    return createEvents(payPeriods, initialExchangeDate, initialExchange, intermediateExchange, finalExchange, refData);
+    return createEvents(payPeriods, initialExchangeDate, initialExchange, intermediateExchange, finalExchange);
   }
 
   /**
@@ -213,7 +210,6 @@ public final class NotionalSchedule
    * @param initialExchange  whether there is an initial exchange
    * @param intermediateExchange  whether there is an intermediate exchange
    * @param finalExchange  whether there is an final exchange
-   * @param refData  the reference data to use
    * @return the list of payment events
    */
   static ImmutableList<PaymentEvent> createEvents(
@@ -221,13 +217,12 @@ public final class NotionalSchedule
       LocalDate initialExchangeDate,
       boolean initialExchange,
       boolean intermediateExchange,
-      boolean finalExchange,
-      ReferenceData refData) {
+      boolean finalExchange) {
 
     boolean fxResetFound = payPeriods.stream().filter(pp -> pp.getFxReset().isPresent()).findAny().isPresent();
     if (fxResetFound) {
       if (intermediateExchange) {
-        return createFxResetEvents(payPeriods, initialExchangeDate, refData);
+        return createFxResetEvents(payPeriods, initialExchangeDate);
       } else {
         return ImmutableList.of();
       }
@@ -241,8 +236,7 @@ public final class NotionalSchedule
   // create notional exchange events when FxReset specified
   private static ImmutableList<PaymentEvent> createFxResetEvents(
       List<RatePaymentPeriod> payPeriods,
-      LocalDate initialExchangeDate,
-      ReferenceData refData) {
+      LocalDate initialExchangeDate) {
 
     ImmutableList.Builder<PaymentEvent> events = ImmutableList.builder();
     for (int i = 0; i < payPeriods.size(); i++) {
@@ -255,14 +249,16 @@ public final class NotionalSchedule
             .paymentDate(startPaymentDate)
             .referenceCurrency(fxReset.getReferenceCurrency())
             .notional(-period.getNotional())
-            .observation(fxReset.getObservation())
+            .index(fxReset.getIndex())
+            .fixingDate(fxReset.getFixingDate())
             .build());
         // notional in at end of period
         events.add(FxResetNotionalExchange.builder()
             .paymentDate(period.getPaymentDate())
             .referenceCurrency(fxReset.getReferenceCurrency())
             .notional(period.getNotional())
-            .observation(fxReset.getObservation())
+            .index(fxReset.getIndex())
+            .fixingDate(fxReset.getFixingDate())
             .build());
       } else {
         // handle weird swap where only some periods have FX reset

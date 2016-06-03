@@ -8,19 +8,20 @@ package com.opengamma.strata.pricer.cms;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.market.product.swaption.SwaptionSabrSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivities;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.DiscountingSwapLegPricer;
 import com.opengamma.strata.pricer.swaption.SabrParametersSwaptionVolatilities;
 import com.opengamma.strata.product.cms.CmsLeg;
-import com.opengamma.strata.product.cms.ResolvedCms;
+import com.opengamma.strata.product.cms.CmsProduct;
+import com.opengamma.strata.product.cms.ExpandedCms;
 import com.opengamma.strata.product.swap.SwapLeg;
 
 /**
  * Pricer for CMS products by swaption replication on a SABR formula with extrapolation.
  * <p>
- * This function provides the ability to price {@link ResolvedCms}. 
+ * This function provides the ability to price {@link CmsProduct}. 
  */
 public class SabrExtrapolationReplicationCmsProductPricer {
 
@@ -62,15 +63,16 @@ public class SabrExtrapolationReplicationCmsProductPricer {
    * @return the present value
    */
   public MultiCurrencyAmount presentValue(
-      ResolvedCms cms,
+      CmsProduct cms,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
-    CurrencyAmount pvCmsLeg = cmsLegPricer.presentValue(cms.getCmsLeg(), ratesProvider, swaptionVolatilities);
-    if (!cms.getPayLeg().isPresent()) {
+    ExpandedCms expanded = cms.expand();
+    CurrencyAmount pvCmsLeg = cmsLegPricer.presentValue(expanded.getCmsLeg(), ratesProvider, swaptionVolatilities);
+    if (!expanded.getPayLeg().isPresent()) {
       return MultiCurrencyAmount.of(pvCmsLeg);
     }
-    CurrencyAmount pvPayLeg = payLegPricer.presentValue(cms.getPayLeg().get(), ratesProvider);
+    CurrencyAmount pvPayLeg = payLegPricer.presentValue(expanded.getPayLeg().get(), ratesProvider);
     return MultiCurrencyAmount.of(pvCmsLeg).plus(pvPayLeg);
   }
 
@@ -85,16 +87,17 @@ public class SabrExtrapolationReplicationCmsProductPricer {
    * @return the present value sensitivity
    */
   public PointSensitivityBuilder presentValueSensitivity(
-      ResolvedCms cms,
+      CmsProduct cms,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
+    ExpandedCms expanded = cms.expand();
     PointSensitivityBuilder pvSensiCmsLeg =
-        cmsLegPricer.presentValueSensitivity(cms.getCmsLeg(), ratesProvider, swaptionVolatilities);
-    if (!cms.getPayLeg().isPresent()) {
+        cmsLegPricer.presentValueSensitivity(expanded.getCmsLeg(), ratesProvider, swaptionVolatilities);
+    if (!expanded.getPayLeg().isPresent()) {
       return pvSensiCmsLeg;
     }
-    PointSensitivityBuilder pvSensiPayLeg = payLegPricer.presentValueSensitivity(cms.getPayLeg().get(), ratesProvider);
+    PointSensitivityBuilder pvSensiPayLeg = payLegPricer.presentValueSensitivity(expanded.getPayLeg().get(), ratesProvider);
     return pvSensiCmsLeg.combinedWith(pvSensiPayLeg);
   }
 
@@ -110,11 +113,11 @@ public class SabrExtrapolationReplicationCmsProductPricer {
    * @return the present value sensitivity
    */
   public SwaptionSabrSensitivities presentValueSensitivitySabrParameter(
-      ResolvedCms cms,
+      CmsProduct cms,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
-    return cmsLegPricer.presentValueSensitivitySabrParameter(cms.getCmsLeg(), ratesProvider, swaptionVolatilities);
+    return cmsLegPricer.presentValueSensitivitySabrParameter(cms.expand().getCmsLeg(), ratesProvider, swaptionVolatilities);
   }
 
   /**
@@ -129,11 +132,11 @@ public class SabrExtrapolationReplicationCmsProductPricer {
    * @return the present value sensitivity
    */
   public double presentValueSensitivityStrike(
-      ResolvedCms cms,
+      CmsProduct cms,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
-    return cmsLegPricer.presentValueSensitivityStrike(cms.getCmsLeg(), ratesProvider, swaptionVolatilities);
+    return cmsLegPricer.presentValueSensitivityStrike(cms.expand().getCmsLeg(), ratesProvider, swaptionVolatilities);
   }
 
   //-------------------------------------------------------------------------
@@ -146,15 +149,16 @@ public class SabrExtrapolationReplicationCmsProductPricer {
    * @return the currency exposure
    */
   public MultiCurrencyAmount currencyExposure(
-      ResolvedCms cms,
+      CmsProduct cms,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
-    CurrencyAmount ceCmsLeg = cmsLegPricer.presentValue(cms.getCmsLeg(), ratesProvider, swaptionVolatilities);
-    if (!cms.getPayLeg().isPresent()) {
+    ExpandedCms expanded = cms.expand();
+    CurrencyAmount ceCmsLeg = cmsLegPricer.presentValue(expanded.getCmsLeg(), ratesProvider, swaptionVolatilities);
+    if (!expanded.getPayLeg().isPresent()) {
       return MultiCurrencyAmount.of(ceCmsLeg);
     }
-    MultiCurrencyAmount cePayLeg = payLegPricer.currencyExposure(cms.getPayLeg().get(), ratesProvider);
+    MultiCurrencyAmount cePayLeg = payLegPricer.currencyExposure(expanded.getPayLeg().get(), ratesProvider);
     return cePayLeg.plus(ceCmsLeg);
   }
 
@@ -167,15 +171,16 @@ public class SabrExtrapolationReplicationCmsProductPricer {
    * @return the current cash
    */
   public MultiCurrencyAmount currentCash(
-      ResolvedCms cms,
+      CmsProduct cms,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
-    CurrencyAmount ccCmsLeg = cmsLegPricer.currentCash(cms.getCmsLeg(), ratesProvider, swaptionVolatilities);
-    if (!cms.getPayLeg().isPresent()) {
+    ExpandedCms expanded = cms.expand();
+    CurrencyAmount ccCmsLeg = cmsLegPricer.currentCash(expanded.getCmsLeg(), ratesProvider, swaptionVolatilities);
+    if (!expanded.getPayLeg().isPresent()) {
       return MultiCurrencyAmount.of(ccCmsLeg);
     }
-    CurrencyAmount ccPayLeg = payLegPricer.currentCash(cms.getPayLeg().get(), ratesProvider);
+    CurrencyAmount ccPayLeg = payLegPricer.currentCash(expanded.getPayLeg().get(), ratesProvider);
     return MultiCurrencyAmount.of(ccPayLeg).plus(ccCmsLeg);
   }
 

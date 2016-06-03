@@ -11,11 +11,12 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.google.common.collect.ImmutableList;
+import com.opengamma.strata.basics.market.MarketDataId;
+import com.opengamma.strata.basics.market.ObservableId;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
+import com.opengamma.strata.calc.marketdata.function.MarketDataFunction;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.tuple.Pair;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.ObservableId;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
 
 /**
  * A node in a tree of dependencies of market data required by a set of calculations.
@@ -68,7 +69,7 @@ class MarketDataNode {
    */
   static MarketDataNode buildDependencyTree(
       MarketDataRequirements requirements,
-      ScenarioMarketData suppliedData,
+      CalculationEnvironment suppliedData,
       MarketDataConfig marketDataConfig,
       Map<Class<? extends MarketDataId<?>>, MarketDataFunction<?, ?>> functions) {
 

@@ -16,13 +16,13 @@ import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.explain.ExplainKey;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
-import com.opengamma.strata.market.product.DiscountFactors;
-import com.opengamma.strata.market.product.fx.FxIndexRates;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.pricer.rate.RateComputationFn;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.FxIndexRates;
+import com.opengamma.strata.pricer.rate.RateObservationFn;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.PaymentPeriodPricer;
-import com.opengamma.strata.product.rate.RateComputation;
+import com.opengamma.strata.product.rate.RateObservation;
 import com.opengamma.strata.product.swap.CompoundingMethod;
 import com.opengamma.strata.product.swap.FxReset;
 import com.opengamma.strata.product.swap.RateAccrualPeriod;
@@ -41,21 +41,21 @@ public class DiscountingRatePaymentPeriodPricer
    * Default implementation.
    */
   public static final DiscountingRatePaymentPeriodPricer DEFAULT = new DiscountingRatePaymentPeriodPricer(
-      RateComputationFn.standard());
+      RateObservationFn.instance());
 
   /**
-   * Rate computation.
+   * Rate observation.
    */
-  private final RateComputationFn<RateComputation> rateComputationFn;
+  private final RateObservationFn<RateObservation> rateObservationFn;
 
   /**
    * Creates an instance.
    * 
-   * @param rateComputationFn  the rate computation function
+   * @param rateObservationFn  the rate observation function
    */
   public DiscountingRatePaymentPeriodPricer(
-      RateComputationFn<RateComputation> rateComputationFn) {
-    this.rateComputationFn = ArgChecker.notNull(rateComputationFn, "rateComputationFn");
+      RateObservationFn<RateObservation> rateObservationFn) {
+    this.rateObservationFn = ArgChecker.notNull(rateObservationFn, "rateObservationFn");
   }
 
   //-------------------------------------------------------------------------
@@ -126,8 +126,8 @@ public class DiscountingRatePaymentPeriodPricer
     // inefficient to use Optional.orElse because double primitive type would be boxed
     if (paymentPeriod.getFxReset().isPresent()) {
       FxReset fxReset = paymentPeriod.getFxReset().get();
-      FxIndexRates rates = provider.fxIndexRates(fxReset.getObservation().getIndex());
-      return rates.rate(fxReset.getObservation(), fxReset.getReferenceCurrency());
+      FxIndexRates rates = provider.fxIndexRates(fxReset.getIndex());
+      return rates.rate(fxReset.getReferenceCurrency(), fxReset.getFixingDate());
     } else {
       return 1d;
     }
@@ -157,8 +157,8 @@ public class DiscountingRatePaymentPeriodPricer
   // finds the raw rate for the accrual period
   // the raw rate is the rate before gearing, spread and negative checks are applied
   private double rawRate(RateAccrualPeriod accrualPeriod, RatesProvider provider) {
-    return rateComputationFn.rate(
-        accrualPeriod.getRateComputation(),
+    return rateObservationFn.rate(
+        accrualPeriod.getRateObservation(),
         accrualPeriod.getStartDate(),
         accrualPeriod.getEndDate(),
         provider);
@@ -282,8 +282,8 @@ public class DiscountingRatePaymentPeriodPricer
   private PointSensitivityBuilder fxRateSensitivity(RatePaymentPeriod paymentPeriod, RatesProvider provider) {
     if (paymentPeriod.getFxReset().isPresent()) {
       FxReset fxReset = paymentPeriod.getFxReset().get();
-      FxIndexRates rates = provider.fxIndexRates(fxReset.getObservation().getIndex());
-      return rates.ratePointSensitivity(fxReset.getObservation(), fxReset.getReferenceCurrency());
+      FxIndexRates rates = provider.fxIndexRates(fxReset.getIndex());
+      return rates.ratePointSensitivity(fxReset.getReferenceCurrency(), fxReset.getFixingDate());
     }
     return PointSensitivityBuilder.none();
   }
@@ -304,8 +304,8 @@ public class DiscountingRatePaymentPeriodPricer
       Currency ccy,
       RatesProvider provider) {
 
-    PointSensitivityBuilder sensi = rateComputationFn.rateSensitivity(
-        period.getRateComputation(), period.getStartDate(), period.getEndDate(), provider);
+    PointSensitivityBuilder sensi = rateObservationFn.rateSensitivity(
+        period.getRateObservation(), period.getStartDate(), period.getEndDate(), provider);
     return sensi.multipliedBy(period.getGearing() * period.getYearFraction());
   }
 
@@ -406,8 +406,8 @@ public class DiscountingRatePaymentPeriodPricer
       paymentPeriod.getFxReset().ifPresent(fxReset -> {
         builder.addListEntry(ExplainKey.OBSERVATIONS, child -> {
           child.put(ExplainKey.ENTRY_TYPE, "FxObservation");
-          child.put(ExplainKey.INDEX, fxReset.getObservation().getIndex());
-          child.put(ExplainKey.FIXING_DATE, fxReset.getObservation().getFixingDate());
+          child.put(ExplainKey.INDEX, fxReset.getIndex());
+          child.put(ExplainKey.FIXING_DATE, fxReset.getFixingDate());
           child.put(ExplainKey.INDEX_VALUE, fxRate);
         });
       });
@@ -430,8 +430,8 @@ public class DiscountingRatePaymentPeriodPricer
       RatesProvider provider,
       ExplainMapBuilder builder) {
 
-    double rawRate = rateComputationFn.explainRate(
-        accrualPeriod.getRateComputation(), accrualPeriod.getStartDate(), accrualPeriod.getEndDate(), provider, builder);
+    double rawRate = rateObservationFn.explainRate(
+        accrualPeriod.getRateObservation(), accrualPeriod.getStartDate(), accrualPeriod.getEndDate(), provider, builder);
     double payOffRate = rawRate * accrualPeriod.getGearing() + accrualPeriod.getSpread();
     double ua = unitNotionalAccrual(accrualPeriod, accrualPeriod.getSpread(), provider);
 
@@ -458,16 +458,16 @@ public class DiscountingRatePaymentPeriodPricer
     double df = provider.discountFactor(period.getCurrency(), period.getPaymentDate());
     if (period.getFxReset().isPresent()) {
       FxReset fxReset = period.getFxReset().get();
-      LocalDate fixingDate = fxReset.getObservation().getFixingDate();
-      FxIndexRates rates = provider.fxIndexRates(fxReset.getObservation().getIndex());
-      if (!fixingDate.isAfter(provider.getValuationDate()) &&
-          rates.getFixings().get(fixingDate).isPresent()) {
-        double fxRate = rates.rate(fxReset.getObservation(), fxReset.getReferenceCurrency());
+      FxIndexRates rates = provider.fxIndexRates(fxReset.getIndex());
+      if (!fxReset.getFixingDate().isAfter(provider.getValuationDate()) &&
+          rates.getFixings().get(fxReset.getFixingDate()).isPresent()) {
+        double fxRate = rates.rate(fxReset.getReferenceCurrency(), fxReset.getFixingDate());
         return MultiCurrencyAmount.of(period.getCurrency(),
             accrualWithNotional(period, period.getNotional() * fxRate * df, provider));
       }
+      LocalDate maturityDate = rates.getIndex().calculateMaturityFromFixing(fxReset.getFixingDate());
       double fxRateSpotSensitivity = rates.getFxForwardRates()
-          .rateFxSpotSensitivity(fxReset.getReferenceCurrency(), fxReset.getObservation().getMaturityDate());
+          .rateFxSpotSensitivity(fxReset.getReferenceCurrency(), maturityDate);
       return MultiCurrencyAmount.of(fxReset.getReferenceCurrency(),
           accrualWithNotional(period, period.getNotional() * fxRateSpotSensitivity * df, provider));
     }
@@ -535,7 +535,7 @@ public class DiscountingRatePaymentPeriodPricer
     PointSensitivityBuilder pvbpdr = dfdr.multipliedBy(dfB2);
     for (int j = 0; j < nbCmp; j++) {
       RateAccrualPeriod accrualPeriod = paymentPeriod.getAccrualPeriods().get(j);
-      pvbpdr = pvbpdr.combinedWith(rateComputationFn.rateSensitivity(accrualPeriod.getRateComputation(),
+      pvbpdr = pvbpdr.combinedWith(rateObservationFn.rateSensitivity(accrualPeriod.getRateObservation(),
           accrualPeriod.getStartDate(), accrualPeriod.getEndDate(), provider).multipliedBy(rateB2[j]));
     }
     return pvbpdr;

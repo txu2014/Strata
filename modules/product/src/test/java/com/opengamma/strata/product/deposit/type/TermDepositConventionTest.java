@@ -10,8 +10,8 @@ import static com.opengamma.strata.basics.currency.Currency.GBP;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_FOLLOWING;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_365F;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.EUTA;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.EUTA;
+import static com.opengamma.strata.basics.date.HolidayCalendars.GBLO;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
@@ -26,11 +26,10 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.common.BuySell;
 import com.opengamma.strata.product.deposit.TermDeposit;
 import com.opengamma.strata.product.deposit.TermDepositTrade;
 
@@ -40,11 +39,9 @@ import com.opengamma.strata.product.deposit.TermDepositTrade;
 @Test
 public class TermDepositConventionTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final BusinessDayAdjustment BDA_MOD_FOLLOW = BusinessDayAdjustment.of(MODIFIED_FOLLOWING, EUTA);
   private static final DaysAdjustment PLUS_TWO_DAYS = DaysAdjustment.ofBusinessDays(2, EUTA);
 
-  //-------------------------------------------------------------------------
   public void test_builder_full() {
     ImmutableTermDepositConvention test = ImmutableTermDepositConvention.builder()
         .name("Test")
@@ -69,7 +66,19 @@ public class TermDepositConventionTest {
     assertEquals(test.getSpotDateOffset(), PLUS_TWO_DAYS);
   }
 
-  //-------------------------------------------------------------------------
+  public void test_toTemplate() {
+    TermDepositConvention convention = ImmutableTermDepositConvention.builder()
+        .businessDayAdjustment(BDA_MOD_FOLLOW)
+        .currency(EUR)
+        .dayCount(ACT_360)
+        .spotDateOffset(PLUS_TWO_DAYS)
+        .build();
+    Period period3M = Period.ofMonths(3);
+    TermDepositTemplate template = convention.toTemplate(period3M);
+    assertEquals(template.getConvention(), convention);
+    assertEquals(template.getDepositPeriod(), period3M);
+  }
+
   public void test_toTrade() {
     TermDepositConvention convention = ImmutableTermDepositConvention.builder()
         .businessDayAdjustment(BDA_MOD_FOLLOW)
@@ -82,8 +91,8 @@ public class TermDepositConventionTest {
     BuySell buy = BuySell.BUY;
     double notional = 2_000_000d;
     double rate = 0.0125;
-    TermDepositTrade trade = convention.createTrade(tradeDate, period3M, buy, notional, rate, REF_DATA);
-    LocalDate startDateExpected = PLUS_TWO_DAYS.adjust(tradeDate, REF_DATA);
+    TermDepositTrade trade = convention.toTrade(tradeDate, period3M, buy, notional, rate);
+    LocalDate startDateExpected = PLUS_TWO_DAYS.adjust(tradeDate);
     LocalDate endDateExpected = startDateExpected.plus(period3M);
     TermDeposit termDepositExpected = TermDeposit.builder()
         .buySell(buy)
@@ -95,9 +104,9 @@ public class TermDepositConventionTest {
         .rate(rate)
         .dayCount(ACT_360)
         .build();
-    TradeInfo tradeInfoExpected = TradeInfo.of(tradeDate);
+    TradeInfo tradeInfoExpected = TradeInfo.builder().tradeDate(tradeDate).build();
     assertEquals(trade.getProduct(), termDepositExpected);
-    assertEquals(trade.getInfo(), tradeInfoExpected);
+    assertEquals(trade.getTradeInfo(), tradeInfoExpected);
   }
 
   //-------------------------------------------------------------------------

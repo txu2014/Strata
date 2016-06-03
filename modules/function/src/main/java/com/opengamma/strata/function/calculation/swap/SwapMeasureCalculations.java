@@ -6,49 +6,52 @@
 package com.opengamma.strata.function.calculation.swap;
 
 import static com.opengamma.strata.collect.Guavate.toImmutableList;
-import static com.opengamma.strata.collect.Guavate.toImmutableSet;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.index.Index;
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.basics.market.MarketDataKey;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.runner.function.result.MultiCurrencyValuesArray;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
+import com.opengamma.strata.calc.runner.function.result.SingleScenarioResult;
+import com.opengamma.strata.calc.runner.function.result.ValuesArray;
 import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.tuple.Pair;
-import com.opengamma.strata.data.MarketData;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.scenario.MultiCurrencyValuesArray;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.data.scenario.ValuesArray;
-import com.opengamma.strata.function.calculation.RatesMarketData;
-import com.opengamma.strata.function.calculation.RatesScenarioMarketData;
+import com.opengamma.strata.function.calculation.rate.MarketDataUtils;
 import com.opengamma.strata.market.amount.CashFlows;
 import com.opengamma.strata.market.amount.LegAmount;
 import com.opengamma.strata.market.amount.LegAmounts;
-import com.opengamma.strata.market.curve.Curve;
-import com.opengamma.strata.market.curve.CurveId;
+import com.opengamma.strata.market.amount.SwapLegAmount;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivity;
+import com.opengamma.strata.market.curve.NodalCurve;
 import com.opengamma.strata.market.explain.ExplainMap;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.product.swap.SwapLegAmount;
+import com.opengamma.strata.market.key.DiscountCurveKey;
+import com.opengamma.strata.market.key.MarketDataKeys;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
+import com.opengamma.strata.pricer.rate.MarketDataRatesProvider;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.sensitivity.CurveGammaCalculator;
 import com.opengamma.strata.pricer.swap.DiscountingSwapLegPricer;
 import com.opengamma.strata.pricer.swap.DiscountingSwapProductPricer;
+import com.opengamma.strata.product.swap.ExpandedSwap;
+import com.opengamma.strata.product.swap.ExpandedSwapLeg;
 import com.opengamma.strata.product.swap.NotionalPaymentPeriod;
 import com.opengamma.strata.product.swap.PaymentPeriod;
-import com.opengamma.strata.product.swap.ResolvedSwap;
-import com.opengamma.strata.product.swap.ResolvedSwapLeg;
-import com.opengamma.strata.product.swap.ResolvedSwapTrade;
+import com.opengamma.strata.product.swap.RateCalculationSwapLeg;
+import com.opengamma.strata.product.swap.SwapLeg;
+import com.opengamma.strata.product.swap.SwapTrade;
 
 /**
  * Multi-scenario measure calculations for Swap trades.
@@ -76,226 +79,232 @@ final class SwapMeasureCalculations {
 
   //-------------------------------------------------------------------------
   // calculates par rate for all scenarios
-  static ValuesArray parRate(ResolvedSwapTrade trade, RatesScenarioMarketData marketData) {
+  static ValuesArray parRate(
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
     return ValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateParRate(product, marketData.scenario(i)));
   }
 
   // par rate for one scenario
-  private static double calculateParRate(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static double calculateParRate(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.parRate(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates par spread for all scenarios
   static ValuesArray parSpread(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
     return ValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateParSpread(product, marketData.scenario(i)));
   }
 
   // par spread for one scenario
-  private static double calculateParSpread(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static double calculateParSpread(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.parSpread(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates present value for all scenarios
   static MultiCurrencyValuesArray presentValue(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculatePresentValue(product, marketData.scenario(i)));
   }
 
   // present value for one scenario
-  private static MultiCurrencyAmount calculatePresentValue(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculatePresentValue(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.presentValue(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates explain present value for all scenarios
-  static ScenarioArray<ExplainMap> explainPresentValue(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<ExplainMap> explainPresentValue(
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
         i -> calculateExplainPresentValue(product, marketData.scenario(i)));
   }
 
   // explain present value for one scenario
-  private static ExplainMap calculateExplainPresentValue(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static ExplainMap calculateExplainPresentValue(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.explainPresentValue(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates cash flows for all scenarios
-  static ScenarioArray<CashFlows> cashFlows(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<CashFlows> cashFlows(
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
         i -> calculateCashFlows(product, marketData.scenario(i)));
   }
 
   // cash flows for one scenario
-  private static CashFlows calculateCashFlows(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static CashFlows calculateCashFlows(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.cashFlows(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates PV01 for all scenarios
   static MultiCurrencyValuesArray pv01(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculatePv01(product, marketData.scenario(i)));
   }
 
   // PV01 for one scenario
-  private static MultiCurrencyAmount calculatePv01(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculatePv01(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     PointSensitivities pointSensitivity = PRICER.presentValueSensitivity(product, provider).build();
-    return provider.parameterSensitivity(pointSensitivity).total().multipliedBy(ONE_BASIS_POINT);
+    return provider.curveParameterSensitivity(pointSensitivity).total().multipliedBy(ONE_BASIS_POINT);
   }
 
   //-------------------------------------------------------------------------
   // calculates bucketed PV01 for all scenarios
-  static ScenarioArray<CurrencyParameterSensitivities> bucketedPv01(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<CurveCurrencyParameterSensitivities> bucketedPv01(
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
         i -> calculateBucketedPv01(product, marketData.scenario(i)));
   }
 
   // bucketed PV01 for one scenario
-  private static CurrencyParameterSensitivities calculateBucketedPv01(
-      ResolvedSwap product,
-      RatesMarketData marketData) {
+  private static CurveCurrencyParameterSensitivities calculateBucketedPv01(
+      ExpandedSwap product,
+      MarketData marketData) {
 
-    RatesProvider provider = marketData.ratesProvider();
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     PointSensitivities pointSensitivity = PRICER.presentValueSensitivity(product, provider).build();
-    return provider.parameterSensitivity(pointSensitivity).multipliedBy(ONE_BASIS_POINT);
+    return provider.curveParameterSensitivity(pointSensitivity).multipliedBy(ONE_BASIS_POINT);
   }
 
   //-------------------------------------------------------------------------
   // calculates bucketed gamma PV01 for all scenarios
-  static ScenarioArray<CurrencyParameterSensitivities> bucketedGammaPv01(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<CurveCurrencyParameterSensitivities> bucketedGammaPv01(
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
-        i -> calculateBucketedGammaPv01(product, marketData.scenario(i)));
+        i -> calculateBucketedGammaPv01(trade, product, marketData.scenario(i)));
   }
 
   // bucketed gamma PV01 for one scenario
-  private static CurrencyParameterSensitivities calculateBucketedGammaPv01(
-      ResolvedSwap product,
-      RatesMarketData marketData) {
+  private static CurveCurrencyParameterSensitivities calculateBucketedGammaPv01(
+      SwapTrade trade,
+      ExpandedSwap product,
+      MarketData marketData) {
 
-    // find the curve identifiers and resolve to a single curve
+    // find the curve and check it is valid
     if (product.isCrossCurrency()) {
       throw new IllegalArgumentException("Implementation only supports a single curve, but swap is cross-currency");
     }
     Currency currency = product.getLegs().get(0).getCurrency();
-    Set<Index> indices = product.allIndices();
-    ImmutableSet<MarketDataId<?>> discountIds = marketData.getLookup().getDiscountMarketDataIds(currency);
-    ImmutableSet<MarketDataId<?>> forwardIds = indices.stream()
-        .flatMap(idx -> marketData.getLookup().getForwardMarketDataIds(idx).stream())
-        .collect(toImmutableSet());
-    Set<MarketDataId<?>> allIds = Sets.union(discountIds, forwardIds);
-    if (allIds.size() != 1) {
-      throw new IllegalArgumentException(Messages.format(
-          "Implementation only supports a single curve, but loookup refers to more than one: {}", allIds));
-    }
-    MarketDataId<?> singleId = allIds.iterator().next();
-    if (!(singleId instanceof CurveId)) {
-      throw new IllegalArgumentException(Messages.format(
-          "Implementation only supports a single curve, but lookup does not refer to a curve: {} {}",
-          singleId.getClass().getName(), singleId));
-    }
-    CurveId curveId = (CurveId) singleId;
-    Curve curve = marketData.getMarketData().getValue(curveId);
+    NodalCurve nodalCurve = marketData.getValue(DiscountCurveKey.of(currency)).toNodalCurve();
+
+    // find indices and validate there is only one curve
+    Set<Index> indices = trade.getProduct().allIndices();
+    validateSingleCurve(indices, marketData, nodalCurve);
 
     // calculate gamma
-    CurrencyParameterSensitivity gamma = CurveGammaCalculator.DEFAULT.calculateSemiParallelGamma(
-        curve, currency, c -> calculateCurveSensitivity(product, marketData, curveId, c));
-    return CurrencyParameterSensitivities.of(gamma).multipliedBy(ONE_BASIS_POINT * ONE_BASIS_POINT);
+    CurveCurrencyParameterSensitivity gamma = CurveGammaCalculator.DEFAULT.calculateSemiParallelGamma(
+        nodalCurve, currency, c -> calculateCurveSensitivity(product, currency, indices, marketData, c));
+    return CurveCurrencyParameterSensitivities.of(gamma)
+        .multipliedBy(ONE_BASIS_POINT * ONE_BASIS_POINT);
+  }
+
+  // validates that the indices all resolve to the single specified curve
+  private static void validateSingleCurve(Set<Index> indices, MarketData marketData, NodalCurve nodalCurve) {
+    Set<MarketDataKey<?>> differentForwardCurves = indices.stream()
+        .map(MarketDataKeys::indexCurve)
+        .filter(k -> !nodalCurve.equals(marketData.getValue(k)))
+        .collect(toSet());
+    if (!differentForwardCurves.isEmpty()) {
+      throw new IllegalArgumentException(
+          Messages.format("Implementation only supports a single curve, but discounting curve is different from " +
+              "index curves for indices: {}", differentForwardCurves));
+    }
   }
 
   // calculates the sensitivity
-  private static CurrencyParameterSensitivity calculateCurveSensitivity(
-      ResolvedSwap product,
-      RatesMarketData marketData,
-      CurveId curveId,
-      Curve bumpedCurve) {
+  private static CurveCurrencyParameterSensitivity calculateCurveSensitivity(
+      ExpandedSwap expandedSwap,
+      Currency currency,
+      Set<? extends Index> indices,
+      MarketData marketData,
+      NodalCurve bumpedCurve) {
 
-    MarketData bumpedMarketData = marketData.getMarketData().withValue(curveId, bumpedCurve);
-    RatesProvider bumpedRatesProvider = marketData.withMarketData(bumpedMarketData).ratesProvider();
-    PointSensitivities pointSensitivities = PRICER.presentValueSensitivity(product, bumpedRatesProvider).build();
-    CurrencyParameterSensitivities paramSensitivities = bumpedRatesProvider.parameterSensitivity(pointSensitivities);
+    RatesProvider ratesProvider = MarketDataUtils.toSingleCurveRatesProvider(marketData, currency, indices, bumpedCurve);
+    PointSensitivities pointSensitivities = DiscountingSwapProductPricer.DEFAULT
+        .presentValueSensitivity(expandedSwap, ratesProvider).build();
+    CurveCurrencyParameterSensitivities paramSensitivities = ratesProvider.curveParameterSensitivity(pointSensitivities);
     return Iterables.getOnlyElement(paramSensitivities.getSensitivities());
   }
 
   //-------------------------------------------------------------------------
   // calculates accrued interest for all scenarios
   static MultiCurrencyValuesArray accruedInterest(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateAccruedInterest(product, marketData.scenario(i)));
   }
 
   // current cash for one scenario
-  private static MultiCurrencyAmount calculateAccruedInterest(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculateAccruedInterest(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.accruedInterest(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates leg initial notional for all scenarios
-  static ScenarioArray<LegAmounts> legInitialNotional(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+  static SingleScenarioResult<LegAmounts> legInitialNotional(
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
     LegAmounts legInitialNotional = calculateLegInitialNotional(trade);
-    return ScenarioArray.ofSingleValue(marketData.getScenarioCount(), legInitialNotional);
+    return SingleScenarioResult.of(marketData.getScenarioCount(), legInitialNotional);
   }
 
   // leg initial notional, which is the same for all scenarios
   // package-scoped for testing
-  static LegAmounts calculateLegInitialNotional(ResolvedSwapTrade trade) {
-    List<Pair<ResolvedSwapLeg, CurrencyAmount>> notionals = trade.getProduct().getLegs().stream()
+  static LegAmounts calculateLegInitialNotional(SwapTrade trade) {
+    List<Pair<SwapLeg, CurrencyAmount>> notionals = trade.getProduct().getLegs().stream()
         .map(leg -> Pair.of(leg, buildLegNotional(leg)))
         .collect(toList());
     CurrencyAmount firstNotional = notionals.stream()
@@ -313,31 +322,38 @@ final class SwapMeasureCalculations {
   }
 
   // find the notional
-  private static CurrencyAmount buildLegNotional(ResolvedSwapLeg leg) {
-    // check for NotionalPaymentPeriod
-    PaymentPeriod firstPaymentPeriod = leg.getPaymentPeriods().get(0);
+  private static CurrencyAmount buildLegNotional(SwapLeg leg) {
+    // try RateCalculationSwapLeg first to avoid expand
+    if (leg instanceof RateCalculationSwapLeg) {
+      RateCalculationSwapLeg rcleg = (RateCalculationSwapLeg) leg;
+      return CurrencyAmount.of(leg.getCurrency(), Math.abs(rcleg.getNotionalSchedule().getAmount().getInitialValue()));
+    }
+    // expand and check for NotionalPaymentPeriod
+    ExpandedSwapLeg expanded = leg.expand();
+    PaymentPeriod firstPaymentPeriod = expanded.getPaymentPeriods().get(0);
     if (firstPaymentPeriod instanceof NotionalPaymentPeriod) {
       NotionalPaymentPeriod pp = (NotionalPaymentPeriod) firstPaymentPeriod;
       return pp.getNotionalAmount().positive();
+    } else {
+      return NOT_FOUND;
     }
-    return NOT_FOUND;
   }
 
   //-------------------------------------------------------------------------
   // calculates leg present value for all scenarios
-  static ScenarioArray<LegAmounts> legPresentValue(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<LegAmounts> legPresentValue(
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
         i -> calculateLegPresentValue(product, marketData.scenario(i)));
   }
 
   // leg present value for one scenario
-  private static LegAmounts calculateLegPresentValue(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static LegAmounts calculateLegPresentValue(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     List<LegAmount> legAmounts = product.getLegs().stream()
         .map(leg -> legAmount(leg, provider))
         .collect(Collectors.toList());
@@ -345,7 +361,7 @@ final class SwapMeasureCalculations {
   }
 
   // present value for a leg
-  private static SwapLegAmount legAmount(ResolvedSwapLeg leg, RatesProvider provider) {
+  private static SwapLegAmount legAmount(ExpandedSwapLeg leg, RatesProvider provider) {
     CurrencyAmount amount = DiscountingSwapLegPricer.DEFAULT.presentValue(leg, provider);
     return SwapLegAmount.of(leg, amount);
   }
@@ -353,36 +369,36 @@ final class SwapMeasureCalculations {
   //-------------------------------------------------------------------------
   // calculates currency exposure for all scenarios
   static MultiCurrencyValuesArray currencyExposure(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateCurrencyExposure(product, marketData.scenario(i)));
   }
 
   // currency exposure for one scenario
-  private static MultiCurrencyAmount calculateCurrencyExposure(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculateCurrencyExposure(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.currencyExposure(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates current cash for all scenarios
   static MultiCurrencyValuesArray currentCash(
-      ResolvedSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      SwapTrade trade,
+      ExpandedSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateCurrentCash(product, marketData.scenario(i)));
   }
 
   // current cash for one scenario
-  private static MultiCurrencyAmount calculateCurrentCash(ResolvedSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculateCurrentCash(ExpandedSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.currentCash(product, provider);
   }
 

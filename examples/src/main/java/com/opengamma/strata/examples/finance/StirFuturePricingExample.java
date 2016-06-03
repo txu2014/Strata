@@ -10,21 +10,19 @@ import java.time.Period;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
+import com.google.common.collect.ImmutableMap;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.CalculationRunner;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.Measures;
-import com.opengamma.strata.calc.Results;
-import com.opengamma.strata.calc.runner.CalculationFunctions;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
+import com.opengamma.strata.calc.runner.Results;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.examples.data.ExampleData;
 import com.opengamma.strata.examples.marketdata.ExampleMarketData;
 import com.opengamma.strata.examples.marketdata.ExampleMarketDataBuilder;
 import com.opengamma.strata.function.StandardComponents;
-import com.opengamma.strata.product.Trade;
-import com.opengamma.strata.product.TradeAttributeType;
 import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.index.IborFutureTrade;
 import com.opengamma.strata.product.index.type.IborFutureConventions;
@@ -54,11 +52,8 @@ public class StirFuturePricingExample {
 
   // obtains the data and calculates the grid of results
   private static void calculate(CalculationRunner runner) {
-    // the reference data, such as holidays and securities
-    ReferenceData refData = ReferenceData.standard();
-
     // the trades that will have measures calculated
-    List<Trade> trades = ImmutableList.of(createTrade1(refData), createTrade2(refData));
+    List<Trade> trades = ImmutableList.of(createTrade1(), createTrade2());
 
     // the columns, specifying the measures to be calculated
     List<Column> columns = ImmutableList.of(
@@ -68,20 +63,27 @@ public class StirFuturePricingExample {
         Column.of(Measures.BUCKETED_PV01));
 
     // use the built-in example market data
-    LocalDate valuationDate = LocalDate.of(2014, 1, 22);
     ExampleMarketDataBuilder marketDataBuilder = ExampleMarketData.builder();
-    ScenarioMarketData marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
 
     // the complete set of rules for calculating measures
-    CalculationFunctions functions = StandardComponents.calculationFunctions();
-    CalculationRules rules = CalculationRules.of(functions, marketDataBuilder.ratesLookup(valuationDate));
+    CalculationRules rules = CalculationRules.builder()
+        .pricingRules(StandardComponents.pricingRules())
+        .marketDataRules(marketDataBuilder.rules())
+        .build();
+
+    // build a market data snapshot for the valuation date
+    LocalDate valuationDate = LocalDate.of(2014, 1, 22);
+    MarketEnvironment marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
 
     // calculate the results
-    Results results = runner.calculateSingleScenario(rules, trades, columns, marketSnapshot, refData);
+    Results results = runner.calculateSingleScenario(rules, trades, columns, marketSnapshot);
 
     // use the report runner to transform the engine results into a trade report
-    ReportCalculationResults calculationResults =
-        ReportCalculationResults.of(valuationDate, trades, columns, results, refData);
+    ReportCalculationResults calculationResults = ReportCalculationResults.of(
+        valuationDate,
+        trades,
+        columns,
+        results);
 
     TradeReportTemplate reportTemplate = ExampleData.loadTradeReportTemplate("stir-future-report-template");
     TradeReport tradeReport = TradeReport.of(calculationResults, reportTemplate);
@@ -90,36 +92,36 @@ public class StirFuturePricingExample {
 
   //-----------------------------------------------------------------------  
   // create a trade
-  private static Trade createTrade1(ReferenceData refData) {
-    IborFutureTrade trade = IborFutureConventions.USD_LIBOR_3M_QUARTERLY_IMM.createTrade(
-        LocalDate.of(2014, 9, 12), Period.ofMonths(1), 2, 5, 1_000_000, 0.9998, refData);
+  private static Trade createTrade1() {
+    IborFutureTrade trade = IborFutureConventions.USD_LIBOR_3M_QUARTERLY_IMM.toTrade(
+        LocalDate.of(2014, 9, 12), Period.ofMonths(1), 2, 5, 1_000_000, 0.9998);
     return trade.toBuilder()
-        .info(TradeInfo.builder()
+        .tradeInfo(TradeInfo.builder()
             .id(StandardId.of("example", "1"))
-            .addAttribute(TradeAttributeType.DESCRIPTION, "Mar15 IMM Ibor Future")
+            .attributes(ImmutableMap.of("description", "Mar15 IMM Ibor Future"))
             .counterparty(StandardId.of("example", "A"))
             .tradeDate(LocalDate.of(2014, 9, 12))
             .settlementDate(LocalDate.of(2014, 9, 14))
             .build())
         .quantity(20)
-        .price(0.9997)
+        .initialPrice(0.9997)
         .build();
   }
 
   // create a trade
-  private static Trade createTrade2(ReferenceData refData) {
-    IborFutureTrade trade = IborFutureConventions.USD_LIBOR_3M_QUARTERLY_IMM.createTrade(
-        LocalDate.of(2014, 9, 12), Period.ofMonths(1), 3, 10, 1_000_000, 0.9996, refData);
+  private static Trade createTrade2() {
+    IborFutureTrade trade = IborFutureConventions.USD_LIBOR_3M_QUARTERLY_IMM.toTrade(
+        LocalDate.of(2014, 9, 12), Period.ofMonths(1), 3, 10, 1_000_000, 0.9996);
     return trade.toBuilder()
-        .info(TradeInfo.builder()
+        .tradeInfo(TradeInfo.builder()
             .id(StandardId.of("example", "1"))
-            .addAttribute(TradeAttributeType.DESCRIPTION, "Jun15 IMM Ibor Future")
+            .attributes(ImmutableMap.of("description", "Jun15 IMM Ibor Future"))
             .counterparty(StandardId.of("example", "A"))
             .tradeDate(LocalDate.of(2014, 9, 12))
             .settlementDate(LocalDate.of(2014, 9, 14))
             .build())
         .quantity(20)
-        .price(0.9997)
+        .initialPrice(0.9997)
         .build();
   }
 

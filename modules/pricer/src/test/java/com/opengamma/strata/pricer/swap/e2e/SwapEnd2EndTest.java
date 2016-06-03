@@ -5,6 +5,8 @@
  */
 package com.opengamma.strata.pricer.swap.e2e;
 
+import static com.opengamma.strata.basics.PayReceive.PAY;
+import static com.opengamma.strata.basics.PayReceive.RECEIVE;
 import static com.opengamma.strata.basics.currency.Currency.USD;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_FOLLOWING;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.PRECEDING;
@@ -16,8 +18,6 @@ import static com.opengamma.strata.basics.schedule.Frequency.P1M;
 import static com.opengamma.strata.basics.schedule.Frequency.P3M;
 import static com.opengamma.strata.basics.schedule.Frequency.P6M;
 import static com.opengamma.strata.basics.schedule.Frequency.TERM;
-import static com.opengamma.strata.product.common.PayReceive.PAY;
-import static com.opengamma.strata.product.common.PayReceive.RECEIVE;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
@@ -26,8 +26,7 @@ import java.util.List;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ImmutableReferenceData;
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
@@ -47,7 +46,6 @@ import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.DiscountingSwapProductPricer;
 import com.opengamma.strata.pricer.swap.DiscountingSwapTradePricer;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.common.PayReceive;
 import com.opengamma.strata.product.swap.CompoundingMethod;
 import com.opengamma.strata.product.swap.FixedRateCalculation;
 import com.opengamma.strata.product.swap.IborRateCalculation;
@@ -56,8 +54,6 @@ import com.opengamma.strata.product.swap.OvernightAccrualMethod;
 import com.opengamma.strata.product.swap.OvernightRateCalculation;
 import com.opengamma.strata.product.swap.PaymentSchedule;
 import com.opengamma.strata.product.swap.RateCalculationSwapLeg;
-import com.opengamma.strata.product.swap.ResolvedSwap;
-import com.opengamma.strata.product.swap.ResolvedSwapTrade;
 import com.opengamma.strata.product.swap.StubCalculation;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.SwapLeg;
@@ -69,8 +65,6 @@ import com.opengamma.strata.product.swap.SwapTrade;
 @Test
 public class SwapEnd2EndTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard()
-      .combinedWith(ImmutableReferenceData.of(CalendarUSD.NYC, CalendarUSD.NYC_CALENDAR));
   private static final LocalDate VAL_DATE = StandardDataSets.VAL_DATE_2014_01_22;
   static final IborIndex USD_LIBOR_1M = lockIndexCalendar(IborIndices.USD_LIBOR_1M);
   static final IborIndex USD_LIBOR_3M = lockIndexCalendar(IborIndices.USD_LIBOR_3M);
@@ -131,11 +125,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -148,11 +141,10 @@ public class SwapEnd2EndTest {
         LocalDate.of(2014, 9, 12), LocalDate.of(2021, 9, 12), P6M, PAY, NOTIONAL, 0.015, null);
     SwapLeg receiveLeg = iborLeg(LocalDate.of(2014, 9, 12), LocalDate.of(2021, 9, 12),
         USD_LIBOR_3M, RECEIVE, NOTIONAL, null);
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     // test pv
     DiscountingSwapTradePricer pricer = swapPricer();
@@ -162,9 +154,8 @@ public class SwapEnd2EndTest {
     double parRate = PRICER_PRODUCT.parRate(trade.getProduct(), provider());
     assertEquals(parRate, 0.02589471566819517, TOLERANCE_RATE);
     // test par rate vs pv
-    ResolvedSwap swapPV0 =
-        Swap.of(fixedLeg(LocalDate.of(2014, 9, 12), LocalDate.of(2021, 9, 12), P6M, PAY, NOTIONAL, parRate, null), receiveLeg)
-            .resolve(REF_DATA);
+    Swap swapPV0 = Swap.of(
+        fixedLeg(LocalDate.of(2014, 9, 12), LocalDate.of(2021, 9, 12), P6M, PAY, NOTIONAL, parRate, null), receiveLeg);
     CurrencyAmount pv0 = PRICER_PRODUCT.presentValue(swapPV0, provider()).getAmount(USD);
     assertEquals(pv0.getAmount(), 0, TOLERANCE_PV); // PV at par rate should be 0
   }
@@ -193,11 +184,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2013, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2013, 9, 10)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -245,11 +235,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 8, 27)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 8, 27)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -297,11 +286,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 8, 27)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 8, 27)).build())
         .product(Swap.of(receiveLeg, payLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -333,11 +321,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(receiveLeg, payLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -369,11 +356,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(receiveLeg, payLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -406,11 +392,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(receiveLeg, payLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -443,11 +428,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(receiveLeg, payLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -497,11 +481,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -555,11 +538,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 9, 10)).build())
         .product(Swap.of(receiveLeg, payLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -607,11 +589,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 2, 3)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 2, 3)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -659,11 +640,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 1, 15)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 1, 15)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);
@@ -713,11 +693,10 @@ public class SwapEnd2EndTest {
             .build())
         .build();
 
-    ResolvedSwapTrade trade = SwapTrade.builder()
-        .info(TradeInfo.builder().tradeDate(LocalDate.of(2014, 1, 15)).build())
+    SwapTrade trade = SwapTrade.builder()
+        .tradeInfo(TradeInfo.builder().tradeDate(LocalDate.of(2014, 1, 15)).build())
         .product(Swap.of(payLeg, receiveLeg))
-        .build()
-        .resolve(REF_DATA);
+        .build();
 
     DiscountingSwapTradePricer pricer = swapPricer();
     CurrencyAmount pv = pricer.presentValue(trade, provider()).getAmount(USD);

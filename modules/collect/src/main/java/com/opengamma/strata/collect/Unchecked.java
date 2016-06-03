@@ -8,7 +8,6 @@ package com.opengamma.strata.collect;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.reflect.InvocationTargetException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
@@ -47,9 +46,7 @@ import com.opengamma.strata.collect.function.CheckedUnaryOperator;
  * <p>
  * Each method accepts a functional interface that is defined to throw {@link Throwable}.
  * Catching {@code Throwable} means that any method can be wrapped.
- * Any {@code InvocationTargetException} is extracted and processed recursively.
  * Any {@link IOException} is converted to an {@link UncheckedIOException}.
- * Any {@link ReflectiveOperationException} is converted to an {@link UncheckedReflectiveOperationException}.
  * Any {@link Error} or {@link RuntimeException} is re-thrown without alteration.
  * Any other exception is wrapped in a {@link RuntimeException}.
  */
@@ -80,8 +77,10 @@ public final class Unchecked {
   public static void wrap(CheckedRunnable block) {
     try {
       block.run();
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
     } catch (Throwable ex) {
-      throw propagate(ex);
+      throw Throwables.propagate(ex);
     }
   }
 
@@ -105,8 +104,10 @@ public final class Unchecked {
   public static <T> T wrap(CheckedSupplier<T> block) {
     try {
       return block.get();
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
     } catch (Throwable ex) {
-      throw propagate(ex);
+      throw Throwables.propagate(ex);
     }
   }
 
@@ -125,8 +126,10 @@ public final class Unchecked {
     return () -> {
       try {
         runnable.run();
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -148,8 +151,10 @@ public final class Unchecked {
     return (t) -> {
       try {
         return function.apply(t);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -171,8 +176,10 @@ public final class Unchecked {
     return (t, u) -> {
       try {
         return function.apply(t, u);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -193,8 +200,10 @@ public final class Unchecked {
     return (t) -> {
       try {
         return function.apply(t);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -214,8 +223,10 @@ public final class Unchecked {
     return (t, u) -> {
       try {
         return function.apply(t, u);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -236,8 +247,10 @@ public final class Unchecked {
     return (t) -> {
       try {
         return predicate.test(t);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -258,8 +271,10 @@ public final class Unchecked {
     return (t, u) -> {
       try {
         return predicate.test(t, u);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -280,8 +295,10 @@ public final class Unchecked {
     return (t) -> {
       try {
         consumer.accept(t);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -302,8 +319,10 @@ public final class Unchecked {
     return (t, u) -> {
       try {
         consumer.accept(t, u);
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
   }
@@ -324,47 +343,12 @@ public final class Unchecked {
     return () -> {
       try {
         return supplier.get();
+      } catch (IOException ex) {
+        throw new UncheckedIOException(ex);
       } catch (Throwable ex) {
-        throw propagate(ex);
+        throw Throwables.propagate(ex);
       }
     };
-  }
-
-  /**
-   * Propagates {@code throwable} as-is if possible, or by wrapping in a {@code RuntimeException} if not.
-   * <ul>
-   *   <li>If {@code throwable} is an {@code InvocationTargetException} the cause is extracted and processed recursively.</li>
-   *   <li>If {@code throwable} is an {@code Error} or {@code RuntimeException} it is propagated as-is.</li>
-   *   <li>If {@code throwable} is an {@code IOException} it is wrapped in {@code UncheckedIOException} and thrown.</li>
-   *   <li>If {@code throwable} is an {@code ReflectiveOperationException} it is wrapped in
-   *     {@code UncheckedReflectiveOperationException} and thrown.</li>
-   *   <li>Otherwise {@code throwable} is wrapped in a {@code RuntimeException} and thrown.</li>
-   * </ul>
-   * This method always throws an exception. The return type is a convenience to satisfy the type system
-   * when the enclosing method returns a value. For example:
-   * <pre>
-   *   T foo() {
-   *     try {
-   *       return methodWithCheckedException();
-   *     } catch (Exception e) {
-   *       throw Unchecked.propagate(e);
-   *     }
-   *   }
-   * </pre>
-   *
-   * @param throwable the {@code Throwable} to propagate
-   * @return nothing; this method always throws an exception
-   */
-  public static RuntimeException propagate(Throwable throwable) {
-    if (throwable instanceof InvocationTargetException) {
-      throw propagate(((InvocationTargetException) throwable).getCause());
-    } else if (throwable instanceof IOException) {
-      throw new UncheckedIOException((IOException) throwable);
-    } else if (throwable instanceof ReflectiveOperationException) {
-      throw new UncheckedReflectiveOperationException((ReflectiveOperationException) throwable);
-    } else {
-      throw Throwables.propagate(throwable);
-    }
   }
 
 }

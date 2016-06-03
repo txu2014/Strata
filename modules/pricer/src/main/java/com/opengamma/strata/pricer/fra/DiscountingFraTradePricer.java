@@ -11,13 +11,14 @@ import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.amount.CashFlows;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.product.fra.ResolvedFra;
-import com.opengamma.strata.product.fra.ResolvedFraTrade;
+import com.opengamma.strata.product.fra.ExpandedFra;
+import com.opengamma.strata.product.fra.FraProduct;
+import com.opengamma.strata.product.fra.FraTrade;
 
 /**
  * Pricer for for forward rate agreement (FRA) trades.
  * <p>
- * This function provides the ability to price {@link ResolvedFraTrade}.
+ * This function provides the ability to price a {@link FraTrade}.
  * The trade is priced by pricing the underlying product using a forward curve for the index.
  */
 public class DiscountingFraTradePricer {
@@ -29,14 +30,14 @@ public class DiscountingFraTradePricer {
       DiscountingFraProductPricer.DEFAULT);
 
   /**
-   * Pricer for {@link ResolvedFra}.
+   * Pricer for {@link FraProduct}.
    */
   private final DiscountingFraProductPricer productPricer;
 
   /**
    * Creates an instance.
    * 
-   * @param productPricer  the pricer for {@link ResolvedFra}
+   * @param productPricer  the pricer for {@link FraProduct}
    */
   public DiscountingFraTradePricer(
       DiscountingFraProductPricer productPricer) {
@@ -50,11 +51,11 @@ public class DiscountingFraTradePricer {
    * The present value of the trade is the value on the valuation date.
    * This is the discounted forecast value.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the present value of the trade
    */
-  public CurrencyAmount presentValue(ResolvedFraTrade trade, RatesProvider provider) {
+  public CurrencyAmount presentValue(FraTrade trade, RatesProvider provider) {
     return productPricer.presentValue(trade.getProduct(), provider);
   }
 
@@ -64,11 +65,11 @@ public class DiscountingFraTradePricer {
    * The present value sensitivity of the trade is the sensitivity of the present value to
    * the underlying curves.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the point sensitivity of the present value
    */
-  public PointSensitivities presentValueSensitivity(ResolvedFraTrade trade, RatesProvider provider) {
+  public PointSensitivities presentValueSensitivity(FraTrade trade, RatesProvider provider) {
     return productPricer.presentValueSensitivity(trade.getProduct(), provider);
   }
 
@@ -78,11 +79,11 @@ public class DiscountingFraTradePricer {
    * <p>
    * The forecast value of the trade is the value on the valuation date without present value discounting.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the forecast value of the trade
    */
-  public CurrencyAmount forecastValue(ResolvedFraTrade trade, RatesProvider provider) {
+  public CurrencyAmount forecastValue(FraTrade trade, RatesProvider provider) {
     return productPricer.forecastValue(trade.getProduct(), provider);
   }
 
@@ -92,11 +93,11 @@ public class DiscountingFraTradePricer {
    * The forecast value sensitivity of the product is the sensitivity of the forecast value to
    * the underlying curves.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the point sensitivity of the forecast value
    */
-  public PointSensitivities forecastValueSensitivity(ResolvedFraTrade trade, RatesProvider provider) {
+  public PointSensitivities forecastValueSensitivity(FraTrade trade, RatesProvider provider) {
     return productPricer.forecastValueSensitivity(trade.getProduct(), provider);
   }
 
@@ -105,36 +106,36 @@ public class DiscountingFraTradePricer {
    * Calculates the future cash flow of the FRA trade.
    * <p>
    * There is only one cash flow on the payment date for the FRA trade.
-   * The expected currency amount of the cash flow is the same as {@link #forecastValue(ResolvedFraTrade, RatesProvider)}.
+   * The expected currency amount of the cash flow is the same as {@link #forecastValue(FraTrade, RatesProvider)}.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the cash flows
    */
-  public CashFlows cashFlows(ResolvedFraTrade trade, RatesProvider provider) {
+  public CashFlows cashFlows(FraTrade trade, RatesProvider provider) {
     return productPricer.cashFlows(trade.getProduct(), provider);
   }
 
   /**
    * Calculates the currency exposure of the FRA trade.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the currency exposure
    */
-  public MultiCurrencyAmount currencyExposure(ResolvedFraTrade trade, RatesProvider provider) {
+  public MultiCurrencyAmount currencyExposure(FraTrade trade, RatesProvider provider) {
     return MultiCurrencyAmount.of(presentValue(trade, provider));
   }
 
   /**
    * Calculates the current cash of the FRA trade.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the current cash
    */
-  public CurrencyAmount currentCash(ResolvedFraTrade trade, RatesProvider provider) {
-    ResolvedFra fra = trade.getProduct();
+  public CurrencyAmount currentCash(FraTrade trade, RatesProvider provider) {
+    ExpandedFra fra = trade.getProduct().expand();
     if (fra.getPaymentDate().isEqual(provider.getValuationDate())) {
       return productPricer.presentValue(fra, provider);
     }

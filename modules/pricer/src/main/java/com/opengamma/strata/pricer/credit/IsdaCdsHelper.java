@@ -11,16 +11,15 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.stream.Stream;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.BusinessDayConvention;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DayCounts;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
+import com.opengamma.strata.basics.date.HolidayCalendar;
+import com.opengamma.strata.market.curve.IsdaCreditCurveInputs;
+import com.opengamma.strata.market.curve.IsdaYieldCurveInputs;
+import com.opengamma.strata.market.curve.IsdaYieldCurveUnderlyingType;
 import com.opengamma.strata.market.curve.NodalCurve;
-import com.opengamma.strata.market.product.credit.IsdaCreditCurveInputs;
-import com.opengamma.strata.market.product.credit.IsdaYieldCurveInputs;
-import com.opengamma.strata.market.product.credit.IsdaYieldCurveUnderlyingType;
 import com.opengamma.strata.pricer.PricingException;
 import com.opengamma.strata.pricer.impl.credit.isda.AccrualOnDefaultFormulae;
 import com.opengamma.strata.pricer.impl.credit.isda.AnalyticCdsPricer;
@@ -32,7 +31,7 @@ import com.opengamma.strata.pricer.impl.credit.isda.IsdaCompliantCreditCurveBuil
 import com.opengamma.strata.pricer.impl.credit.isda.IsdaCompliantYieldCurve;
 import com.opengamma.strata.pricer.impl.credit.isda.IsdaCompliantYieldCurveBuild;
 import com.opengamma.strata.pricer.impl.credit.isda.IsdaInstrumentTypes;
-import com.opengamma.strata.product.credit.ResolvedCds;
+import com.opengamma.strata.product.credit.ExpandedCds;
 import com.opengamma.strata.product.credit.type.CdsConvention;
 import com.opengamma.strata.product.credit.type.IsdaYieldCurveConvention;
 
@@ -45,9 +44,6 @@ import com.opengamma.strata.product.credit.type.IsdaYieldCurveConvention;
  * Present value of the expanded CDS product (single name or index) is calculated here.
  */
 public class IsdaCdsHelper {
-
-  // hard-coded reference data
-  public static final ReferenceData REF_DATA = ReferenceData.standard();
 
   /**
    * DayCount used with calculating time during curve calibration.
@@ -86,7 +82,7 @@ public class IsdaCdsHelper {
    */
   public static CurrencyAmount price(
       LocalDate valuationDate,
-      ResolvedCds product,
+      ExpandedCds product,
       NodalCurve yieldCurve,
       NodalCurve creditCurve,
       double recoveryRate,
@@ -145,7 +141,7 @@ public class IsdaCdsHelper {
    * @return the par spread of the expanded CDS product
    */
   public static double parSpread(LocalDate valuationDate,
-      ResolvedCds product,
+      ExpandedCds product,
       NodalCurve yieldCurve,
       NodalCurve creditCurve,
       double recoveryRate) {
@@ -174,9 +170,9 @@ public class IsdaCdsHelper {
       DayCount swapDayCount = curveConvention.getFixedDayCount();
 
       BusinessDayConvention convention = curveConvention.getBusinessDayConvention();
-      HolidayCalendarId holidayCalendar = curveConvention.getHolidayCalendar();
+      HolidayCalendar holidayCalendar = curveConvention.getHolidayCalendar();
 
-      LocalDate spotDate = curveConvention.calculateSpotDateFromTradeDate(valuationDate, REF_DATA);
+      LocalDate spotDate = curveConvention.getSpotDateAsOf(valuationDate);
 
       IsdaInstrumentTypes[] types =
           Stream.of(yieldCurve.getYieldCurveInstruments())
@@ -193,7 +189,7 @@ public class IsdaCdsHelper {
           swapInterval,
           CURVE_DAY_COUNT,
           convention,
-          holidayCalendar.resolve(REF_DATA));
+          holidayCalendar);
       return builder.build(yieldCurve.getParRates());
 
     } catch (Exception ex) {
@@ -216,8 +212,8 @@ public class IsdaCdsHelper {
       return builder.calibrateCreditCurve(
           valuationDate,
           cdsConvention.calculateUnadjustedStepInDate(valuationDate),
-          cdsConvention.calculateAdjustedSettleDate(valuationDate, REF_DATA),
-          cdsConvention.calculateAdjustedStartDate(valuationDate, REF_DATA),
+          cdsConvention.calculateAdjustedSettleDate(valuationDate),
+          cdsConvention.calculateAdjustedStartDate(valuationDate),
           curveCurve.getEndDatePoints(),
           curveCurve.getParRates(),
           cdsConvention.isPayAccruedOnDefault(),
@@ -249,8 +245,8 @@ public class IsdaCdsHelper {
       return builder.calibrateCreditCurve(
           valuationDate,
           cdsConvention.calculateUnadjustedStepInDate(valuationDate),
-          cdsConvention.calculateAdjustedSettleDate(valuationDate, REF_DATA),
-          cdsConvention.calculateAdjustedStartDate(valuationDate, REF_DATA),
+          cdsConvention.calculateAdjustedSettleDate(valuationDate),
+          cdsConvention.calculateAdjustedStartDate(valuationDate),
           curveCurve.getEndDatePoints(),
           curveCurve.getParRates(),
           cdsConvention.isPayAccruedOnDefault(),
@@ -266,7 +262,7 @@ public class IsdaCdsHelper {
   }
 
   // Converts the expanded CDS product to the corresponding analytics form.
-  private static CdsAnalytic toAnalytic(LocalDate valuationDate, ResolvedCds product, double recoveryRate) {
+  private static CdsAnalytic toAnalytic(LocalDate valuationDate, ExpandedCds product, double recoveryRate) {
     try {
       return new CdsAnalytic(
           valuationDate,
@@ -280,7 +276,7 @@ public class IsdaCdsHelper {
           PROTECT_START,
           recoveryRate,
           product.getBusinessDayAdjustment().getConvention(),
-          product.getBusinessDayAdjustment().getCalendar().resolve(REF_DATA),
+          product.getBusinessDayAdjustment().getCalendar(),
           product.getAccrualDayCount(),
           CURVE_DAY_COUNT);
 

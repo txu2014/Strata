@@ -6,16 +6,18 @@
 package com.opengamma.strata.function.calculation.swaption;
 
 import com.opengamma.strata.basics.currency.CurrencyAmount;
-import com.opengamma.strata.data.scenario.CurrencyValuesArray;
-import com.opengamma.strata.function.calculation.RatesMarketData;
-import com.opengamma.strata.function.calculation.RatesScenarioMarketData;
-import com.opengamma.strata.market.product.swaption.SwaptionVolatilities;
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.runner.function.result.CurrencyValuesArray;
+import com.opengamma.strata.market.key.SwaptionVolatilitiesKey;
+import com.opengamma.strata.market.view.SwaptionVolatilities;
+import com.opengamma.strata.pricer.rate.MarketDataRatesProvider;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swaption.VolatilitySwaptionCashParYieldProductPricer;
 import com.opengamma.strata.pricer.swaption.VolatilitySwaptionPhysicalProductPricer;
-import com.opengamma.strata.product.swaption.ResolvedSwaption;
-import com.opengamma.strata.product.swaption.ResolvedSwaptionTrade;
+import com.opengamma.strata.product.swaption.ExpandedSwaption;
 import com.opengamma.strata.product.swaption.SettlementType;
+import com.opengamma.strata.product.swaption.SwaptionTrade;
 
 /**
  * Multi-scenario measure calculations for Swap trades.
@@ -41,24 +43,24 @@ final class SwaptionMeasureCalculations {
   //-------------------------------------------------------------------------
   // calculates present value for all scenarios
   static CurrencyValuesArray presentValue(
-      ResolvedSwaptionTrade trade,
-      RatesScenarioMarketData ratesMarketData,
-      SwaptionScenarioMarketData swaptionMarketData) {
+      SwaptionTrade trade,
+      ExpandedSwaption product,
+      CalculationMarketData marketData,
+      SwaptionVolatilitiesKey volKey) {
 
-    ResolvedSwaption product = trade.getProduct();
     return CurrencyValuesArray.of(
-        ratesMarketData.getScenarioCount(),
-        i -> calculatePresentValue(product, ratesMarketData.scenario(i), swaptionMarketData.scenario(i)));
+        marketData.getScenarioCount(),
+        i -> calculatePresentValue(product, marketData.scenario(i), volKey));
   }
 
   // present value for one scenario
   private static CurrencyAmount calculatePresentValue(
-      ResolvedSwaption product,
-      RatesMarketData ratesMarketData,
-      SwaptionMarketData swaptionMarketData) {
+      ExpandedSwaption product,
+      MarketData marketData,
+      SwaptionVolatilitiesKey volKey) {
 
-    RatesProvider provider = ratesMarketData.ratesProvider();
-    SwaptionVolatilities volatilities = swaptionMarketData.volatilities(product.getIndex());
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
+    SwaptionVolatilities volatilities = provider.data(volKey);
     if (product.getSwaptionSettlement().getSettlementType() == SettlementType.PHYSICAL) {
       return PHYSICAL.presentValue(product, provider, volatilities);
     } else {

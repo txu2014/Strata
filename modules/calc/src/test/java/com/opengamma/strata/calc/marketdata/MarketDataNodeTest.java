@@ -5,8 +5,8 @@
  */
 package com.opengamma.strata.calc.marketdata;
 
+import static com.opengamma.strata.collect.CollectProjectAssertions.assertThat;
 import static com.opengamma.strata.collect.TestHelper.date;
-import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -15,15 +15,17 @@ import java.util.Objects;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
+import com.opengamma.strata.basics.market.FieldName;
+import com.opengamma.strata.basics.market.MarketDataBox;
+import com.opengamma.strata.basics.market.MarketDataFeed;
+import com.opengamma.strata.basics.market.MarketDataId;
+import com.opengamma.strata.basics.market.MarketDataKey;
+import com.opengamma.strata.basics.market.ObservableId;
+import com.opengamma.strata.basics.market.ObservableKey;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
+import com.opengamma.strata.calc.marketdata.function.MarketDataFunction;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.collect.tuple.Pair;
-import com.opengamma.strata.data.FieldName;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.ObservableId;
-import com.opengamma.strata.data.ObservableSource;
-import com.opengamma.strata.data.scenario.MarketDataBox;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
 
 @Test
 public class MarketDataNodeTest {
@@ -150,7 +152,7 @@ public class MarketDataNodeTest {
     MarketDataNode root =
         MarketDataNode.buildDependencyTree(
             requirements,
-            BuiltScenarioMarketData.empty(),
+            MarketEnvironment.empty(),
             MarketDataConfig.empty(),
             functions);
 
@@ -199,14 +201,15 @@ public class MarketDataNodeTest {
     MarketDataNode root1 =
         MarketDataNode.buildDependencyTree(
             requirements,
-            BuiltScenarioMarketData.empty(),
+            MarketEnvironment.empty(),
             MarketDataConfig.empty(),
             functions);
 
     assertThat(root1).isEqualTo(expected1);
 
-    BuiltScenarioMarketData suppliedData =
-        BuiltScenarioMarketData.builder(date(2011, 3, 8))
+    MarketEnvironment suppliedData =
+        MarketEnvironment.builder()
+            .valuationDate(date(2011, 3, 8))
             .addValue(new TestIdB("1"), new TestMarketDataB())
             .addValue(new TestIdB("3"), new TestMarketDataB())
             .build();
@@ -254,7 +257,7 @@ public class MarketDataNodeTest {
     MarketDataNode root =
         MarketDataNode.buildDependencyTree(
             requirements,
-            BuiltScenarioMarketData.empty(),
+            MarketEnvironment.empty(),
             MarketDataConfig.empty(),
             functions);
 
@@ -297,13 +300,13 @@ public class MarketDataNodeTest {
     }
 
     @Override
-    public ObservableSource getObservableSource() {
-      return ObservableSource.NONE;
+    public MarketDataFeed getMarketDataFeed() {
+      return MarketDataFeed.NONE;
     }
 
     @Override
-    public ObservableId withObservableSource(ObservableSource obsSource) {
-      return this;
+    public ObservableKey toMarketDataKey() {
+      throw new UnsupportedOperationException("toObservableKey not implemented");
     }
 
     @Override
@@ -343,6 +346,11 @@ public class MarketDataNodeTest {
     }
 
     @Override
+    public MarketDataKey<TestMarketDataB> toMarketDataKey() {
+      throw new UnsupportedOperationException("toMarketDataKey not implemented");
+    }
+
+    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -379,6 +387,11 @@ public class MarketDataNodeTest {
     }
 
     @Override
+    public MarketDataKey<String> toMarketDataKey() {
+      throw new UnsupportedOperationException("toMarketDataKey not implemented");
+    }
+
+    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -410,12 +423,7 @@ public class MarketDataNodeTest {
     }
 
     @Override
-    public MarketDataBox<Double> build(
-        TestIdA id,
-        MarketDataConfig marketDataConfig,
-        ScenarioMarketData marketData,
-        ReferenceData refData) {
-
+    public MarketDataBox<Double> build(TestIdA id, CalculationEnvironment marketData, MarketDataConfig marketDataConfig) {
       throw new UnsupportedOperationException("build not implemented");
     }
 
@@ -443,9 +451,8 @@ public class MarketDataNodeTest {
     @Override
     public MarketDataBox<TestMarketDataB> build(
         TestIdB id,
-        MarketDataConfig marketDataConfig,
-        ScenarioMarketData marketData,
-        ReferenceData refData) {
+        CalculationEnvironment marketData,
+        MarketDataConfig marketDataConfig) {
 
       throw new UnsupportedOperationException("build not implemented");
     }

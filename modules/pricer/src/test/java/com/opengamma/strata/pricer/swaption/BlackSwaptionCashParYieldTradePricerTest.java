@@ -5,10 +5,9 @@
  */
 package com.opengamma.strata.pricer.swaption;
 
+import static com.opengamma.strata.basics.BuySell.SELL;
 import static com.opengamma.strata.basics.currency.Currency.USD;
 import static com.opengamma.strata.basics.index.IborIndices.USD_LIBOR_3M;
-import static com.opengamma.strata.collect.TestHelper.date;
-import static com.opengamma.strata.product.common.BuySell.SELL;
 import static com.opengamma.strata.product.swap.type.FixedIborSwapConventions.USD_FIXED_6M_LIBOR_3M;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -20,24 +19,22 @@ import java.time.ZoneId;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.LongShort;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.currency.Payment;
 import com.opengamma.strata.basics.date.AdjustableDate;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
-import com.opengamma.strata.market.product.swaption.SwaptionSensitivity;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.sensitivity.SwaptionSensitivity;
 import com.opengamma.strata.pricer.DiscountingPaymentPricer;
 import com.opengamma.strata.pricer.datasets.RatesProviderDataSets;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
-import com.opengamma.strata.product.common.LongShort;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swaption.CashSettlement;
 import com.opengamma.strata.product.swaption.CashSettlementMethod;
-import com.opengamma.strata.product.swaption.ResolvedSwaption;
-import com.opengamma.strata.product.swaption.ResolvedSwaptionTrade;
 import com.opengamma.strata.product.swaption.Swaption;
+import com.opengamma.strata.product.swaption.SwaptionTrade;
 
 /**
  * Test {@link BlackSwaptionCashParYieldTradePricer}.
@@ -45,13 +42,12 @@ import com.opengamma.strata.product.swaption.Swaption;
 @Test
 public class BlackSwaptionCashParYieldTradePricerTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
-  private static final LocalDate VAL_DATE = date(2015, 8, 7);
+  private static final LocalDate VAL_DATE = LocalDate.of(2015, 8, 7);
   private static final LocalDate SWAPTION_EXERCISE_DATE = VAL_DATE.plusYears(5);
   private static final LocalTime SWAPTION_EXPIRY_TIME = LocalTime.of(11, 0);
   private static final ZoneId SWAPTION_EXPIRY_ZONE = ZoneId.of("America/New_York");
-  private static final LocalDate SETTLE_DATE =
-      USD_LIBOR_3M.calculateEffectiveFromFixing(SWAPTION_EXERCISE_DATE, REF_DATA);
+  private static final LocalDate SETTLE_DATE = USD_LIBOR_3M
+      .calculateEffectiveFromFixing(SWAPTION_EXERCISE_DATE);
   private static final int SWAP_TENOR_YEAR = 5;
   private static final Period SWAP_TENOR = Period.ofYears(SWAP_TENOR_YEAR);
   private static final LocalDate SWAP_MATURITY_DATE = SETTLE_DATE.plus(SWAP_TENOR);
@@ -64,33 +60,33 @@ public class BlackSwaptionCashParYieldTradePricerTest {
       .settlementDate(SETTLE_DATE)
       .build();
   private static final double PREMIUM_AMOUNT = 100_000;
-  private static final ResolvedSwaption SWAPTION_LONG_REC = Swaption.builder()
+  private static final Swaption SWAPTION_LONG_REC = Swaption.builder()
       .swaptionSettlement(PAR_YIELD)
       .expiryDate(AdjustableDate.of(SWAPTION_EXERCISE_DATE))
       .expiryTime(SWAPTION_EXPIRY_TIME)
       .expiryZone(SWAPTION_EXPIRY_ZONE)
       .longShort(LongShort.LONG)
       .underlying(SWAP_REC)
-      .build()
-      .resolve(REF_DATA);
+      .build();
   private static final Payment PREMIUM_FWD_PAY = Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT), SETTLE_DATE);
-  private static final ResolvedSwaptionTrade SWAPTION_PREFWD_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PREFWD_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_FWD_PAY)
       .build();
   private static final Payment PREMIUM_TRA_PAY = Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT), VAL_DATE);
-  private static final ResolvedSwaptionTrade SWAPTION_PRETOD_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PRETOD_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_TRA_PAY)
       .build();
   private static final Payment PREMIUM_PAST_PAY =
       Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT), VAL_DATE.minusDays(1));
-  private static final ResolvedSwaptionTrade SWAPTION_PREPAST_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PREPAST_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_PAST_PAY)
       .build();
 
-  private static final ImmutableRatesProvider RATE_PROVIDER = RatesProviderDataSets.multiUsd(VAL_DATE);
+  private static final ImmutableRatesProvider RATE_PROVIDER = RatesProviderDataSets.MULTI_USD.toBuilder(VAL_DATE)
+      .build();
   private static final BlackSwaptionExpiryTenorVolatilities VOL_PROVIDER =
       SwaptionBlackVolatilityDataSets.BLACK_VOL_CST_SWAPTION_PROVIDER_USD;
 
@@ -151,10 +147,10 @@ public class BlackSwaptionCashParYieldTradePricerTest {
     PointSensitivityBuilder pvcsProduct =
         PRICER_PRODUCT.presentValueSensitivityStickyStrike(SWAPTION_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
     PointSensitivityBuilder pvcsPremium = PRICER_PAYMENT.presentValueSensitivity(PREMIUM_FWD_PAY, RATE_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade =
-        RATE_PROVIDER.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct =
-        RATE_PROVIDER.parameterSensitivity(pvcsProduct.combinedWith(pvcsPremium).build());
+    CurveCurrencyParameterSensitivities pvpsTrade =
+        RATE_PROVIDER.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct =
+        RATE_PROVIDER.curveParameterSensitivity(pvcsProduct.combinedWith(pvcsPremium).build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, NOTIONAL * TOL));
   }
 
@@ -163,8 +159,8 @@ public class BlackSwaptionCashParYieldTradePricerTest {
         .presentValueSensitivityStickyStrike(SWAPTION_PRETOD_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
     PointSensitivityBuilder pvcsProduct = PRICER_PRODUCT
         .presentValueSensitivityStickyStrike(SWAPTION_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.parameterSensitivity(pvcsProduct.build());
+    CurveCurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.curveParameterSensitivity(pvcsProduct.build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, NOTIONAL * TOL));
   }
 
@@ -173,8 +169,8 @@ public class BlackSwaptionCashParYieldTradePricerTest {
         PRICER_TRADE.presentValueSensitivityStickyStrike(SWAPTION_PREPAST_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
     PointSensitivityBuilder pvcsProduct =
         PRICER_PRODUCT.presentValueSensitivityStickyStrike(SWAPTION_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.parameterSensitivity(pvcsProduct.build());
+    CurveCurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.curveParameterSensitivity(pvcsProduct.build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, NOTIONAL * TOL));
   }
 

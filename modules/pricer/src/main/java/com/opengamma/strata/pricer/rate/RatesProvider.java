@@ -5,8 +5,6 @@
  */
 package com.opengamma.strata.pricer.rate;
 
-import java.util.Optional;
-
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.index.FxIndex;
@@ -15,24 +13,14 @@ import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.PriceIndex;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
-import com.opengamma.strata.data.MarketDataName;
-import com.opengamma.strata.market.curve.Curve;
-import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
-import com.opengamma.strata.market.product.DiscountFactors;
-import com.opengamma.strata.market.product.ZeroRateSensitivity;
-import com.opengamma.strata.market.product.fx.FxForwardRates;
-import com.opengamma.strata.market.product.fx.FxForwardSensitivity;
-import com.opengamma.strata.market.product.fx.FxIndexRates;
-import com.opengamma.strata.market.product.fx.FxIndexSensitivity;
-import com.opengamma.strata.market.product.rate.IborIndexRates;
-import com.opengamma.strata.market.product.rate.IborRateSensitivity;
-import com.opengamma.strata.market.product.rate.InflationRateSensitivity;
-import com.opengamma.strata.market.product.rate.OvernightIndexRates;
-import com.opengamma.strata.market.product.rate.OvernightRateSensitivity;
-import com.opengamma.strata.market.product.rate.PriceIndexValues;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
+import com.opengamma.strata.market.sensitivity.FxIndexSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
-import com.opengamma.strata.market.sensitivity.PointSensitivity;
+import com.opengamma.strata.market.view.FxForwardRates;
+import com.opengamma.strata.market.view.FxIndexRates;
+import com.opengamma.strata.market.view.IborIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
+import com.opengamma.strata.market.view.PriceIndexValues;
 import com.opengamma.strata.pricer.BaseProvider;
 
 /**
@@ -116,53 +104,18 @@ public interface RatesProvider
   /**
    * Computes the parameter sensitivity.
    * <p>
-   * This computes the {@link CurrencyParameterSensitivities} associated with the {@link PointSensitivities}.
-   * This corresponds to the projection of the point sensitivity to the internal parameters representation.
+   * This computes the {@link CurveCurrencyParameterSensitivities} associated with the {@link PointSensitivities}.
+   * This corresponds to the projection of the point sensitivity to the curve internal parameters representation.
    * <p>
    * For example, the point sensitivities could represent the sensitivity to a date on the first
    * of each month in a year relative to a specific forward curve. This method converts to the point
    * sensitivities to be relative to each parameter on the underlying curve, such as the 1 day, 1 week,
    * 1 month, 3 month, 12 month and 5 year nodal points.
    * 
-   * @param pointSensitivities  the point sensitivities
+   * @param pointSensitivities  the point sensitivity
    * @return the sensitivity to the curve parameters
    */
-  public default CurrencyParameterSensitivities parameterSensitivity(PointSensitivities pointSensitivities) {
-    CurrencyParameterSensitivities sens = CurrencyParameterSensitivities.empty();
-    for (PointSensitivity point : pointSensitivities.getSensitivities()) {
-      if (point instanceof ZeroRateSensitivity) {
-        ZeroRateSensitivity pt = (ZeroRateSensitivity) point;
-        DiscountFactors factors = discountFactors(pt.getCurveCurrency());
-        sens = sens.combinedWith(factors.parameterSensitivity(pt));
-
-      } else if (point instanceof IborRateSensitivity) {
-        IborRateSensitivity pt = (IborRateSensitivity) point;
-        IborIndexRates rates = iborIndexRates(pt.getIndex());
-        sens = sens.combinedWith(rates.parameterSensitivity(pt));
-
-      } else if (point instanceof OvernightRateSensitivity) {
-        OvernightRateSensitivity pt = (OvernightRateSensitivity) point;
-        OvernightIndexRates rates = overnightIndexRates(pt.getIndex());
-        sens = sens.combinedWith(rates.parameterSensitivity(pt));
-
-      } else if (point instanceof FxIndexSensitivity) {
-        FxIndexSensitivity pt = (FxIndexSensitivity) point;
-        FxIndexRates rates = fxIndexRates(pt.getIndex());
-        sens = sens.combinedWith(rates.parameterSensitivity(pt));
-
-      } else if (point instanceof InflationRateSensitivity) {
-        InflationRateSensitivity pt = (InflationRateSensitivity) point;
-        PriceIndexValues rates = priceIndexValues(pt.getIndex());
-        sens = sens.combinedWith(rates.parameterSensitivity(pt));
-
-      } else if (point instanceof FxForwardSensitivity) {
-        FxForwardSensitivity pt = (FxForwardSensitivity) point;
-        FxForwardRates rates = fxForwardRates(pt.getCurrencyPair());
-        sens = sens.combinedWith(rates.parameterSensitivity(pt));
-      }
-    }
-    return sens;
-  }
+  CurveCurrencyParameterSensitivities curveParameterSensitivity(PointSensitivities pointSensitivities);
 
   /**
    * Computes the currency exposure.
@@ -176,40 +129,12 @@ public interface RatesProvider
    * <p>
    * Reference: Currency Exposure and FX index, OpenGamma Documentation 32, July 2015.
    * 
-   * @param pointSensitivities  the point sensitivities
+   * @param pointSensitivities  the point sensitivity
    * @return the currency exposure
    */
-  public default MultiCurrencyAmount currencyExposure(PointSensitivities pointSensitivities) {
-    MultiCurrencyAmount ce = MultiCurrencyAmount.empty();
-    for (PointSensitivity point : pointSensitivities.getSensitivities()) {
-      if (point instanceof FxIndexSensitivity) {
-        FxIndexSensitivity pt = (FxIndexSensitivity) point;
-        FxIndexRates rates = fxIndexRates(pt.getIndex());
-        ce = ce.plus(rates.currencyExposure(pt));
-      }
-      if (point instanceof FxForwardSensitivity) {
-        FxForwardSensitivity pt = (FxForwardSensitivity) point;
-        pt = (FxForwardSensitivity) pt.convertedTo(pt.getReferenceCurrency(), this);
-        FxForwardRates rates = fxForwardRates(pt.getCurrencyPair());
-        ce = ce.plus(rates.currencyExposure(pt));
-      }
-    }
-    return ce;
-  }
+  MultiCurrencyAmount currencyExposure(PointSensitivities pointSensitivities);
 
   //-------------------------------------------------------------------------
-  /**
-   * Finds the market data with the specified name.
-   * <p>
-   * This is most commonly used to find a {@link Curve} using a {@link CurveName}.
-   * If the market data cannot be found, empty is returned.
-   * 
-   * @param <T>  the type of the market data value
-   * @param name  the name to find
-   * @return the market data value, empty if not found
-   */
-  public abstract <T> Optional<T> findData(MarketDataName<T> name);
-
   /**
    * Gets the time series.
    * <p>

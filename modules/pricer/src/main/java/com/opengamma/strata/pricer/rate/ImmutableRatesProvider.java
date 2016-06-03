@@ -8,7 +8,6 @@ package com.opengamma.strata.pricer.rate;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -38,21 +37,20 @@ import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.PriceIndex;
-import com.opengamma.strata.collect.ArgChecker;
+import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.MarketDataName;
 import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.market.product.DiscountFactors;
-import com.opengamma.strata.market.product.fx.DiscountFxForwardRates;
-import com.opengamma.strata.market.product.fx.DiscountFxIndexRates;
-import com.opengamma.strata.market.product.fx.FxForwardRates;
-import com.opengamma.strata.market.product.fx.FxIndexRates;
-import com.opengamma.strata.market.product.rate.DiscountOvernightIndexRates;
-import com.opengamma.strata.market.product.rate.IborIndexRates;
-import com.opengamma.strata.market.product.rate.OvernightIndexRates;
-import com.opengamma.strata.market.product.rate.PriceIndexValues;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.DiscountFxForwardRates;
+import com.opengamma.strata.market.view.DiscountFxIndexRates;
+import com.opengamma.strata.market.view.DiscountOvernightIndexRates;
+import com.opengamma.strata.market.view.FxForwardRates;
+import com.opengamma.strata.market.view.FxIndexRates;
+import com.opengamma.strata.market.view.IborIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
+import com.opengamma.strata.market.view.PriceIndexValues;
+
 
 /**
  * The default immutable rates provider, used to calculate analytic measures.
@@ -62,7 +60,8 @@ import com.opengamma.strata.market.product.rate.PriceIndexValues;
  */
 @BeanDefinition(builderScope = "private", constructorScope = "package")
 public final class ImmutableRatesProvider
-    implements RatesProvider, ImmutableBean, Serializable {
+    extends AbstractRatesProvider
+    implements ImmutableBean, Serializable {
 
   /** Serialization version. */
   private static final long serialVersionUID = 1L;
@@ -77,7 +76,7 @@ public final class ImmutableRatesProvider
    * The provider of foreign exchange rates.
    * Conversions where both currencies are the same always succeed.
    */
-  @PropertyDefinition(validate = "notNull")
+  @PropertyDefinition(validate = "notNull", get = "private")
   private final FxRateProvider fxRateProvider;
   /**
    * The discount curves, defaulted to an empty map.
@@ -101,34 +100,13 @@ public final class ImmutableRatesProvider
    * The time-series, defaulted to an empty map.
    * The historic data associated with each index.
    */
-  @PropertyDefinition(validate = "notNull")
+  @PropertyDefinition(validate = "notNull", get = "private")
   private final ImmutableMap<Index, LocalDateDoubleTimeSeries> timeSeries;
 
   //-------------------------------------------------------------------------
   @ImmutableDefaults
   private static void applyDefaults(Builder builder) {
     builder.fxRateProvider = FxMatrix.empty();
-  }
-
-  //-------------------------------------------------------------------------
-  /**
-   * Combines a number of rates providers.
-   * <p>
-   * If the two providers have curves or time series for the same currency or index, 
-   * an {@link IllegalAccessException} is thrown. 
-   * The FxRateProviders is not populated with the given provider; no attempt is done on merging the embedded FX providers.
-   * 
-   * @param fx  the FX provider for the resulting rate provider
-   * @param providers  the rates providers to be merged
-   * @return the combined rates provider
-   */
-  public static ImmutableRatesProvider combined(FxRateProvider fx, ImmutableRatesProvider... providers) {
-    ArgChecker.isTrue(providers.length > 0, "at least one provider requested");
-    ImmutableRatesProvider merged = ImmutableRatesProvider.builder(providers[0].getValuationDate()).build();
-    for (ImmutableRatesProvider provider : providers) {
-      merged = merged.combinedWith(provider, fx);
-    }
-    return merged;
   }
 
   //-------------------------------------------------------------------------
@@ -148,6 +126,18 @@ public final class ImmutableRatesProvider
    * @return the builder
    */
   public ImmutableRatesProviderBuilder toBuilder() {
+    return toBuilder(valuationDate);
+  }
+
+  /**
+   * Converts this instance to a builder allowing changes to be made.
+   * <p>
+   * This overload allows the valuation date to be altered.
+   * 
+   * @param valuationDate  the new valuation date
+   * @return the builder
+   */
+  public ImmutableRatesProviderBuilder toBuilder(LocalDate valuationDate) {
     return new ImmutableRatesProviderBuilder(valuationDate)
         .fxRateProvider(fxRateProvider)
         .discountCurves(discountCurves)
@@ -157,21 +147,22 @@ public final class ImmutableRatesProvider
   }
 
   //-------------------------------------------------------------------------
-  @Override
-  public <T> Optional<T> findData(MarketDataName<T> name) {
-    if (name instanceof CurveName) {
-      return Stream.concat(discountCurves.values().stream(), indexCurves.values().stream())
-          .filter(c -> c.getName().equals(name))
-          .map(v -> name.getMarketDataType().cast(v))
-          .findFirst();
-    }
-    return Optional.empty();
+  /**
+   * Finds the curve with the specified name.
+   * 
+   * @param name  the curve name
+   * @return the curve
+   */
+  public Optional<Curve> findCurve(CurveName name) {
+    return Stream.concat(discountCurves.values().stream(), indexCurves.values().stream())
+        .filter(c -> c.getName().equals(name))
+        .findFirst();
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public <T> T data(MarketDataId<T> id) {
-    throw new IllegalArgumentException("Unknown identifier: " + id.toString());
+  public <T> T data(MarketDataKey<T> key) {
+    throw new IllegalArgumentException("Unknown key: " + key.toString());
   }
 
   //-------------------------------------------------------------------------
@@ -244,56 +235,6 @@ public final class ImmutableRatesProvider
       throw new IllegalArgumentException("Unable to find index: " + index);
     }
     return values;
-  }
-
-  //-------------------------------------------------------------------------
-  /**
-   * Combines this provider with another.
-   * <p> 
-   * If the two providers have curves or time series for the same currency or index,
-   * an {@link IllegalAccessException} is thrown. No attempt is made to combine the
-   * FX providers, instead one is supplied. 
-   * 
-   * @param other  the other rates provider
-   * @param fxProvider  the FX rate provider to use
-   * @return the combined provider
-   */
-  public ImmutableRatesProvider combinedWith(ImmutableRatesProvider other, FxRateProvider fxProvider) {
-    ImmutableRatesProviderBuilder merged = other.toBuilder();
-    // discount
-    ImmutableMap<Currency, Curve> dscMap1 = discountCurves;
-    ImmutableMap<Currency, Curve> dscMap2 = other.discountCurves;
-    for (Entry<Currency, Curve> entry : dscMap1.entrySet()) {
-      ArgChecker.isTrue(!dscMap2.containsKey(entry.getKey()),
-          "conflict on discount curve, currency '{}' appears twice in the providers", entry.getKey());
-      merged.discountCurve(entry.getKey(), entry.getValue());
-    }
-    // ibor and overnight
-    ImmutableMap<Index, Curve> indexMap1 = indexCurves;
-    ImmutableMap<Index, Curve> indexMap2 = other.indexCurves;
-    for (Entry<Index, Curve> entry : indexMap1.entrySet()) {
-      ArgChecker.isTrue(!indexMap2.containsKey(entry.getKey()),
-          "conflict on index curve, index '{}' appears twice in the providers", entry.getKey());
-      merged.indexCurve(entry.getKey(), entry.getValue());
-    }
-    // price index
-    ImmutableMap<PriceIndex, PriceIndexValues> priceMap1 = priceIndexValues;
-    ImmutableMap<PriceIndex, PriceIndexValues> priceMap2 = other.priceIndexValues;
-    for (Entry<PriceIndex, PriceIndexValues> entry : priceMap1.entrySet()) {
-      ArgChecker.isTrue(!priceMap2.containsKey(entry.getKey()),
-          "conflict on price index curve, price index '{}' appears twice in the providers", entry.getKey());
-      merged.priceIndexValues(entry.getValue());
-    }
-    // time series
-    Map<Index, LocalDateDoubleTimeSeries> tsMap1 = timeSeries;
-    Map<Index, LocalDateDoubleTimeSeries> tsMap2 = other.timeSeries;
-    for (Entry<Index, LocalDateDoubleTimeSeries> entry : tsMap1.entrySet()) {
-      ArgChecker.isTrue(!tsMap2.containsKey(entry.getKey()),
-          "conflict on time series, index '{}' appears twice in the providers", entry.getKey());
-      merged.timeSeries(entry.getKey(), entry.getValue());
-    }
-    merged.fxRateProvider(fxProvider);
-    return merged.build();
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -372,7 +313,7 @@ public final class ImmutableRatesProvider
    * Conversions where both currencies are the same always succeed.
    * @return the value of the property, not null
    */
-  public FxRateProvider getFxRateProvider() {
+  private FxRateProvider getFxRateProvider() {
     return fxRateProvider;
   }
 
@@ -412,7 +353,7 @@ public final class ImmutableRatesProvider
    * The historic data associated with each index.
    * @return the value of the property, not null
    */
-  public ImmutableMap<Index, LocalDateDoubleTimeSeries> getTimeSeries() {
+  private ImmutableMap<Index, LocalDateDoubleTimeSeries> getTimeSeries() {
     return timeSeries;
   }
 

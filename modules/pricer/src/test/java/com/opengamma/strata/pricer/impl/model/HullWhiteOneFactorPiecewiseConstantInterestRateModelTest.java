@@ -15,7 +15,6 @@ import java.time.LocalDate;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.date.DayCounts;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.IborIndices;
@@ -33,7 +32,6 @@ import com.opengamma.strata.pricer.impl.rate.model.HullWhiteOneFactorPiecewiseCo
 @Test
 public class HullWhiteOneFactorPiecewiseConstantInterestRateModelTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final double MEAN_REVERSION = 0.01;
   private static final DoubleArray VOLATILITY = DoubleArray.of(0.01, 0.011, 0.012, 0.013, 0.014);
   private static final DoubleArray VOLATILITY_TIME = DoubleArray.of(0.5, 1.0, 2.0, 5.0);
@@ -97,12 +95,12 @@ public class HullWhiteOneFactorPiecewiseConstantInterestRateModelTest {
    */
   public void futureConvexityFactor() {
     LocalDate SPOT_DATE = LocalDate.of(2012, 9, 19);
-    LocalDate LAST_TRADING_DATE = EURIBOR3M.calculateFixingFromEffective(SPOT_DATE, REF_DATA);
+    LocalDate LAST_TRADING_DATE = EURIBOR3M.calculateFixingFromEffective(SPOT_DATE);
     LocalDate REFERENCE_DATE = LocalDate.of(2010, 8, 18);
     double tradeLastTime = DayCounts.ACT_ACT_ISDA.relativeYearFraction(REFERENCE_DATE, LAST_TRADING_DATE);
     double fixStartTime = DayCounts.ACT_ACT_ISDA.relativeYearFraction(REFERENCE_DATE, SPOT_DATE);
     double fixEndTime = DayCounts.ACT_ACT_ISDA.relativeYearFraction(
-        REFERENCE_DATE, EURIBOR3M.calculateMaturityFromEffective(SPOT_DATE, REF_DATA));
+        REFERENCE_DATE, EURIBOR3M.calculateMaturityFromEffective(SPOT_DATE));
     double factor = MODEL.futuresConvexityFactor(MODEL_PARAMETERS, tradeLastTime, fixStartTime, fixEndTime);
     double expectedFactor = 1.000079130767980;
     assertEquals(expectedFactor, factor, TOLERANCE_RATE);

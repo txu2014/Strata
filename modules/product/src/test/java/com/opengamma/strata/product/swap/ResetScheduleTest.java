@@ -7,7 +7,7 @@ package com.opengamma.strata.product.swap;
 
 import static com.opengamma.strata.basics.date.BusinessDayConventions.FOLLOWING;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_FOLLOWING;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.GBLO;
 import static com.opengamma.strata.basics.schedule.Frequency.P1M;
 import static com.opengamma.strata.basics.schedule.Frequency.P3M;
 import static com.opengamma.strata.basics.schedule.RollConventions.DAY_5;
@@ -23,7 +23,6 @@ import java.time.LocalDate;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.schedule.Schedule;
 import com.opengamma.strata.basics.schedule.SchedulePeriod;
@@ -34,7 +33,6 @@ import com.opengamma.strata.basics.schedule.SchedulePeriod;
 @Test
 public class ResetScheduleTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate DATE_01_05 = date(2014, 1, 5);
   private static final LocalDate DATE_01_06 = date(2014, 1, 6);
   private static final LocalDate DATE_02_05 = date(2014, 2, 5);
@@ -54,13 +52,13 @@ public class ResetScheduleTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_resolve() {
+  public void test_createSchedule() {
     ResetSchedule test = ResetSchedule.builder()
         .resetFrequency(P1M)
         .businessDayAdjustment(BusinessDayAdjustment.of(FOLLOWING, GBLO))
         .build();
     SchedulePeriod accrualPeriod = SchedulePeriod.of(DATE_01_06, DATE_04_07, DATE_01_05, DATE_04_05);
-    Schedule schedule = test.createSchedule(DAY_5, REF_DATA).apply(accrualPeriod);
+    Schedule schedule = test.createSchedule(accrualPeriod, DAY_5);
     Schedule expected = Schedule.builder()
         .periods(
             SchedulePeriod.of(DATE_01_06, DATE_02_05, DATE_01_05, DATE_02_05),

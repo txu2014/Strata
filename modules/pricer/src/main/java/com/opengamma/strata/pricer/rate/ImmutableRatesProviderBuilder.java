@@ -20,8 +20,7 @@ import com.opengamma.strata.basics.index.PriceIndex;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
 import com.opengamma.strata.market.curve.Curve;
-import com.opengamma.strata.market.curve.InterpolatedNodalCurve;
-import com.opengamma.strata.market.product.rate.PriceIndexValues;
+import com.opengamma.strata.market.view.PriceIndexValues;
 
 /**
  * Builder for the immutable rates provider.
@@ -204,49 +203,7 @@ public final class ImmutableRatesProviderBuilder {
 
   //-------------------------------------------------------------------------
   /**
-   * Adds an index forward curve to the provider.
-   * <p>
-   * This adds the specified forward curve to the provider.
-   * This operates using {@link Map#put(Object, Object)} semantics using the index as the key.
-   * 
-   * @param index  the index of the curve
-   * @param forwardCurve  the Ibor index forward curve
-   * @return this, for chaining
-   */
-  public ImmutableRatesProviderBuilder indexCurve(Index index, Curve forwardCurve) {
-    ArgChecker.notNull(index, "index");
-    ArgChecker.notNull(forwardCurve, "forwardCurve");
-    this.indexCurves.put(index, forwardCurve);
-    return this;
-  }
-
-  /**
-   * Adds an index forward curve to the provider with associated time-series.
-   * <p>
-   * This adds the specified forward curve to the provider.
-   * This operates using {@link Map#put(Object, Object)} semantics using the index as the key.
-   * 
-   * @param index  the index of the curve
-   * @param forwardCurve  the Ibor index forward curve
-   * @param timeSeries  the time-series
-   * @return this, for chaining
-   */
-  public ImmutableRatesProviderBuilder indexCurve(Index index, Curve forwardCurve, LocalDateDoubleTimeSeries timeSeries) {
-    ArgChecker.notNull(index, "index");
-    ArgChecker.notNull(forwardCurve, "forwardCurve");
-    if (index instanceof PriceIndex) {
-      ArgChecker.isTrue(forwardCurve instanceof InterpolatedNodalCurve, "Price index curve must be an InterpolatedNodalCurve");
-      InterpolatedNodalCurve curve = (InterpolatedNodalCurve) forwardCurve;
-      priceIndexValues(PriceIndexValues.of((PriceIndex) index, valuationDate, curve, timeSeries));
-    } else {
-      this.indexCurves.put(index, forwardCurve);
-      this.timeSeries.put(index, timeSeries);
-    }
-    return this;
-  }
-
-  /**
-   * Adds index forward curves to the provider with associated time-series.
+   * Adds index forward curves to the provider.
    * <p>
    * This adds the specified index forward curves to the provider.
    * This operates using {@link Map#putAll(Map)} semantics using the index as the key.

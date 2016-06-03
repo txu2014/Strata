@@ -7,6 +7,8 @@ package com.opengamma.strata.pricer.bond;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -23,14 +25,20 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.google.common.primitives.Doubles;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.param.UnitParameterSensitivity;
-import com.opengamma.strata.market.product.bond.BondFutureOptionSensitivity;
+import com.opengamma.strata.collect.array.DoubleArray;
+import com.opengamma.strata.collect.id.StandardId;
+import com.opengamma.strata.collect.tuple.DoublesPair;
+import com.opengamma.strata.market.option.LogMoneynessStrike;
+import com.opengamma.strata.market.sensitivity.BondFutureOptionSensitivity;
 import com.opengamma.strata.market.surface.InterpolatedNodalSurface;
-import com.opengamma.strata.market.surface.Surface;
-import com.opengamma.strata.product.SecurityId;
+import com.opengamma.strata.market.surface.NodalSurface;
+import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
+import com.opengamma.strata.market.surface.SurfaceMetadata;
+import com.opengamma.strata.market.surface.SurfaceParameterMetadata;
+import com.opengamma.strata.market.surface.meta.GenericVolatilitySurfaceYearFractionMetadata;
 
 /**
  * Data provider of volatility for bond future options in the log-normal or Black model. 
@@ -47,12 +55,12 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
    * The order of the dimensions is expiry/log moneyness.
    */
   @PropertyDefinition(validate = "notNull")
-  private final Surface parameters;
+  private final NodalSurface parameters;
   /**
    * The ID of the underlying future.
    */
   @PropertyDefinition(validate = "notNull", overrideGet = true)
-  private final SecurityId futureSecurityId;
+  private final StandardId futureSecurityId;
   /**
    * The day count applicable to the model.
    */
@@ -77,7 +85,7 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
    */
   public static BlackVolatilityExpLogMoneynessBondFutureProvider of(
       InterpolatedNodalSurface surface,
-      SecurityId futureSecurityId,
+      StandardId futureSecurityId,
       DayCount dayCount,
       ZonedDateTime valuationTime) {
 
@@ -102,20 +110,51 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
     return dayCount.relativeYearFraction(valuationDateTime.toLocalDate(), zonedDateTime.toLocalDate());
   }
 
-  /**
-   * Calculates the parameter sensitivity from the point sensitivity.
-   * <p>
-   * This is used to convert a single point sensitivity to parameter sensitivity.
+  /** 
+   * Computes the sensitivity to the surface parameter used in the description of the black volatility
+   * from a point sensitivity.
    * 
-   * @param pointSensitivity  the point sensitivity to convert
-   * @return the parameter sensitivity
-   * @throws RuntimeException if the result cannot be calculated
+   * @param point  the point sensitivity at a given key
+   * @return the sensitivity to the surface nodes
    */
-  public CurrencyParameterSensitivity parameterSensitivity(BondFutureOptionSensitivity pointSensitivity) {
-    double logMoneyness = Math.log(pointSensitivity.getStrikePrice() / pointSensitivity.getFuturePrice());
-    double expiryTime = relativeTime(pointSensitivity.getExpiry());
-    UnitParameterSensitivity unitSens = parameters.zValueParameterSensitivity(expiryTime, logMoneyness);
-    return unitSens.multipliedBy(pointSensitivity.getCurrency(), pointSensitivity.getSensitivity());
+  public SurfaceCurrencyParameterSensitivity surfaceCurrencyParameterSensitivity(BondFutureOptionSensitivity point) {
+    double logMoneyness = Math.log(point.getStrikePrice() / point.getFuturePrice());
+    double expiryTime = relativeTime(point.getExpiry());
+    Map<DoublesPair, Double> result = parameters.zValueParameterSensitivity(expiryTime, logMoneyness);
+    SurfaceCurrencyParameterSensitivity parameterSensi = SurfaceCurrencyParameterSensitivity.of(
+        updateSurfaceMetadata(parameters.getMetadata(), result.keySet()), point.getCurrency(),
+        DoubleArray.copyOf(Doubles.toArray(result.values())));
+    return parameterSensi.multipliedBy(point.getSensitivity());
+  }
+
+  private SurfaceMetadata updateSurfaceMetadata(SurfaceMetadata surfaceMetadata, Set<DoublesPair> pairs) {
+    List<SurfaceParameterMetadata> sortedMetaList = new ArrayList<SurfaceParameterMetadata>();
+    if (surfaceMetadata.getParameterMetadata().isPresent()) {
+      List<SurfaceParameterMetadata> metaList =
+          new ArrayList<SurfaceParameterMetadata>(surfaceMetadata.getParameterMetadata().get());
+      for (DoublesPair pair : pairs) {
+        metadataLoop:
+        for (SurfaceParameterMetadata parameterMetadata : metaList) {
+          ArgChecker.isTrue(parameterMetadata instanceof GenericVolatilitySurfaceYearFractionMetadata,
+              "surface parameter metadata must be instance of GenericVolatilitySurfaceYearFractionMetadata");
+          GenericVolatilitySurfaceYearFractionMetadata casted =
+              (GenericVolatilitySurfaceYearFractionMetadata) parameterMetadata;
+          if (pair.getFirst() == casted.getYearFraction() && pair.getSecond() == casted.getStrike().getValue()) {
+            sortedMetaList.add(casted);
+            metaList.remove(parameterMetadata);
+            break metadataLoop;
+          }
+        }
+      }
+      ArgChecker.isTrue(metaList.size() == 0, "mismatch between surface parameter metadata list and doubles pair list");
+    } else {
+      for (DoublesPair pair : pairs) {
+        GenericVolatilitySurfaceYearFractionMetadata parameterMetadata =
+            GenericVolatilitySurfaceYearFractionMetadata.of(pair.getFirst(), LogMoneynessStrike.of(pair.getSecond()));
+        sortedMetaList.add(parameterMetadata);
+      }
+    }
+    return surfaceMetadata.withParameterMetadata(sortedMetaList);
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -141,8 +180,8 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
   }
 
   private BlackVolatilityExpLogMoneynessBondFutureProvider(
-      Surface parameters,
-      SecurityId futureSecurityId,
+      NodalSurface parameters,
+      StandardId futureSecurityId,
       DayCount dayCount,
       ZonedDateTime valuationDateTime) {
     JodaBeanUtils.notNull(parameters, "parameters");
@@ -176,7 +215,7 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
    * The order of the dimensions is expiry/log moneyness.
    * @return the value of the property, not null
    */
-  public Surface getParameters() {
+  public NodalSurface getParameters() {
     return parameters;
   }
 
@@ -186,7 +225,7 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
    * @return the value of the property, not null
    */
   @Override
-  public SecurityId getFutureSecurityId() {
+  public StandardId getFutureSecurityId() {
     return futureSecurityId;
   }
 
@@ -269,13 +308,13 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
     /**
      * The meta-property for the {@code parameters} property.
      */
-    private final MetaProperty<Surface> parameters = DirectMetaProperty.ofImmutable(
-        this, "parameters", BlackVolatilityExpLogMoneynessBondFutureProvider.class, Surface.class);
+    private final MetaProperty<NodalSurface> parameters = DirectMetaProperty.ofImmutable(
+        this, "parameters", BlackVolatilityExpLogMoneynessBondFutureProvider.class, NodalSurface.class);
     /**
      * The meta-property for the {@code futureSecurityId} property.
      */
-    private final MetaProperty<SecurityId> futureSecurityId = DirectMetaProperty.ofImmutable(
-        this, "futureSecurityId", BlackVolatilityExpLogMoneynessBondFutureProvider.class, SecurityId.class);
+    private final MetaProperty<StandardId> futureSecurityId = DirectMetaProperty.ofImmutable(
+        this, "futureSecurityId", BlackVolatilityExpLogMoneynessBondFutureProvider.class, StandardId.class);
     /**
      * The meta-property for the {@code dayCount} property.
      */
@@ -337,7 +376,7 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
      * The meta-property for the {@code parameters} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<Surface> parameters() {
+    public MetaProperty<NodalSurface> parameters() {
       return parameters;
     }
 
@@ -345,7 +384,7 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
      * The meta-property for the {@code futureSecurityId} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<SecurityId> futureSecurityId() {
+    public MetaProperty<StandardId> futureSecurityId() {
       return futureSecurityId;
     }
 
@@ -398,8 +437,8 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
    */
   public static final class Builder extends DirectFieldsBeanBuilder<BlackVolatilityExpLogMoneynessBondFutureProvider> {
 
-    private Surface parameters;
-    private SecurityId futureSecurityId;
+    private NodalSurface parameters;
+    private StandardId futureSecurityId;
     private DayCount dayCount;
     private ZonedDateTime valuationDateTime;
 
@@ -441,10 +480,10 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
     public Builder set(String propertyName, Object newValue) {
       switch (propertyName.hashCode()) {
         case 458736106:  // parameters
-          this.parameters = (Surface) newValue;
+          this.parameters = (NodalSurface) newValue;
           break;
         case 1270940318:  // futureSecurityId
-          this.futureSecurityId = (SecurityId) newValue;
+          this.futureSecurityId = (StandardId) newValue;
           break;
         case 1905311443:  // dayCount
           this.dayCount = (DayCount) newValue;
@@ -498,7 +537,7 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
      * @param parameters  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder parameters(Surface parameters) {
+    public Builder parameters(NodalSurface parameters) {
       JodaBeanUtils.notNull(parameters, "parameters");
       this.parameters = parameters;
       return this;
@@ -509,7 +548,7 @@ public final class BlackVolatilityExpLogMoneynessBondFutureProvider
      * @param futureSecurityId  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder futureSecurityId(SecurityId futureSecurityId) {
+    public Builder futureSecurityId(StandardId futureSecurityId) {
       JodaBeanUtils.notNull(futureSecurityId, "futureSecurityId");
       this.futureSecurityId = futureSecurityId;
       return this;

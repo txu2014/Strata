@@ -51,7 +51,9 @@ public class TradeReportRunner
         .map(Column::of)
         .collect(toImmutableList());
 
-    return ReportRequirements.of(measureRequirements);
+    return ReportRequirements.builder()
+        .tradeMeasureRequirements(measureRequirements)
+        .build();
   }
 
   @Override
@@ -69,7 +71,7 @@ public class TradeReportRunner
       if (reportColumn.getValue().isPresent()) {
         columnResults = ValuePathEvaluator.evaluate(reportColumn.getValue().get(), results);
       } else {
-        columnResults = IntStream.range(0, results.getTargets().size())
+        columnResults = IntStream.range(0, results.getTrades().size())
             .mapToObj(i -> Result.failure(FailureReason.INVALID_INPUT, "No value specified in report template"))
             .collect(toImmutableList());
       }

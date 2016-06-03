@@ -24,15 +24,11 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.Resolvable;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.FxRate;
 import com.opengamma.strata.basics.index.FxIndex;
-import com.opengamma.strata.basics.index.FxIndexObservation;
-import com.opengamma.strata.product.Product;
 
 /**
  * A Non-Deliverable Forward (NDF).
@@ -44,7 +40,7 @@ import com.opengamma.strata.product.Product;
  */
 @BeanDefinition
 public final class FxNdf
-    implements Product, Resolvable<ResolvedFxNdf>, ImmutableBean, Serializable {
+    implements FxNdfProduct, ImmutableBean, Serializable {
 
   /**
    * The notional amount in the settlement currency, positive if receiving, negative if paying.
@@ -121,14 +117,18 @@ public final class FxNdf
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this FX forward into an {@code ExpandedFxNdf}.
+   * 
+   * @return the transaction
+   */
   @Override
-  public ResolvedFxNdf resolve(ReferenceData refData) {
-    LocalDate fixingDate = index.calculateFixingFromMaturity(paymentDate, refData);
-    return ResolvedFxNdf.builder()
+  public ExpandedFxNdf expand() {
+    return ExpandedFxNdf.builder()
         .settlementCurrencyNotional(settlementCurrencyNotional)
         .agreedFxRate(agreedFxRate)
-        .observation(FxIndexObservation.of(index, fixingDate, refData))
         .paymentDate(paymentDate)
+        .index(index)
         .build();
   }
 

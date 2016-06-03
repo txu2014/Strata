@@ -8,13 +8,11 @@ package com.opengamma.strata.pricer.bond;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.market.product.CompoundedRateType;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
+import com.opengamma.strata.market.value.CompoundedRateType;
 import com.opengamma.strata.pricer.rate.LegalEntityDiscountingProvider;
 import com.opengamma.strata.product.bond.BondFuture;
 import com.opengamma.strata.product.bond.BondFutureTrade;
-import com.opengamma.strata.product.bond.ResolvedBondFuture;
-import com.opengamma.strata.product.bond.ResolvedBondFutureTrade;
 
 /**
  * Pricer implementation for bond future trades.
@@ -55,12 +53,12 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * <p>
    * The price of the trade is the price on the valuation date.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the price of the trade, in decimal form
    */
-  public double price(ResolvedBondFutureTrade trade, LegalEntityDiscountingProvider provider) {
-    return productPricer.price(trade.getProduct(), provider);
+  public double price(BondFutureTrade trade, LegalEntityDiscountingProvider provider) {
+    return productPricer.price(trade.getSecurity().getProduct(), provider);
   }
 
   /**
@@ -71,7 +69,7 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
    * of the issuer discounting curve. 
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @param zSpread  the z-spread
    * @param compoundedRateType  the compounded rate type
@@ -79,13 +77,13 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * @return the price of the trade, in decimal form
    */
   public double priceWithZSpread(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double zSpread,
       CompoundedRateType compoundedRateType,
       int periodPerYear) {
 
-    return productPricer.priceWithZSpread(trade.getProduct(), provider, zSpread, compoundedRateType, periodPerYear);
+    return productPricer.priceWithZSpread(trade.getSecurity().getProduct(), provider, zSpread, compoundedRateType, periodPerYear);
   }
 
   //-------------------------------------------------------------------------
@@ -93,17 +91,15 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * Calculates the present value of the bond future trade.
    * <p>
    * The present value of the product is the value on the valuation date.
-   * <p>
-   * The calculation is performed against a reference price. The reference price should
-   * be the settlement price except on the trade date, when it is the trade price.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
-   * @param referencePrice  the price with respect to which the margining should be done
+   * @param referencePrice  the price with respect to which the margining should be done. The reference price is
+   *   the trade date before any margining has taken place and the price used for the last margining otherwise.
    * @return the present value
    */
   public CurrencyAmount presentValue(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double referencePrice) {
 
@@ -118,20 +114,18 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * <p>
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
    * of the issuer discounting curve. 
-   * <p>
-   * The calculation is performed against a reference price. The reference price should
-   * be the settlement price except on the trade date, when it is the trade price.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
-   * @param referencePrice  the price with respect to which the margining should be done
+   * @param referencePrice  the price with respect to which the margining should be done. The reference price is
+   *   the trade date before any margining has taken place and the price used for the last margining otherwise.
    * @param zSpread  the z-spread
    * @param compoundedRateType  the compounded rate type
    * @param periodPerYear  the number of periods per year
    * @return the present value
    */
   public CurrencyAmount presentValueWithZSpread(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double referencePrice,
       double zSpread,
@@ -149,15 +143,12 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * The present value sensitivity of the trade is the sensitivity of the present value to
    * the underlying curves.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the present value curve sensitivity of the trade
    */
-  public PointSensitivities presentValueSensitivity(
-      ResolvedBondFutureTrade trade,
-      LegalEntityDiscountingProvider provider) {
-
-    ResolvedBondFuture product = trade.getProduct();
+  public PointSensitivities presentValueSensitivity(BondFutureTrade trade, LegalEntityDiscountingProvider provider) {
+    BondFuture product = trade.getSecurity().getProduct();
     PointSensitivities priceSensi = productPricer.priceSensitivity(product, provider);
     PointSensitivities marginIndexSensi = productPricer.marginIndexSensitivity(product, priceSensi);
     return marginIndexSensi.multipliedBy(trade.getQuantity());
@@ -172,7 +163,7 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
    * of the issuer discounting curve. 
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @param zSpread  the z-spread
    * @param compoundedRateType  the compounded rate type
@@ -180,13 +171,13 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * @return the present value curve sensitivity of the trade
    */
   public PointSensitivities presentValueSensitivityWithZSpread(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double zSpread,
       CompoundedRateType compoundedRateType,
       int periodPerYear) {
 
-    ResolvedBondFuture product = trade.getProduct();
+    BondFuture product = trade.getSecurity().getProduct();
     PointSensitivities priceSensi =
         productPricer.priceSensitivityWithZSpread(product, provider, zSpread, compoundedRateType, periodPerYear);
     PointSensitivities marginIndexSensi = productPricer.marginIndexSensitivity(product, priceSensi);
@@ -199,20 +190,14 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * <p>
    * The par spread is defined in the following way. When the reference price (or market quote)
    * is increased by the par spread, the present value of the trade is zero.
-   * <p>
-   * The calculation is performed against a reference price. The reference price should
-   * be the settlement price except on the trade date, when it is the trade price.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
-   * @param referencePrice  the price with respect to which the margining should be done
-   * @return the par spread
+   * @param referencePrice  the price with respect to which the margining should be done. The reference price is
+   *   the trade date before any margining has taken place and the price used for the last margining otherwise.
+   * @return the par spread.
    */
-  public double parSpread(
-      ResolvedBondFutureTrade trade,
-      LegalEntityDiscountingProvider provider,
-      double referencePrice) {
-
+  public double parSpread(BondFutureTrade trade, LegalEntityDiscountingProvider provider, double referencePrice) {
     return price(trade, provider) - referencePrice;
   }
 
@@ -224,20 +209,18 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * <p>
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
    * of the issuer discounting curve. 
-   * <p>
-   * The calculation is performed against a reference price. The reference price should
-   * be the settlement price except on the trade date, when it is the trade price.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
-   * @param referencePrice  the price with respect to which the margining should be done
+   * @param referencePrice  the price with respect to which the margining should be done. The reference price is
+   *   the trade date before any margining has taken place and the price used for the last margining otherwise.
    * @param zSpread  the z-spread
    * @param compoundedRateType  the compounded rate type
    * @param periodPerYear  the number of periods per year
-   * @return the par spread
+   * @return the par spread.
    */
   public double parSpreadWithZSpread(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double referencePrice,
       double zSpread,
@@ -254,15 +237,12 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * The par spread sensitivity of the trade is the sensitivity of the par spread to
    * the underlying curves.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @return the par spread curve sensitivity of the trade
    */
-  public PointSensitivities parSpreadSensitivity(
-      ResolvedBondFutureTrade trade,
-      LegalEntityDiscountingProvider provider) {
-
-    return productPricer.priceSensitivity(trade.getProduct(), provider);
+  public PointSensitivities parSpreadSensitivity(BondFutureTrade trade, LegalEntityDiscountingProvider provider) {
+    return productPricer.priceSensitivity(trade.getSecurity().getProduct(), provider);
   }
 
   /**
@@ -274,7 +254,7 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
    * of the issuer discounting curve. 
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @param zSpread  the z-spread
    * @param compoundedRateType  the compounded rate type
@@ -282,30 +262,28 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * @return the par spread curve sensitivity of the trade
    */
   public PointSensitivities parSpreadSensitivityWithZSpread(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double zSpread,
       CompoundedRateType compoundedRateType,
       int periodPerYear) {
 
     return productPricer.priceSensitivityWithZSpread(
-        trade.getProduct(), provider, zSpread, compoundedRateType, periodPerYear);
+        trade.getSecurity().getProduct(), provider, zSpread, compoundedRateType, periodPerYear);
   }
 
   //-------------------------------------------------------------------------
   /**
    * Calculates the currency exposure of the bond future trade.
-   * <p>
-   * The calculation is performed against a reference price. The reference price should
-   * be the settlement price except on the trade date, when it is the trade price.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
-   * @param referencePrice  the price with respect to which the margining should be done
+   * @param referencePrice  the price with respect to which the margining should be done. The reference price is
+   *   the trade date before any margining has taken place and the price used for the last margining otherwise.
    * @return the currency exposure of the bond future trade
    */
   public MultiCurrencyAmount currencyExposure(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double referencePrice) {
 
@@ -319,7 +297,7 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
    * of the issuer discounting curve. 
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param provider  the rates provider
    * @param referencePrice  the price with respect to which the margining should be done. The reference price is
    *   the trade date before any margining has taken place and the price used for the last margining otherwise.
@@ -329,7 +307,7 @@ public final class DiscountingBondFutureTradePricer extends AbstractBondFutureTr
    * @return the currency exposure of the bond future trade
    */
   public MultiCurrencyAmount currencyExposureWithZSpread(
-      ResolvedBondFutureTrade trade,
+      BondFutureTrade trade,
       LegalEntityDiscountingProvider provider,
       double referencePrice,
       double zSpread,

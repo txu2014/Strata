@@ -7,33 +7,32 @@ package com.opengamma.strata.calc.marketdata;
 
 import java.util.Objects;
 
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.ObservableSource;
+import com.opengamma.strata.basics.market.MarketDataId;
+import com.opengamma.strata.basics.market.MarketDataKey;
 
 /**
  * MarketDataId implementation used in tests.
  */
 public class TestId implements MarketDataId<String> {
 
-  private final String id;
-  private final ObservableSource observableSource;
+  private final String value;
 
-  public static TestId of(String id) {
-    return new TestId(id);
+  public static TestId of(String value) {
+    return new TestId(value);
   }
 
-  public TestId(String id, ObservableSource obsSource) {
-    this.id = id;
-    this.observableSource = obsSource;
-  }
-
-  public TestId(String id) {
-    this(id, ObservableSource.NONE);
+  public TestId(String value) {
+    this.value = value;
   }
 
   @Override
   public Class<String> getMarketDataType() {
     return String.class;
+  }
+
+  @Override
+  public MarketDataKey<String> toMarketDataKey() {
+    throw new UnsupportedOperationException("toMarketDataKey not implemented");
   }
 
   @Override
@@ -45,17 +44,16 @@ public class TestId implements MarketDataId<String> {
       return false;
     }
     TestId testId = (TestId) o;
-    return Objects.equals(id, testId.id) &&
-        Objects.equals(observableSource, testId.observableSource);
+    return Objects.equals(value, testId.value);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, observableSource);
+    return Objects.hash(value);
   }
 
   @Override
   public String toString() {
-    return "TestId [id='" + id + "', observableSource=" + observableSource + "]";
+    return "TestId [value='" + value + "']";
   }
 }

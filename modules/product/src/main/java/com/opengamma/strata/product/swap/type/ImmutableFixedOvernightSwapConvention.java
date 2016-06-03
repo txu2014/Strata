@@ -9,7 +9,6 @@ import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.Set;
 
 import org.joda.beans.Bean;
@@ -25,11 +24,11 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.opengamma.strata.basics.BuySell;
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.common.PayReceive;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.SwapLeg;
 import com.opengamma.strata.product.swap.SwapTrade;
@@ -71,22 +70,22 @@ public final class ImmutableFixedOvernightSwapConvention
   /**
    * The offset of the spot value date from the trade date.
    * <p>
-   * The offset is applied to the trade date to find the start date.
-   * A typical value is "plus 2 business days".
+   * The offset is applied to the trade date and is typically plus 2 business days.
+   * The start date of the swap is relative to the spot date.
    */
-  @PropertyDefinition(validate = "notNull", overrideGet = true)
+  @PropertyDefinition(validate = "notNull")
   private final DaysAdjustment spotDateOffset;
 
   //-------------------------------------------------------------------------
   /**
    * Obtains a convention based on the specified name and leg conventions.
    * <p>
-   * The two leg conventions must be in the same currency.
+   * The spot date offset is set to be the effective date offset of the index.
    * 
    * @param name  the unique name of the convention 
    * @param fixedLeg  the market convention for the fixed leg
    * @param floatingLeg  the market convention for the floating leg
-   * @param spotDateOffset  the offset of the spot value date from the trade date
+   * @param spotDateOffset  the spot date offset
    * @return the convention
    */
   public static ImmutableFixedOvernightSwapConvention of(
@@ -95,7 +94,12 @@ public final class ImmutableFixedOvernightSwapConvention
       OvernightRateSwapLegConvention floatingLeg,
       DaysAdjustment spotDateOffset) {
 
-    return new ImmutableFixedOvernightSwapConvention(name, fixedLeg, floatingLeg, spotDateOffset);
+    return ImmutableFixedOvernightSwapConvention.builder()
+        .name(name)
+        .fixedLeg(fixedLeg)
+        .floatingLeg(floatingLeg)
+        .spotDateOffset(spotDateOffset)
+        .build();
   }
 
   //-------------------------------------------------------------------------
@@ -105,25 +109,46 @@ public final class ImmutableFixedOvernightSwapConvention
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this convention, returning an instance where all the optional fields are present.
+   * <p>
+   * This returns an equivalent instance where any empty optional have been filled in.
+   * 
+   * @return the expanded convention
+   */
+  public ImmutableFixedOvernightSwapConvention expand() {
+    return ImmutableFixedOvernightSwapConvention.builder()
+        .name(name)
+        .fixedLeg(fixedLeg.expand())
+        .floatingLeg(floatingLeg.expand())
+        .spotDateOffset(spotDateOffset)
+        .build();
+  }
+
+  //-------------------------------------------------------------------------
   @Override
   public SwapTrade toTrade(
-      TradeInfo tradeInfo,
+      LocalDate tradeDate,
       LocalDate startDate,
       LocalDate endDate,
       BuySell buySell,
       double notional,
       double fixedRate) {
 
-    Optional<LocalDate> tradeDate = tradeInfo.getTradeDate();
-    if (tradeDate.isPresent()) {
-      ArgChecker.inOrderOrEqual(tradeDate.get(), startDate, "tradeDate", "startDate");
-    }
+    ArgChecker.inOrderOrEqual(tradeDate, startDate, "tradeDate", "startDate");
     SwapLeg leg1 = fixedLeg.toLeg(startDate, endDate, PayReceive.ofPay(buySell.isBuy()), notional, fixedRate);
     SwapLeg leg2 = floatingLeg.toLeg(startDate, endDate, PayReceive.ofPay(buySell.isSell()), notional);
     return SwapTrade.builder()
-        .info(tradeInfo)
+        .tradeInfo(TradeInfo.builder()
+            .tradeDate(tradeDate)
+            .build())
         .product(Swap.of(leg1, leg2))
         .build();
+  }
+
+  @Override
+  public LocalDate calculateSpotDateFromTradeDate(LocalDate tradeDate) {
+    return getSpotDateOffset().adjust(tradeDate);
   }
 
   //-------------------------------------------------------------------------
@@ -224,11 +249,10 @@ public final class ImmutableFixedOvernightSwapConvention
   /**
    * Gets the offset of the spot value date from the trade date.
    * <p>
-   * The offset is applied to the trade date to find the start date.
-   * A typical value is "plus 2 business days".
+   * The offset is applied to the trade date and is typically plus 2 business days.
+   * The start date of the swap is relative to the spot date.
    * @return the value of the property, not null
    */
-  @Override
   public DaysAdjustment getSpotDateOffset() {
     return spotDateOffset;
   }
@@ -539,8 +563,8 @@ public final class ImmutableFixedOvernightSwapConvention
     /**
      * Sets the offset of the spot value date from the trade date.
      * <p>
-     * The offset is applied to the trade date to find the start date.
-     * A typical value is "plus 2 business days".
+     * The offset is applied to the trade date and is typically plus 2 business days.
+     * The start date of the swap is relative to the spot date.
      * @param spotDateOffset  the new value, not null
      * @return this, for chaining, not null
      */

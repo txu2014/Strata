@@ -19,17 +19,25 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.opengamma.strata.basics.currency.Currency;
+import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.Index;
+import com.opengamma.strata.basics.index.OvernightIndex;
+import com.opengamma.strata.basics.index.PriceIndex;
 import com.opengamma.strata.collect.MapStream;
 import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.io.CsvFile;
-import com.opengamma.strata.collect.io.CsvRow;
 import com.opengamma.strata.collect.io.ResourceLocator;
 import com.opengamma.strata.loader.LoaderUtils;
 import com.opengamma.strata.market.curve.CurveGroupDefinition;
 import com.opengamma.strata.market.curve.CurveGroupEntry;
 import com.opengamma.strata.market.curve.CurveGroupName;
 import com.opengamma.strata.market.curve.CurveName;
+import com.opengamma.strata.market.id.CurveId;
+import com.opengamma.strata.market.id.DiscountCurveId;
+import com.opengamma.strata.market.id.IborIndexCurveId;
+import com.opengamma.strata.market.id.IndexCurveId;
+import com.opengamma.strata.market.id.OvernightIndexCurveId;
+import com.opengamma.strata.market.id.PriceIndexCurveId;
 
 /**
  * Loads a set of curve group definitions into memory by reading from CSV resources.
@@ -67,40 +75,49 @@ public final class CurveGroupDefinitionCsvLoader {
    * @return the set of IDs specifying how each curve is used, keyed by the name of the curve
    */
   public static List<CurveGroupDefinition> loadCurveGroups(ResourceLocator groupsResource) {
-    Map<CurveName, Set<GroupAndReference>> curveGroups = new HashMap<>();
+    Map<CurveName, Set<CurveId>> curveGroups = new HashMap<>();
     CsvFile csv = CsvFile.of(groupsResource.getCharSource(), true);
-    for (CsvRow row : csv.rows()) {
-      String curveGroupStr = row.getField(GROUPS_NAME);
-      String curveTypeStr = row.getField(GROUPS_CURVE_TYPE);
-      String referenceStr = row.getField(GROUPS_REFERENCE);
-      String curveNameStr = row.getField(GROUPS_CURVE_NAME);
 
-      GroupAndReference gar = createCurveId(CurveGroupName.of(curveGroupStr), curveTypeStr, referenceStr);
+    for (int i = 0; i < csv.rowCount(); i++) {
+      String curveGroupStr = csv.field(i, GROUPS_NAME);
+      String curveTypeStr = csv.field(i, GROUPS_CURVE_TYPE);
+      String referenceStr = csv.field(i, GROUPS_REFERENCE);
+      String curveNameStr = csv.field(i, GROUPS_CURVE_NAME);
+
+      CurveId curveId = createCurveId(CurveGroupName.of(curveGroupStr), curveTypeStr, referenceStr);
       CurveName curveName = CurveName.of(curveNameStr);
-      Set<GroupAndReference> curveUses = curveGroups.computeIfAbsent(curveName, k -> new HashSet<>());
-      curveUses.add(gar);
+      Set<CurveId> curveUses = curveGroups.computeIfAbsent(curveName, k -> new HashSet<>());
+      curveUses.add(curveId);
     }
     return buildCurveGroups(curveGroups);
   }
 
   // parses the identifier
-  private static GroupAndReference createCurveId(
-      CurveGroupName curveGroup,
-      String curveTypeStr,
-      String referenceStr) {
-
+  private static CurveId createCurveId(CurveGroupName curveGroup, String curveTypeStr, String referenceStr) {
     // discount and forward curves are supported
     if (FORWARD.equalsIgnoreCase(curveTypeStr.toLowerCase(Locale.ENGLISH))) {
       Index index = LoaderUtils.findIndex(referenceStr);
-      return new GroupAndReference(curveGroup, index);
+      return createCurveId(index, curveGroup);
 
     } else if (DISCOUNT.equalsIgnoreCase(curveTypeStr.toLowerCase(Locale.ENGLISH))) {
       Currency ccy = Currency.of(referenceStr);
-      return new GroupAndReference(curveGroup, ccy);
+      return DiscountCurveId.of(ccy, curveGroup);
 
     } else {
       throw new IllegalArgumentException(Messages.format("Unsupported curve type: {}", curveTypeStr));
     }
+  }
+
+  // creates a forward curve id
+  private static CurveId createCurveId(Index index, CurveGroupName curveGroup) {
+    if (index instanceof IborIndex) {
+      return IborIndexCurveId.of((IborIndex) index, curveGroup);
+    } else if (index instanceof OvernightIndex) {
+      return OvernightIndexCurveId.of((OvernightIndex) index, curveGroup);
+    } else if (index instanceof PriceIndex) {
+      return PriceIndexCurveId.of((PriceIndex) index, curveGroup);
+    }
+    throw new IllegalArgumentException("Unexpected index type " + index.getClass().getName());
   }
 
   /**
@@ -109,24 +126,21 @@ public final class CurveGroupDefinitionCsvLoader {
    * The curve IDs specify which curve groups each curve belongs to and how it is used in the group, for example
    * as a discount curve for a particular currency or as a forward curve for an index.
    *
-   * @param garMap  the map of group-reference pairs
+   * @param curves  curve IDs keyed by the name of the curve
    * @return a map of curve group name to curve group definition built from the curves
    */
-  private static ImmutableList<CurveGroupDefinition> buildCurveGroups(
-      Map<CurveName, Set<GroupAndReference>> garMap) {
-
+  private static ImmutableList<CurveGroupDefinition> buildCurveGroups(Map<CurveName, Set<CurveId>> curves) {
     Multimap<CurveGroupName, CurveGroupEntry> groups = HashMultimap.create();
 
-    for (Map.Entry<CurveName, Set<GroupAndReference>> entry : garMap.entrySet()) {
+    for (Map.Entry<CurveName, Set<CurveId>> entry : curves.entrySet()) {
       CurveName curveName = entry.getKey();
-      Set<GroupAndReference> curveIds = entry.getValue();
-      Map<CurveGroupName, List<GroupAndReference>> idsByGroup =
-          curveIds.stream().collect(groupingBy(p -> p.groupName));
+      Set<CurveId> curveIds = entry.getValue();
+      Map<CurveGroupName, List<CurveId>> idsByGroup = curveIds.stream().collect(groupingBy(CurveId::getCurveGroupName));
 
-      for (Map.Entry<CurveGroupName, List<GroupAndReference>> groupEntry : idsByGroup.entrySet()) {
+      for (Map.Entry<CurveGroupName, List<CurveId>> groupEntry : idsByGroup.entrySet()) {
         CurveGroupName groupName = groupEntry.getKey();
-        List<GroupAndReference> gars = groupEntry.getValue();
-        groups.put(groupName, curveGroupEntry(curveName, gars));
+        List<CurveId> groupIds = groupEntry.getValue();
+        groups.put(groupName, curveGroupEntry(curveName, groupIds));
       }
     }
     return MapStream.of(groups.asMap())
@@ -138,18 +152,20 @@ public final class CurveGroupDefinitionCsvLoader {
    * Creates a curve group entry for a curve from a list of the curve's IDs from the same curve group.
    *
    * @param curveName  the name of the curve
-   * @param gars  the group-reference pairs
+   * @param ids  curve IDs from the same curve group
    * @return a curve group entry built from the data in the IDs
    */
-  private static CurveGroupEntry curveGroupEntry(CurveName curveName, List<GroupAndReference> gars) {
+  private static CurveGroupEntry curveGroupEntry(CurveName curveName, List<CurveId> ids) {
     Set<Currency> currencies = new HashSet<>();
     Set<Index> indices = new HashSet<>();
 
-    for (GroupAndReference gar : gars) {
-      if (gar.currency != null) {
-        currencies.add(gar.currency);
+    for (CurveId id : ids) {
+      if (id instanceof DiscountCurveId) {
+        currencies.add(((DiscountCurveId) id).getCurrency());
+      } else if (id instanceof IndexCurveId) {
+        indices.add(((IndexCurveId) id).getIndex());
       } else {
-        indices.add(gar.index);
+        throw new IllegalArgumentException("Unexpected curve ID type " + id.getClass().getName());
       }
     }
     return CurveGroupEntry.builder()
@@ -162,25 +178,4 @@ public final class CurveGroupDefinitionCsvLoader {
   // This class only has static methods
   private CurveGroupDefinitionCsvLoader() {
   }
-
-  //-------------------------------------------------------------------------
-  // data holder
-  private static final class GroupAndReference {
-    private final CurveGroupName groupName;
-    private final Currency currency;
-    private final Index index;
-
-    private GroupAndReference(CurveGroupName groupName, Currency currency) {
-      this.groupName = groupName;
-      this.currency = currency;
-      this.index = null;
-    }
-
-    private GroupAndReference(CurveGroupName groupName, Index index) {
-      this.groupName = groupName;
-      this.currency = null;
-      this.index = index;
-    }
-  }
-
 }

@@ -26,13 +26,12 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.rate.FixedRateComputation;
-import com.opengamma.strata.product.rate.IborInterpolatedRateComputation;
-import com.opengamma.strata.product.rate.IborRateComputation;
-import com.opengamma.strata.product.rate.RateComputation;
+import com.opengamma.strata.product.rate.FixedRateObservation;
+import com.opengamma.strata.product.rate.IborInterpolatedRateObservation;
+import com.opengamma.strata.product.rate.IborRateObservation;
+import com.opengamma.strata.product.rate.RateObservation;
 
 /**
  * Defines the rates applicable in the initial or final stub of an Ibor swap leg.
@@ -147,22 +146,21 @@ public final class StubCalculation
 
   //-------------------------------------------------------------------------
   /**
-   * Creates the {@code RateComputation} for the stub.
+   * Creates the {@code RateObservation} for the stub.
    * 
    * @param fixingDate  the fixing date
    * @param defaultIndex  the default index to use if the stub has no rules
-   * @param refData  the reference data
    * @return the rate observation
    */
-  RateComputation createRateComputation(LocalDate fixingDate, IborIndex defaultIndex, ReferenceData refData) {
+  RateObservation createRateObservation(LocalDate fixingDate, IborIndex defaultIndex) {
     if (isInterpolated()) {
-      return IborInterpolatedRateComputation.of(index, indexInterpolated, fixingDate, refData);
+      return IborInterpolatedRateObservation.of(index, indexInterpolated, fixingDate);
     } else if (isFloatingRate()) {
-      return IborRateComputation.of(index, fixingDate, refData);
+      return IborRateObservation.of(index, fixingDate);
     } else if (isFixedRate()) {
-      return FixedRateComputation.of(fixedRate);
+      return FixedRateObservation.of(fixedRate);
     } else {
-      return IborRateComputation.of(defaultIndex, fixingDate, refData);
+      return IborRateObservation.of(defaultIndex, fixingDate);
     }
   }
 

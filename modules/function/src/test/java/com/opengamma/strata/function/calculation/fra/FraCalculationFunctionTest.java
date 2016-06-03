@@ -17,37 +17,36 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.index.IborIndex;
-import com.opengamma.strata.calc.Measure;
-import com.opengamma.strata.calc.Measures;
-import com.opengamma.strata.calc.runner.CalculationParameters;
-import com.opengamma.strata.calc.runner.FunctionRequirements;
+import com.opengamma.strata.calc.config.FunctionConfig;
+import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.config.pricing.FunctionGroup;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.marketdata.FunctionRequirements;
+import com.opengamma.strata.calc.runner.function.result.CurrencyValuesArray;
+import com.opengamma.strata.calc.runner.function.result.MultiCurrencyValuesArray;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
+import com.opengamma.strata.calc.runner.function.result.ValuesArray;
 import com.opengamma.strata.collect.result.Result;
-import com.opengamma.strata.data.scenario.CurrencyValuesArray;
-import com.opengamma.strata.data.scenario.MultiCurrencyValuesArray;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.data.scenario.ValuesArray;
-import com.opengamma.strata.function.calculation.RatesMarketDataLookup;
 import com.opengamma.strata.function.marketdata.curve.TestMarketDataMap;
 import com.opengamma.strata.market.amount.CashFlows;
-import com.opengamma.strata.market.curve.ConstantCurve;
+import com.opengamma.strata.market.curve.ConstantNodalCurve;
 import com.opengamma.strata.market.curve.Curve;
-import com.opengamma.strata.market.curve.CurveId;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.curve.Curves;
 import com.opengamma.strata.market.explain.ExplainMap;
-import com.opengamma.strata.market.observable.IndexQuoteId;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
+import com.opengamma.strata.market.key.DiscountCurveKey;
+import com.opengamma.strata.market.key.IborIndexCurveKey;
+import com.opengamma.strata.market.key.IndexRateKey;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.pricer.fra.DiscountingFraProductPricer;
 import com.opengamma.strata.pricer.fra.FraDummyData;
-import com.opengamma.strata.pricer.rate.RatesProvider;
+import com.opengamma.strata.pricer.rate.MarketDataRatesProvider;
 import com.opengamma.strata.product.fra.FraTrade;
-import com.opengamma.strata.product.fra.ResolvedFra;
 
 /**
  * Test {@link FraCalculationFunction}.
@@ -56,45 +55,52 @@ import com.opengamma.strata.product.fra.ResolvedFra;
 public class FraCalculationFunctionTest {
 
   public static final FraTrade TRADE = FraDummyData.FRA_TRADE;
-
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final IborIndex INDEX = TRADE.getProduct().getIndex();
   private static final Currency CURRENCY = TRADE.getProduct().getCurrency();
-  private static final CurveId DISCOUNT_CURVE_ID = CurveId.of("Default", "Discount");
-  private static final CurveId FORWARD_CURVE_ID = CurveId.of("Default", "Forward");
-  private static final RatesMarketDataLookup RATES_MODEL = RatesMarketDataLookup.of(
-      ImmutableMap.of(CURRENCY, DISCOUNT_CURVE_ID),
-      ImmutableMap.of(INDEX, FORWARD_CURVE_ID));
-  private static final CalculationParameters PARAMS = CalculationParameters.of(RATES_MODEL);
   private static final LocalDate VAL_DATE = TRADE.getProduct().getStartDate().minusDays(7);
 
   //-------------------------------------------------------------------------
+  public void test_group() {
+    FunctionGroup<FraTrade> test = FraFunctionGroups.discounting();
+    assertThat(test.configuredMeasures(TRADE)).contains(
+        Measures.PAR_RATE,
+        Measures.PAR_SPREAD,
+        Measures.PRESENT_VALUE,
+        Measures.EXPLAIN_PRESENT_VALUE,
+        Measures.CASH_FLOWS,
+        Measures.PV01,
+        Measures.BUCKETED_PV01,
+        Measures.BUCKETED_GAMMA_PV01);
+    FunctionConfig<FraTrade> config =
+        FraFunctionGroups.discounting().functionConfig(TRADE, Measures.PRESENT_VALUE).get();
+    assertThat(config.createFunction()).isInstanceOf(FraCalculationFunction.class);
+  }
+
   public void test_requirementsAndCurrency() {
     FraCalculationFunction function = new FraCalculationFunction();
     Set<Measure> measures = function.supportedMeasures();
-    FunctionRequirements reqs = function.requirements(TRADE, measures, PARAMS, REF_DATA);
+    FunctionRequirements reqs = function.requirements(TRADE, measures);
     assertThat(reqs.getOutputCurrencies()).containsOnly(CURRENCY);
-    assertThat(reqs.getValueRequirements()).isEqualTo(
-        ImmutableSet.of(DISCOUNT_CURVE_ID, FORWARD_CURVE_ID));
-    assertThat(reqs.getTimeSeriesRequirements()).isEqualTo(ImmutableSet.of(IndexQuoteId.of(INDEX)));
-    assertThat(function.naturalCurrency(TRADE, REF_DATA)).isEqualTo(CURRENCY);
+    assertThat(reqs.getSingleValueRequirements()).isEqualTo(
+        ImmutableSet.of(DiscountCurveKey.of(CURRENCY), IborIndexCurveKey.of(INDEX)));
+    assertThat(reqs.getTimeSeriesRequirements()).isEqualTo(ImmutableSet.of(IndexRateKey.of(INDEX)));
+    assertThat(function.naturalCurrency(TRADE)).isEqualTo(CURRENCY);
   }
 
   public void test_simpleMeasures() {
     FraCalculationFunction function = new FraCalculationFunction();
-    ScenarioMarketData md = marketData();
-    RatesProvider provider = RATES_MODEL.marketDataView(md.scenario(0)).ratesProvider();
+    CalculationMarketData md = marketData();
+    MarketDataRatesProvider provider = MarketDataRatesProvider.of(md.scenario(0));
     DiscountingFraProductPricer pricer = DiscountingFraProductPricer.DEFAULT;
-    ResolvedFra resolved = TRADE.getProduct().resolve(REF_DATA);
-    CurrencyAmount expectedPv = pricer.presentValue(resolved, provider);
-    double expectedParRate = pricer.parRate(resolved, provider);
-    double expectedParSpread = pricer.parSpread(resolved, provider);
-    ExplainMap expectedExplainPv = pricer.explainPresentValue(resolved, provider);
-    CashFlows expectedCashFlows = pricer.cashFlows(resolved, provider);
+    CurrencyAmount expectedPv = pricer.presentValue(TRADE.getProduct(), provider);
+    double expectedParRate = pricer.parRate(TRADE.getProduct(), provider);
+    double expectedParSpread = pricer.parSpread(TRADE.getProduct(), provider);
+    ExplainMap expectedExplainPv = pricer.explainPresentValue(TRADE.getProduct(), provider);
+    CashFlows expectedCashFlows = pricer.cashFlows(TRADE.getProduct(), provider);
 
     Set<Measure> measures = ImmutableSet.of(
         Measures.PRESENT_VALUE, Measures.PAR_RATE, Measures.PAR_SPREAD, Measures.EXPLAIN_PRESENT_VALUE, Measures.CASH_FLOWS);
-    assertThat(function.calculate(TRADE, measures, PARAMS, md, REF_DATA))
+    assertThat(function.calculate(TRADE, measures, md))
         .containsEntry(
             Measures.PRESENT_VALUE, Result.success(CurrencyValuesArray.of(ImmutableList.of(expectedPv))))
         .containsEntry(
@@ -104,41 +110,42 @@ public class FraCalculationFunctionTest {
         .containsEntry(
             Measures.PAR_SPREAD, Result.success(ValuesArray.of(ImmutableList.of(expectedParSpread))))
         .containsEntry(
-            Measures.EXPLAIN_PRESENT_VALUE, Result.success(ScenarioArray.of(ImmutableList.of(expectedExplainPv))))
+            Measures.EXPLAIN_PRESENT_VALUE, Result.success(ScenarioResult.of(ImmutableList.of(expectedExplainPv))))
         .containsEntry(
-            Measures.CASH_FLOWS, Result.success(ScenarioArray.of(ImmutableList.of(expectedCashFlows))));
+            Measures.CASH_FLOWS, Result.success(ScenarioResult.of(ImmutableList.of(expectedCashFlows))));
   }
 
   public void test_pv01() {
     FraCalculationFunction function = new FraCalculationFunction();
-    ScenarioMarketData md = marketData();
-    RatesProvider provider = RATES_MODEL.marketDataView(md.scenario(0)).ratesProvider();
+    CalculationMarketData md = marketData();
+    MarketDataRatesProvider provider = MarketDataRatesProvider.of(md.scenario(0));
     DiscountingFraProductPricer pricer = DiscountingFraProductPricer.DEFAULT;
-    ResolvedFra resolved = TRADE.getProduct().resolve(REF_DATA);
-    PointSensitivities pvPointSens = pricer.presentValueSensitivity(resolved, provider);
-    CurrencyParameterSensitivities pvParamSens = provider.parameterSensitivity(pvPointSens);
+    PointSensitivities pvPointSens = pricer.presentValueSensitivity(TRADE.getProduct(), provider);
+    CurveCurrencyParameterSensitivities pvParamSens = provider.curveParameterSensitivity(pvPointSens);
     MultiCurrencyAmount expectedPv01 = pvParamSens.total().multipliedBy(1e-4);
-    CurrencyParameterSensitivities expectedBucketedPv01 = pvParamSens.multipliedBy(1e-4);
+    CurveCurrencyParameterSensitivities expectedBucketedPv01 = pvParamSens.multipliedBy(1e-4);
 
     Set<Measure> measures = ImmutableSet.of(Measures.PV01, Measures.BUCKETED_PV01);
-    assertThat(function.calculate(TRADE, measures, PARAMS, md, REF_DATA))
+    assertThat(function.calculate(TRADE, measures, md))
         .containsEntry(
             Measures.PV01, Result.success(MultiCurrencyValuesArray.of(ImmutableList.of(expectedPv01))))
         .containsEntry(
-            Measures.BUCKETED_PV01, Result.success(ScenarioArray.of(ImmutableList.of(expectedBucketedPv01))));
+            Measures.BUCKETED_PV01, Result.success(ScenarioResult.of(ImmutableList.of(expectedBucketedPv01))));
   }
 
   //-------------------------------------------------------------------------
-  private ScenarioMarketData marketData() {
-    Curve curve = ConstantCurve.of(Curves.discountFactors("Test", ACT_360), 0.99);
-    return new TestMarketDataMap(
+  private CalculationMarketData marketData() {
+    Curve curve = ConstantNodalCurve.of(Curves.discountFactors("Test", ACT_360), 0.99);
+    TestMarketDataMap md = new TestMarketDataMap(
         VAL_DATE,
-        ImmutableMap.of(DISCOUNT_CURVE_ID, curve, FORWARD_CURVE_ID, curve),
+        ImmutableMap.of(DiscountCurveKey.of(CURRENCY), curve, IborIndexCurveKey.of(INDEX), curve),
         ImmutableMap.of());
+    return md;
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
+    coverPrivateConstructor(FraFunctionGroups.class);
     coverPrivateConstructor(FraMeasureCalculations.class);
   }
 

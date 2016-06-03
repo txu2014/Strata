@@ -21,32 +21,31 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.index.Index;
+import com.opengamma.strata.basics.market.ImmutableMarketData;
+import com.opengamma.strata.basics.market.ImmutableMarketDataBuilder;
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
-import com.opengamma.strata.data.ImmutableMarketData;
-import com.opengamma.strata.data.ImmutableMarketDataBuilder;
-import com.opengamma.strata.data.MarketData;
 import com.opengamma.strata.market.ValueType;
 import com.opengamma.strata.market.curve.CurveGroupDefinition;
 import com.opengamma.strata.market.curve.CurveGroupName;
 import com.opengamma.strata.market.curve.CurveName;
 import com.opengamma.strata.market.curve.CurveNode;
 import com.opengamma.strata.market.curve.InterpolatedNodalCurveDefinition;
+import com.opengamma.strata.market.curve.node.FixedIborSwapCurveNode;
+import com.opengamma.strata.market.curve.node.FixedOvernightSwapCurveNode;
+import com.opengamma.strata.market.curve.node.FraCurveNode;
+import com.opengamma.strata.market.curve.node.IborFixingDepositCurveNode;
 import com.opengamma.strata.market.interpolator.CurveExtrapolator;
 import com.opengamma.strata.market.interpolator.CurveExtrapolators;
 import com.opengamma.strata.market.interpolator.CurveInterpolator;
 import com.opengamma.strata.market.interpolator.CurveInterpolators;
-import com.opengamma.strata.market.observable.QuoteId;
-import com.opengamma.strata.market.product.deposit.IborFixingDepositCurveNode;
-import com.opengamma.strata.market.product.fra.FraCurveNode;
-import com.opengamma.strata.market.product.swap.FixedIborSwapCurveNode;
-import com.opengamma.strata.market.product.swap.FixedOvernightSwapCurveNode;
-import com.opengamma.strata.pricer.rate.RatesProvider;
+import com.opengamma.strata.market.key.QuoteKey;
+import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
 import com.opengamma.strata.product.deposit.type.IborFixingDepositTemplate;
 import com.opengamma.strata.product.fra.type.FraTemplate;
 import com.opengamma.strata.product.swap.type.FixedIborSwapTemplate;
@@ -57,9 +56,6 @@ public class CalibrationEurStandard {
   private static final LocalDate VAL_DATE = LocalDate.of(2015, 6, 30);
   private static final DayCount CURVE_DC = ACT_365F;
   private static final LocalDateDoubleTimeSeries TS_EMTPY = LocalDateDoubleTimeSeries.empty();
-
-  // reference data
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
 
   private static final String SCHEME = "CALIBRATION";
 
@@ -96,7 +92,7 @@ public class CalibrationEurStandard {
 
   private static final CurveCalibrator CALIBRATOR = CurveCalibrator.of(1e-9, 1e-9, 100);
 
-  public static RatesProvider calibrateEurStandard(
+  public static ImmutableRatesProvider calibrateEurStandard(
       LocalDate valuationDate,
       double[] dscOisQuotes,
       Period[] dscOisTenors,
@@ -125,7 +121,7 @@ public class CalibrationEurStandard {
     CurveGroupDefinition config = config(dscOisTenors, dscIdValues, fwd3FraTenors, fwd3IrsTenors, fwd3IdValues,
         fwd6FraTenors, fwd6IrsTenors, fwd6IdValues);
     /* Results */
-    return CALIBRATOR.calibrate(config, valuationDate, allQuotes, REF_DATA, TS);
+    return CALIBRATOR.calibrate(config, valuationDate, allQuotes, TS);
   }
 
   public static String[] dscIdValues(Period[] dscOisTenors) {
@@ -181,31 +177,31 @@ public class CalibrationEurStandard {
     for (int i = 0; i < dscOisTenors.length; i++) {
       dscNodes[i] = FixedOvernightSwapCurveNode.of(
           FixedOvernightSwapTemplate.of(Period.ZERO, Tenor.of(dscOisTenors[i]), EUR_FIXED_1Y_EONIA_OIS),
-          QuoteId.of(StandardId.of(SCHEME, dscIdValues[i])));
+          QuoteKey.of(StandardId.of(SCHEME, dscIdValues[i])));
     }
     CurveNode[] fwd3Nodes = new CurveNode[fwd3IdValues.length];
     fwd3Nodes[0] = IborFixingDepositCurveNode.of(IborFixingDepositTemplate.of(EUR_EURIBOR_3M),
-        QuoteId.of(StandardId.of(SCHEME, fwd3IdValues[0])));
+        QuoteKey.of(StandardId.of(SCHEME, fwd3IdValues[0])));
     for (int i = 0; i < fwd3FraTenors.length; i++) {
       fwd3Nodes[i + 1] = FraCurveNode.of(FraTemplate.of(fwd3FraTenors[i], EUR_EURIBOR_3M),
-          QuoteId.of(StandardId.of(SCHEME, fwd3IdValues[i + 1])));
+          QuoteKey.of(StandardId.of(SCHEME, fwd3IdValues[i + 1])));
     }
     for (int i = 0; i < fwd3IrsTenors.length; i++) {
       fwd3Nodes[i + 1 + fwd3FraTenors.length] = FixedIborSwapCurveNode.of(
           FixedIborSwapTemplate.of(Period.ZERO, Tenor.of(fwd3IrsTenors[i]), EUR_FIXED_1Y_EURIBOR_3M),
-          QuoteId.of(StandardId.of(SCHEME, fwd3IdValues[i + 1 + fwd3FraTenors.length])));
+          QuoteKey.of(StandardId.of(SCHEME, fwd3IdValues[i + 1 + fwd3FraTenors.length])));
     }
     CurveNode[] fwd6Nodes = new CurveNode[fwd6IdValues.length];
     fwd6Nodes[0] = IborFixingDepositCurveNode.of(IborFixingDepositTemplate.of(EUR_EURIBOR_6M),
-        QuoteId.of(StandardId.of(SCHEME, fwd6IdValues[0])));
+        QuoteKey.of(StandardId.of(SCHEME, fwd6IdValues[0])));
     for (int i = 0; i < fwd6FraTenors.length; i++) {
       fwd6Nodes[i + 1] = FraCurveNode.of(FraTemplate.of(fwd6FraTenors[i], EUR_EURIBOR_6M),
-          QuoteId.of(StandardId.of(SCHEME, fwd6IdValues[i + 1])));
+          QuoteKey.of(StandardId.of(SCHEME, fwd6IdValues[i + 1])));
     }
     for (int i = 0; i < fwd6IrsTenors.length; i++) {
       fwd6Nodes[i + 1 + fwd6FraTenors.length] = FixedIborSwapCurveNode.of(
           FixedIborSwapTemplate.of(Period.ZERO, Tenor.of(fwd6IrsTenors[i]), EUR_FIXED_1Y_EURIBOR_6M),
-          QuoteId.of(StandardId.of(SCHEME, fwd6IdValues[i + 1 + fwd6FraTenors.length])));
+          QuoteKey.of(StandardId.of(SCHEME, fwd6IdValues[i + 1 + fwd6FraTenors.length])));
     }
     InterpolatedNodalCurveDefinition DSC_CURVE_DEFN =
         InterpolatedNodalCurveDefinition.builder()
@@ -254,13 +250,13 @@ public class CalibrationEurStandard {
     /* All quotes for the curve calibration */
     ImmutableMarketDataBuilder builder = ImmutableMarketData.builder(VAL_DATE);
     for (int i = 0; i < dscOisQuotes.length; i++) {
-      builder.addValue(QuoteId.of(StandardId.of(SCHEME, dscIdValues[i])), dscOisQuotes[i]);
+      builder.addValue(QuoteKey.of(StandardId.of(SCHEME, dscIdValues[i])), dscOisQuotes[i]);
     }
     for (int i = 0; i < fwd3MarketQuotes.length; i++) {
-      builder.addValue(QuoteId.of(StandardId.of(SCHEME, fwd3IdValue[i])), fwd3MarketQuotes[i]);
+      builder.addValue(QuoteKey.of(StandardId.of(SCHEME, fwd3IdValue[i])), fwd3MarketQuotes[i]);
     }
     for (int i = 0; i < fwd6MarketQuotes.length; i++) {
-      builder.addValue(QuoteId.of(StandardId.of(SCHEME, fwd6IdValue[i])), fwd6MarketQuotes[i]);
+      builder.addValue(QuoteKey.of(StandardId.of(SCHEME, fwd6IdValue[i])), fwd6MarketQuotes[i]);
     }
     return builder.build();
   }

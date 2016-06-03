@@ -7,16 +7,18 @@ package com.opengamma.strata.pricer.deposit;
 
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
-import com.opengamma.strata.market.product.DiscountFactors;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.view.DiscountFactors;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.product.deposit.ResolvedTermDeposit;
+import com.opengamma.strata.product.deposit.ExpandedTermDeposit;
+import com.opengamma.strata.product.deposit.TermDeposit;
+import com.opengamma.strata.product.deposit.TermDepositProduct;
 
 /**
  * The methods associated to the pricing of term deposit by discounting.
  * <p>
- * This function provides the ability to price {@link ResolvedTermDeposit}.
+ * This function provides the ability to price a {@link TermDeposit}.
  */
 public class DiscountingTermDepositProductPricer {
 
@@ -38,11 +40,12 @@ public class DiscountingTermDepositProductPricer {
    * <p>
    * The present value of the product is the value on the valuation date.
    * 
-   * @param deposit  the product
+   * @param product  the product to price
    * @param provider  the rates provider
    * @return the present value of the product
    */
-  public CurrencyAmount presentValue(ResolvedTermDeposit deposit, RatesProvider provider) {
+  public CurrencyAmount presentValue(TermDepositProduct product, RatesProvider provider) {
+    ExpandedTermDeposit deposit = product.expand();
     Currency currency = deposit.getCurrency();
     if (provider.getValuationDate().isAfter(deposit.getEndDate())) {
       return CurrencyAmount.of(currency, 0.0d);
@@ -58,7 +61,7 @@ public class DiscountingTermDepositProductPricer {
 
   // the initial amount is the same as the principal, but zero if the start date has passed
   // the caller must negate the result of this method if required
-  private double initialAmount(ResolvedTermDeposit deposit, RatesProvider provider) {
+  private double initialAmount(ExpandedTermDeposit deposit, RatesProvider provider) {
     return provider.getValuationDate().isAfter(deposit.getStartDate()) ? 0d : deposit.getNotional();
   }
 
@@ -66,11 +69,12 @@ public class DiscountingTermDepositProductPricer {
    * Calculates the present value sensitivity by discounting the final cash flow (nominal + interest)
    * and the initial payment (initial amount).
    * 
-   * @param deposit  the product
+   * @param product  the product to price
    * @param provider  the rates provider
    * @return the point sensitivity of the present value
    */
-  public PointSensitivities presentValueSensitivity(ResolvedTermDeposit deposit, RatesProvider provider) {
+  public PointSensitivities presentValueSensitivity(TermDepositProduct product, RatesProvider provider) {
+    ExpandedTermDeposit deposit = product.expand();
     Currency currency = deposit.getCurrency();
     // backward sweep
     double dfEndBar = deposit.getNotional() + deposit.getInterest();
@@ -91,11 +95,12 @@ public class DiscountingTermDepositProductPricer {
    * When the deposit has already started the number may not be meaningful as the remaining period
    * is not in line with the accrual factor.
    * 
-   * @param deposit  the product
+   * @param product  the product to price
    * @param provider  the rates provider
    * @return the par rate
    */
-  public double parRate(ResolvedTermDeposit deposit, RatesProvider provider) {
+  public double parRate(TermDepositProduct product, RatesProvider provider) {
+    ExpandedTermDeposit deposit = product.expand();
     Currency currency = deposit.getCurrency();
     DiscountFactors discountFactors = provider.discountFactors(currency);
     double dfStart = discountFactors.discountFactor(deposit.getStartDate());
@@ -111,12 +116,12 @@ public class DiscountingTermDepositProductPricer {
    * Thus the number resulting may not be meaningful when deposit has already started and only the final
    * payment remains (no initial payment).
    * 
-   * @param deposit  the product
+   * @param product  the product to price
    * @param provider  the rates provider
    * @return the par rate curve sensitivity
    */
-  public PointSensitivities parRateSensitivity(ResolvedTermDeposit deposit, RatesProvider provider) {
-    return parSpreadSensitivity(deposit, provider);
+  public PointSensitivities parRateSensitivity(TermDepositProduct product, RatesProvider provider) {
+    return parSpreadSensitivity(product, provider);
   }
 
   //-------------------------------------------------------------------------
@@ -127,12 +132,13 @@ public class DiscountingTermDepositProductPricer {
    * Thus the resulting number may not be meaningful when deposit has already started and only the final
    * payment remains (no initial payment).
    * 
-   * @param deposit  the product
+   * @param product  the product to price
    * @param provider  the rates provider
    * @return the par spread
    */
-  public double parSpread(ResolvedTermDeposit deposit, RatesProvider provider) {
-    double parRate = parRate(deposit, provider);
+  public double parSpread(TermDepositProduct product, RatesProvider provider) {
+    ExpandedTermDeposit deposit = product.expand();
+    double parRate = parRate(product, provider);
     return parRate - deposit.getRate();
   }
 
@@ -143,11 +149,12 @@ public class DiscountingTermDepositProductPricer {
    * Thus the number resulting may not be meaningful when deposit has already started and only the final
    * payment remains (no initial payment).
    * 
-   * @param deposit  the product
+   * @param product  the product to price
    * @param provider  the rates provider
    * @return the par spread curve sensitivity
    */
-  public PointSensitivities parSpreadSensitivity(ResolvedTermDeposit deposit, RatesProvider provider) {
+  public PointSensitivities parSpreadSensitivity(TermDepositProduct product, RatesProvider provider) {
+    ExpandedTermDeposit deposit = product.expand();
     Currency currency = deposit.getCurrency();
     double accrualFactorInv = 1d / deposit.getYearFraction();
     double dfStart = provider.discountFactor(currency, deposit.getStartDate());

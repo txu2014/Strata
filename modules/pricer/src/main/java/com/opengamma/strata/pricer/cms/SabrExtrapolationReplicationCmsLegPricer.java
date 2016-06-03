@@ -10,27 +10,24 @@ import java.util.stream.Collectors;
 
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.market.explain.ExplainKey;
-import com.opengamma.strata.market.explain.ExplainMap;
-import com.opengamma.strata.market.explain.ExplainMapBuilder;
-import com.opengamma.strata.market.product.swaption.SwaptionSabrSensitivities;
-import com.opengamma.strata.market.product.swaption.SwaptionSabrSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivities;
+import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivity;
 import com.opengamma.strata.pricer.impl.cms.SabrExtrapolationReplicationCmsPeriodPricer;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swaption.SabrParametersSwaptionVolatilities;
 import com.opengamma.strata.product.cms.CmsLeg;
 import com.opengamma.strata.product.cms.CmsPeriod;
-import com.opengamma.strata.product.cms.ResolvedCmsLeg;
+import com.opengamma.strata.product.cms.ExpandedCmsLeg;
 
 /**
  * Pricer for for CMS legs by swaption replication on a SABR formula with extrapolation.
  * <p>
- * This function provides the ability to price {@link ResolvedCmsLeg}. 
+ * This function provides the ability to price {@link ExpandedCmsLeg}. 
  * One must apply {@code expand()} in order to price {@link CmsLeg}. 
  */
 public class SabrExtrapolationReplicationCmsLegPricer {
-
+  
   /**
    * The pricer for {@link CmsPeriod}.
    */
@@ -58,7 +55,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
    * @return the present value
    */
   public CurrencyAmount presentValue(
-      ResolvedCmsLeg cmsLeg,
+      ExpandedCmsLeg cmsLeg,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
@@ -82,7 +79,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
    * @return the present value sensitivity
    */
   public PointSensitivityBuilder presentValueSensitivity(
-      ResolvedCmsLeg cmsLeg,
+      ExpandedCmsLeg cmsLeg,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
@@ -106,7 +103,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
    * @return the present value sensitivity
    */
   public SwaptionSabrSensitivities presentValueSensitivitySabrParameter(
-      ResolvedCmsLeg cmsLeg,
+      ExpandedCmsLeg cmsLeg,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
@@ -131,7 +128,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
    * @return the present value sensitivity
    */
   public double presentValueSensitivityStrike(
-      ResolvedCmsLeg cmsLeg,
+      ExpandedCmsLeg cmsLeg,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
@@ -152,7 +149,7 @@ public class SabrExtrapolationReplicationCmsLegPricer {
    * @return the current cash
    */
   public CurrencyAmount currentCash(
-      ResolvedCmsLeg cmsLeg,
+      ExpandedCmsLeg cmsLeg,
       RatesProvider ratesProvider,
       SabrParametersSwaptionVolatilities swaptionVolatilities) {
 
@@ -163,36 +160,6 @@ public class SabrExtrapolationReplicationCmsLegPricer {
         .map(x -> cmsPeriodPricer.presentValue(x, ratesProvider, swaptionVolatilities))
         .reduce((c1, c2) -> c1.plus(c2))
         .orElse(CurrencyAmount.zero(cmsLeg.getCurrency()));
-  }
-
-  /**
-   * Explains the present value of a cms leg.
-   * <p>
-   * This returns explanatory information about the calculation.
-   * 
-   * @param cmsLeg  the cms leg
-   * @param provider  the rates provider
-   * @param volatilities  the swaption volatilities
-   * @return the explanatory information
-   */
-  public ExplainMap explainPresentValue(
-      ResolvedCmsLeg cmsLeg,
-      RatesProvider provider,
-      SabrParametersSwaptionVolatilities volatilities) {
-
-    ExplainMapBuilder builder = ExplainMap.builder();
-    builder.put(ExplainKey.ENTRY_TYPE, "CmsLeg");
-    builder.put(ExplainKey.PAY_RECEIVE, cmsLeg.getPayReceive());
-    builder.put(ExplainKey.PAYMENT_CURRENCY, cmsLeg.getCurrency());
-    builder.put(ExplainKey.START_DATE, cmsLeg.getStartDate());
-    builder.put(ExplainKey.END_DATE, cmsLeg.getEndDate());
-    builder.put(ExplainKey.INDEX, cmsLeg.getIndex());
-    for (CmsPeriod period : cmsLeg.getCmsPeriods()) {
-      builder.addListEntry(
-          ExplainKey.PAYMENT_PERIODS, child -> cmsPeriodPricer.explainPresentValue(period, provider, child));
-    }
-    builder.put(ExplainKey.PRESENT_VALUE, presentValue(cmsLeg, provider, volatilities));
-    return builder.build();
   }
 
   //-------------------------------------------------------------------------

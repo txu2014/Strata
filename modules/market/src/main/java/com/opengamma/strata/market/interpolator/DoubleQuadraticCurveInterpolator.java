@@ -144,7 +144,7 @@ final class DoubleQuadraticCurveInterpolator
 
     //-------------------------------------------------------------------------
     @Override
-    protected double doInterpolate(double xValue) {
+    double doInterpolate(double xValue) {
       // x-value is less than the x-value of the last node (lowerIndex < intervalCount)
       int lowerIndex = lowerBoundIndex(xValue, xValues);
       int higherIndex = lowerIndex + 1;
@@ -169,7 +169,7 @@ final class DoubleQuadraticCurveInterpolator
     }
 
     @Override
-    protected double doFirstDerivative(double xValue) {
+    double doFirstDerivative(double xValue) {
       int lowerIndex = lowerBoundIndex(xValue, xValues);
       int higherIndex = lowerIndex + 1;
       // at start of curve, or only one interval
@@ -196,7 +196,7 @@ final class DoubleQuadraticCurveInterpolator
     }
 
     @Override
-    protected DoubleArray doParameterSensitivity(double xValue) {
+    DoubleArray doParameterSensitivity(double xValue) {
       int lowerIndex = lowerBoundIndex(xValue, xValues);
       int higherIndex = lowerIndex + 1;
       int n = xValues.length;

@@ -11,12 +11,13 @@ import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.currency.Payment;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.market.product.swaption.SwaptionSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.sensitivity.SwaptionSensitivity;
 import com.opengamma.strata.pricer.DiscountingPaymentPricer;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.product.swaption.ResolvedSwaption;
-import com.opengamma.strata.product.swaption.ResolvedSwaptionTrade;
+import com.opengamma.strata.product.swaption.Swaption;
+import com.opengamma.strata.product.swaption.SwaptionProduct;
+import com.opengamma.strata.product.swaption.SwaptionTrade;
 
 /**
  * Pricer for swaption trade with physical settlement in log-normal or Black model on the swap rate.
@@ -39,7 +40,7 @@ public class BlackSwaptionPhysicalTradePricer {
       DiscountingPaymentPricer.DEFAULT);
 
   /**
-   * Pricer for {@link ResolvedSwaption}.
+   * Pricer for {@link SwaptionProduct}.
    */
   private final BlackSwaptionPhysicalProductPricer productPricer;
   /**
@@ -50,7 +51,7 @@ public class BlackSwaptionPhysicalTradePricer {
   /**
    * Creates an instance.
    * 
-   * @param productPricer  the pricer for {@link ResolvedSwaption}
+   * @param productPricer  the pricer for {@link SwaptionProduct}
    * @param paymentPricer  the pricer for {@link Payment}
    */
   public BlackSwaptionPhysicalTradePricer(
@@ -67,17 +68,17 @@ public class BlackSwaptionPhysicalTradePricer {
    * <p>
    * The result is expressed using the currency of the swaption.
    * 
-   * @param trade  the swaption trade
+   * @param trade  the swaption trade to price
    * @param ratesProvider  the rates provider
    * @param swaptionVolatilities  the volatilities
    * @return the present value of the swap product
    */
   public CurrencyAmount presentValue(
-      ResolvedSwaptionTrade trade,
+      SwaptionTrade trade,
       RatesProvider ratesProvider,
       BlackSwaptionVolatilities swaptionVolatilities) {
 
-    ResolvedSwaption product = trade.getProduct();
+    Swaption product = trade.getProduct();
     CurrencyAmount pvProduct = productPricer.presentValue(product, ratesProvider, swaptionVolatilities);
     Payment premium = trade.getPremium();
     CurrencyAmount pvPremium = paymentPricer.presentValue(premium, ratesProvider);
@@ -88,13 +89,13 @@ public class BlackSwaptionPhysicalTradePricer {
   /**
    * Computes the currency exposure of the swaption trade
    * 
-   * @param trade  the swaption trade
+   * @param trade  the swaption trade to price
    * @param ratesProvider  the rates provider
    * @param swaptionVolatilities  the volatilities
    * @return the present value of the swaption product
    */
   public MultiCurrencyAmount currencyExposure(
-      ResolvedSwaptionTrade trade,
+      SwaptionTrade trade,
       RatesProvider ratesProvider,
       BlackSwaptionVolatilities swaptionVolatilities) {
 
@@ -106,11 +107,11 @@ public class BlackSwaptionPhysicalTradePricer {
    * <p>
    * Only the premium is contributing to the current cash for non-cash settle swaptions.
    * 
-   * @param trade  the swaption trade
+   * @param trade  the swaption trade to price
    * @param valuationDate  the valuation date
    * @return the current cash amount
    */
-  public CurrencyAmount currentCash(ResolvedSwaptionTrade trade, LocalDate valuationDate) {
+  public CurrencyAmount currentCash(SwaptionTrade trade, LocalDate valuationDate) {
     Payment premium = trade.getPremium();
     if (premium.getDate().equals(valuationDate)) {
       return CurrencyAmount.of(premium.getCurrency(), premium.getAmount());
@@ -125,17 +126,17 @@ public class BlackSwaptionPhysicalTradePricer {
    * The present value sensitivity of the product is the sensitivity of the present value to
    * the underlying curves.
    * 
-   * @param trade  the swaption trade
+   * @param trade  the swaption trade to price
    * @param ratesProvider  the rates provider
    * @param swaptionVolatilities  the volatilities
    * @return the present value curve sensitivity of the swap trade
    */
   public PointSensitivityBuilder presentValueSensitivityStickyStrike(
-      ResolvedSwaptionTrade trade,
+      SwaptionTrade trade,
       RatesProvider ratesProvider,
       BlackSwaptionVolatilities swaptionVolatilities) {
 
-    ResolvedSwaption product = trade.getProduct();
+    Swaption product = trade.getProduct();
     PointSensitivityBuilder pvcsProduct =
         productPricer.presentValueSensitivityStickyStrike(product, ratesProvider, swaptionVolatilities);
     Payment premium = trade.getPremium();
@@ -149,17 +150,17 @@ public class BlackSwaptionPhysicalTradePricer {
    * <p>
    * The sensitivity to the Black volatility is also called Black vega.
    * 
-   * @param trade  the swaption trade
+   * @param trade  the swaption trade to price
    * @param ratesProvider  the rates provider
    * @param swaptionVolatilities  the volatilities
    * @return the point sensitivity to the Black volatility
    */
   public SwaptionSensitivity presentValueSensitivityVolatility(
-      ResolvedSwaptionTrade trade,
+      SwaptionTrade trade,
       RatesProvider ratesProvider,
       BlackSwaptionVolatilities swaptionVolatilities) {
 
-    ResolvedSwaption product = trade.getProduct();
+    Swaption product = trade.getProduct();
     return productPricer.presentValueSensitivityVolatility(product, ratesProvider, swaptionVolatilities);
   }
 

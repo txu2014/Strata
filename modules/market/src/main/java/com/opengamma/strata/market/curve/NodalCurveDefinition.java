@@ -7,9 +7,10 @@ package com.opengamma.strata.market.curve;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.ReferenceData;
+import com.google.common.collect.ImmutableMap;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.market.ValueType;
 
@@ -69,14 +70,13 @@ public interface NodalCurveDefinition {
    * The parameters might represent 1 day, 1 week, 1 month, 3 months, 6 months and 12 months.
    * The metadata could be used to describe each parameter in terms of a {@link Period}.
    * <p>
-   * The optional parameter-level metadata will be populated on the resulting metadata.
-   * The size of the parameter-level metadata will match the number of parameters of this curve.
+   * The metadata includes an optional list of parameter metadata, however this must be present.
+   * If present, the size of the parameter metadata list will match the number of parameters of this curve.
    *
-   * @param valuationDate  the valuation date
-   * @param refData  the reference data
+   * @param valuationDate  the valuation date used when calibrating the curve
    * @return the metadata
    */
-  public abstract CurveMetadata metadata(LocalDate valuationDate, ReferenceData refData);
+  public abstract CurveMetadata metadata(LocalDate valuationDate);
 
   /**
    * Creates the curve from an array of parameter values.
@@ -85,11 +85,29 @@ public interface NodalCurveDefinition {
    * The size of the array must match the {@linkplain #getParameterCount() count of parameters}.
    * 
    * @param valuationDate  the valuation date
-   * @param metadata  the curve metadata
    * @param parameters  the array of parameters
    * @return the curve
    */
-  public abstract NodalCurve curve(LocalDate valuationDate, CurveMetadata metadata, DoubleArray parameters);
+  public default NodalCurve curve(LocalDate valuationDate, DoubleArray parameters) {
+    return curve(valuationDate, parameters, ImmutableMap.of());
+  }
+
+  /**
+   * Creates the curve from an array of parameter values.
+   * <p>
+   * The meaning of the parameters is determined by the implementation.
+   * The size of the array must match the {@linkplain #getParameterCount() count of parameters}.
+   * Any additional information may be added to the curve metadata.
+   * 
+   * @param valuationDate  the valuation date
+   * @param parameters  the array of parameters
+   * @param additionalInfo  the additional curve information, such as information about calibration
+   * @return the curve
+   */
+  public abstract NodalCurve curve(
+      LocalDate valuationDate,
+      DoubleArray parameters,
+      Map<CurveInfoType<?>, Object> additionalInfo);
 
   /**
    * Converts this definition to the summary form.

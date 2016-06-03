@@ -23,11 +23,8 @@ class RootEvaluator extends TokenEvaluator<ResultsRow> {
 
   private static final ImmutableSet<String> TOKENS = ImmutableSet.of(
       ValueRootType.MEASURES.token(),
-      ValueRootType.PRODUCT.token(),
-      ValueRootType.SECURITY.token(),
       ValueRootType.TRADE.token(),
-      ValueRootType.POSITION.token(),
-      ValueRootType.TARGET.token());
+      ValueRootType.PRODUCT.token());
 
   @Override
   public Class<?> getTargetType() {
@@ -48,14 +45,8 @@ class RootEvaluator extends TokenEvaluator<ResultsRow> {
         return evaluateMeasures(resultsRow, remainingTokens);
       case PRODUCT:
         return EvaluationResult.of(resultsRow.getProduct(), remainingTokens);
-      case SECURITY:
-        return EvaluationResult.of(resultsRow.getSecurity(), remainingTokens);
       case TRADE:
-        return EvaluationResult.of(resultsRow.getTrade(), remainingTokens);
-      case POSITION:
-        return EvaluationResult.of(resultsRow.getPosition(), remainingTokens);
-      case TARGET:
-        return EvaluationResult.success(resultsRow.getTarget(), remainingTokens);
+        return EvaluationResult.success(resultsRow.getTrade(), remainingTokens);
       default:
         throw new IllegalArgumentException("Unknown root token '" + rootType.token() + "'");
     }
@@ -65,7 +56,7 @@ class RootEvaluator extends TokenEvaluator<ResultsRow> {
   private EvaluationResult evaluateMeasures(ResultsRow resultsRow, List<String> remainingTokens) {
     // if no measures, return list of valid measures
     if (remainingTokens.isEmpty() || Strings.nullToEmpty(remainingTokens.get(0)).trim().isEmpty()) {
-      List<String> measureNames = ResultsRow.measureNames(resultsRow.getTarget());
+      List<String> measureNames = ResultsRow.measureNames(resultsRow.getTrade());
       return EvaluationResult.failure("No measure specified. Use one of: {}", measureNames);
     }
     // evaluate the measure name

@@ -7,7 +7,6 @@ package com.opengamma.strata.examples.marketdata;
 
 import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.io.File;
@@ -27,30 +26,33 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.opengamma.strata.basics.StandardId;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.index.IborIndices;
 import com.opengamma.strata.basics.index.OvernightIndices;
+import com.opengamma.strata.basics.market.FxRateId;
+import com.opengamma.strata.basics.market.MarketDataBox;
+import com.opengamma.strata.basics.market.MarketDataId;
+import com.opengamma.strata.basics.market.ObservableId;
+import com.opengamma.strata.calc.config.MarketDataRule;
+import com.opengamma.strata.calc.config.MarketDataRules;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
 import com.opengamma.strata.collect.Messages;
-import com.opengamma.strata.data.FieldName;
-import com.opengamma.strata.data.FxRateId;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.ObservableId;
-import com.opengamma.strata.data.scenario.ImmutableScenarioMarketData;
-import com.opengamma.strata.data.scenario.MarketDataBox;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.examples.marketdata.credit.markit.MarkitRedCode;
+import com.opengamma.strata.function.marketdata.mapping.MarketDataMappingsBuilder;
 import com.opengamma.strata.market.curve.CurveGroup;
-import com.opengamma.strata.market.curve.CurveGroupId;
 import com.opengamma.strata.market.curve.CurveGroupName;
-import com.opengamma.strata.market.curve.CurveId;
-import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.market.observable.IndexQuoteId;
-import com.opengamma.strata.market.observable.QuoteId;
-import com.opengamma.strata.market.product.credit.IsdaIndexCreditCurveInputsId;
-import com.opengamma.strata.market.product.credit.IsdaIndexRecoveryRateId;
-import com.opengamma.strata.market.product.credit.IsdaSingleNameCreditCurveInputsId;
-import com.opengamma.strata.market.product.credit.IsdaSingleNameRecoveryRateId;
-import com.opengamma.strata.market.product.credit.IsdaYieldCurveInputsId;
+import com.opengamma.strata.market.id.CurveGroupId;
+import com.opengamma.strata.market.id.DiscountCurveId;
+import com.opengamma.strata.market.id.IborIndexCurveId;
+import com.opengamma.strata.market.id.IndexRateId;
+import com.opengamma.strata.market.id.IsdaIndexCreditCurveInputsId;
+import com.opengamma.strata.market.id.IsdaIndexRecoveryRateId;
+import com.opengamma.strata.market.id.IsdaSingleNameCreditCurveInputsId;
+import com.opengamma.strata.market.id.IsdaSingleNameRecoveryRateId;
+import com.opengamma.strata.market.id.IsdaYieldCurveInputsId;
+import com.opengamma.strata.market.id.OvernightIndexCurveId;
+import com.opengamma.strata.market.id.QuoteId;
 import com.opengamma.strata.product.credit.IndexReferenceInformation;
 import com.opengamma.strata.product.credit.RestructuringClause;
 import com.opengamma.strata.product.credit.SeniorityLevel;
@@ -73,33 +75,27 @@ public class ExampleMarketDataBuilderTest {
   private static final LocalDate MARKET_DATA_DATE = LocalDate.of(2014, 1, 22);
 
   private static final Set<ObservableId> TIME_SERIES = ImmutableSet.of(
-      IndexQuoteId.of(IborIndices.USD_LIBOR_3M),
-      IndexQuoteId.of(IborIndices.USD_LIBOR_6M),
-      IndexQuoteId.of(OvernightIndices.USD_FED_FUND),
-      IndexQuoteId.of(IborIndices.GBP_LIBOR_3M));
+      IndexRateId.of(IborIndices.USD_LIBOR_3M),
+      IndexRateId.of(IborIndices.USD_LIBOR_6M),
+      IndexRateId.of(OvernightIndices.USD_FED_FUND),
+      IndexRateId.of(IborIndices.GBP_LIBOR_3M));
 
   private static final Set<MarketDataId<?>> VALUES = ImmutableSet.of(
       CurveGroupId.of(DEFAULT_CURVE_GROUP),
-      CurveId.of(DEFAULT_CURVE_GROUP, CurveName.of("USD-Disc")),
-      CurveId.of(DEFAULT_CURVE_GROUP, CurveName.of("GBP-Disc")),
-      CurveId.of(DEFAULT_CURVE_GROUP, CurveName.of("USD-3ML")),
-      CurveId.of(DEFAULT_CURVE_GROUP, CurveName.of("USD-6ML")),
-      CurveId.of(DEFAULT_CURVE_GROUP, CurveName.of("GBP-3ML")),
+      DiscountCurveId.of(Currency.USD, DEFAULT_CURVE_GROUP),
+      DiscountCurveId.of(Currency.GBP, DEFAULT_CURVE_GROUP),
+      IborIndexCurveId.of(IborIndices.USD_LIBOR_3M, DEFAULT_CURVE_GROUP),
+      IborIndexCurveId.of(IborIndices.USD_LIBOR_6M, DEFAULT_CURVE_GROUP),
+      IborIndexCurveId.of(IborIndices.GBP_LIBOR_3M, DEFAULT_CURVE_GROUP),
+      OvernightIndexCurveId.of(OvernightIndices.USD_FED_FUND, DEFAULT_CURVE_GROUP),
       FxRateId.of(Currency.USD, Currency.GBP),
       QuoteId.of(StandardId.of("OG-Future", "Eurex-FGBL-Mar14")),
-      QuoteId.of(StandardId.of("OG-Future", "Eurex-FGBL-Mar14"), FieldName.SETTLEMENT_PRICE),
       QuoteId.of(StandardId.of("OG-FutOpt", "Eurex-OGBL-Mar14-C150")),
-      QuoteId.of(StandardId.of("OG-FutOpt", "Eurex-OGBL-Mar14-C150"), FieldName.SETTLEMENT_PRICE),
       QuoteId.of(StandardId.of("OG-Future", "CME-ED-Mar14")),
-      QuoteId.of(StandardId.of("OG-Future", "CME-ED-Mar14"), FieldName.SETTLEMENT_PRICE),
       QuoteId.of(StandardId.of("OG-Future", "Ibor-USD-LIBOR-3M-Mar15")),
-      QuoteId.of(StandardId.of("OG-Future", "Ibor-USD-LIBOR-3M-Mar15"), FieldName.SETTLEMENT_PRICE),
       QuoteId.of(StandardId.of("OG-Future", "Ibor-USD-LIBOR-3M-Jun15")),
-      QuoteId.of(StandardId.of("OG-Future", "Ibor-USD-LIBOR-3M-Jun15"), FieldName.SETTLEMENT_PRICE),
       QuoteId.of(StandardId.of("OG-Future", "CME-F1U-Mar15")),
-      QuoteId.of(StandardId.of("OG-Future", "CME-F1U-Mar15"), FieldName.SETTLEMENT_PRICE),
       QuoteId.of(StandardId.of("OG-Future", "CME-F1U-Jun15")),
-      QuoteId.of(StandardId.of("OG-Future", "CME-F1U-Jun15"), FieldName.SETTLEMENT_PRICE),
       IsdaYieldCurveInputsId.of(Currency.USD),
       IsdaSingleNameCreditCurveInputsId.of(
           SingleNameReferenceInformation.of(
@@ -215,7 +211,7 @@ public class ExampleMarketDataBuilderTest {
     Path rootPath = new File(TEST_SPACES_DIRECTORY_ROOT).toPath();
     ExampleMarketDataBuilder builder = ExampleMarketDataBuilder.ofPath(rootPath);
 
-    ImmutableScenarioMarketData snapshot = builder.buildSnapshot(LocalDate.of(2015, 1, 1));
+    MarketEnvironment snapshot = builder.buildSnapshot(LocalDate.of(2015, 1, 1));
     assertEquals(snapshot.getTimeSeries().size(), 1);
   }
 
@@ -236,18 +232,18 @@ public class ExampleMarketDataBuilderTest {
   public void test_ofResource_directory_with_spaces() {
     ExampleMarketDataBuilder builder = ExampleMarketDataBuilder.ofResource(TEST_SPACES_CLASSPATH_ROOT);
 
-    ImmutableScenarioMarketData snapshot = builder.buildSnapshot(MARKET_DATA_DATE);
+    MarketEnvironment snapshot = builder.buildSnapshot(MARKET_DATA_DATE);
     assertEquals(snapshot.getTimeSeries().size(), 1);
   }
 
   //-------------------------------------------------------------------------
   private void assertBuilder(ExampleMarketDataBuilder builder) {
-    ImmutableScenarioMarketData snapshot = builder.buildSnapshot(MARKET_DATA_DATE);
+    MarketEnvironment snapshot = builder.buildSnapshot(MARKET_DATA_DATE);
 
     assertEquals(MARKET_DATA_DATE, snapshot.getValuationDate().getSingleValue());
 
     for (ObservableId id : TIME_SERIES) {
-      assertFalse(snapshot.getTimeSeries(id).isEmpty(), "Time-series not found: " + id);
+      assertTrue(snapshot.containsTimeSeries(id), "Time-series not found: " + id);
     }
     assertEquals(snapshot.getTimeSeries().size(), TIME_SERIES.size(),
         Messages.format("Snapshot contained unexpected time-series: {}",
@@ -269,6 +265,13 @@ public class ExampleMarketDataBuilderTest {
     assertEquals(snapshot.getValues().size(), VALUES.size(),
         Messages.format("Snapshot contained unexpected market data: {}",
             Sets.difference(snapshot.getValues().keySet(), VALUES)));
+
+    MarketDataRules expectedRules = MarketDataRules.of(
+        MarketDataRule.anyTarget(
+            MarketDataMappingsBuilder.create()
+                .curveGroup(CurveGroupName.of("Default"))
+                .build()));
+    assertEquals(builder.rules(), expectedRules);
   }
 
   //-------------------------------------------------------------------------

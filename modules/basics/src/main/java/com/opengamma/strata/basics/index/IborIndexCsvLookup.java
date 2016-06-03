@@ -24,13 +24,12 @@ import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
+import com.opengamma.strata.basics.date.HolidayCalendar;
 import com.opengamma.strata.basics.date.PeriodAdditionConvention;
 import com.opengamma.strata.basics.date.PeriodAdditionConventions;
 import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.date.TenorAdjustment;
 import com.opengamma.strata.collect.io.CsvFile;
-import com.opengamma.strata.collect.io.CsvRow;
 import com.opengamma.strata.collect.io.ResourceConfig;
 import com.opengamma.strata.collect.io.ResourceLocator;
 import com.opengamma.strata.collect.named.NamedLookup;
@@ -101,8 +100,8 @@ final class IborIndexCsvLookup
     for (ResourceLocator resource : resources) {
       try {
         CsvFile csv = CsvFile.of(resource.getCharSource(), true);
-        for (CsvRow row : csv.rows()) {
-          IborIndex parsed = parseIborIndex(row);
+        for (int i = 0; i < csv.rowCount(); i++) {
+          IborIndex parsed = parseIborIndex(csv, i);
           map.put(parsed.getName(), parsed);
         }
       } catch (RuntimeException ex) {
@@ -113,23 +112,23 @@ final class IborIndexCsvLookup
     return ImmutableMap.copyOf(map);
   }
 
-  private static IborIndex parseIborIndex(CsvRow row) {
-    String name = row.getField(NAME_FIELD);
-    Currency currency = Currency.parse(row.getField(CURRENCY_FIELD));
-    DayCount dayCount = DayCount.of(row.getField(DAY_COUNT_FIELD));
-    HolidayCalendarId fixingCal = HolidayCalendarId.of(row.getField(FIXING_CALENDAR_FIELD));
-    int offsetDays = Integer.parseInt(row.getField(OFFSET_DAYS_FIELD));
-    HolidayCalendarId offsetCal = HolidayCalendarId.of(row.getField(OFFSET_CALENDAR_FIELD));
-    HolidayCalendarId effectiveCal = HolidayCalendarId.of(row.getField(EFFECTIVE_DATE_CALENDAR_FIELD));
-    Tenor tenor = Tenor.parse(row.getField(TENOR_FIELD));
-    PeriodAdditionConvention tenorConvention = PeriodAdditionConvention.of(row.getField(TENOR_CONVENTION_FIELD));
-    LocalTime time = LocalTime.parse(row.getField(FIXING_TIME_FIELD), TIME_FORMAT);
-    ZoneId zoneId = ZoneId.of(row.getField(FIXING_ZONE_FIELD));
+  private static IborIndex parseIborIndex(CsvFile csv, int row) {
+    String name = csv.field(row, NAME_FIELD);
+    Currency currency = Currency.parse(csv.field(row, CURRENCY_FIELD));
+    DayCount dayCount = DayCount.of(csv.field(row, DAY_COUNT_FIELD));
+    HolidayCalendar fixingCal = HolidayCalendar.of(csv.field(row, FIXING_CALENDAR_FIELD));
+    int offsetDays = Integer.parseInt(csv.field(row, OFFSET_DAYS_FIELD));
+    HolidayCalendar offsetCal = HolidayCalendar.of(csv.field(row, OFFSET_CALENDAR_FIELD));
+    HolidayCalendar effectiveCal = HolidayCalendar.of(csv.field(row, EFFECTIVE_DATE_CALENDAR_FIELD));
+    Tenor tenor = Tenor.parse(csv.field(row, TENOR_FIELD));
+    PeriodAdditionConvention tenorConvention = PeriodAdditionConvention.of(csv.field(row, TENOR_CONVENTION_FIELD));
+    LocalTime time = LocalTime.parse(csv.field(row, FIXING_TIME_FIELD), TIME_FORMAT);
+    ZoneId zoneId = ZoneId.of(csv.field(row, FIXING_ZONE_FIELD));
     // interpret CSV
     DaysAdjustment fixingOffset = DaysAdjustment.ofBusinessDays(
-        -offsetDays, offsetCal, BusinessDayAdjustment.of(PRECEDING, fixingCal)).normalized();
+        -offsetDays, offsetCal, BusinessDayAdjustment.of(PRECEDING, fixingCal)).normalize();
     DaysAdjustment effectiveOffset = DaysAdjustment.ofBusinessDays(
-        offsetDays, offsetCal, BusinessDayAdjustment.of(FOLLOWING, effectiveCal)).normalized();
+        offsetDays, offsetCal, BusinessDayAdjustment.of(FOLLOWING, effectiveCal)).normalize();
     BusinessDayAdjustment adj = BusinessDayAdjustment.of(
         isEndOfMonth(tenorConvention) ? MODIFIED_FOLLOWING : FOLLOWING,
         effectiveCal);

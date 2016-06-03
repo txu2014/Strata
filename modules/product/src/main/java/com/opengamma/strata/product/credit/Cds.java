@@ -24,14 +24,11 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.Resolvable;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.schedule.StubConvention;
-import com.opengamma.strata.product.Product;
-import com.opengamma.strata.product.common.BuySell;
 
 /**
  * A credit default swap (CDS), including single-name and index swaps.
@@ -48,7 +45,7 @@ import com.opengamma.strata.product.common.BuySell;
  */
 @BeanDefinition
 public final class Cds
-    implements Product, Resolvable<ResolvedCds>, ImmutableBean, Serializable {
+    implements CdsProduct, ImmutableBean, Serializable {
 
   /**
    * Whether the CDS is buy or sell.
@@ -108,8 +105,17 @@ public final class Cds
   private final boolean payAccruedOnDefault;
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this CDS.
+   * <p>
+   * Expanding a CDS causes the dates to be adjusted according to the relevant
+   * holiday calendar. Other one-off calculations may also be performed.
+   * 
+   * @return the equivalent expanded CDS
+   * @throws RuntimeException if unable to expand due to an invalid definition
+   */
   @Override
-  public ResolvedCds resolve(ReferenceData refData) {
+  public ExpandedCds expand() {
     Period paymentInterval = getFeeLeg().getPeriodicPayments().getPaymentFrequency().getPeriod();
     StubConvention stubConvention = getFeeLeg().getPeriodicPayments().getStubConvention();
     DayCount accrualDayCount = getFeeLeg().getPeriodicPayments().getDayCount();
@@ -119,7 +125,7 @@ public final class Cds
     double notional = getFeeLeg().getPeriodicPayments().getNotional().getAmount();
     Currency currency = getFeeLeg().getPeriodicPayments().getNotional().getCurrency();
 
-    return ResolvedCds
+    return ExpandedCds
         .builder()
         .buySellProtection(buySellProtection)
         .currency(currency)
@@ -128,7 +134,6 @@ public final class Cds
         .startDate(startDate)
         .endDate(endDate)
         .businessDayAdjustment(businessDayAdjustment)
-        .referenceInformation(referenceInformation)
         .payAccruedOnDefault(payAccruedOnDefault)
         .paymentInterval(paymentInterval)
         .stubConvention(stubConvention)

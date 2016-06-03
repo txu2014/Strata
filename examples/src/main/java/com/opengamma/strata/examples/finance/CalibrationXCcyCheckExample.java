@@ -14,38 +14,37 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.FxRate;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
+import com.opengamma.strata.basics.market.FxRateId;
+import com.opengamma.strata.basics.market.ImmutableMarketData;
+import com.opengamma.strata.basics.market.MarketData;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.CalculationRunner;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.Measures;
-import com.opengamma.strata.calc.Results;
-import com.opengamma.strata.calc.marketdata.MarketDataConfig;
+import com.opengamma.strata.calc.config.MarketDataRule;
+import com.opengamma.strata.calc.config.MarketDataRules;
+import com.opengamma.strata.calc.config.Measures;
 import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
-import com.opengamma.strata.calc.runner.CalculationFunctions;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
+import com.opengamma.strata.calc.runner.Results;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.io.ResourceLocator;
 import com.opengamma.strata.collect.result.Result;
 import com.opengamma.strata.collect.tuple.Pair;
-import com.opengamma.strata.data.FxRateId;
-import com.opengamma.strata.data.ImmutableMarketData;
-import com.opengamma.strata.data.MarketData;
-import com.opengamma.strata.data.scenario.ImmutableScenarioMarketData;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
 import com.opengamma.strata.function.StandardComponents;
-import com.opengamma.strata.function.calculation.RatesMarketDataLookup;
+import com.opengamma.strata.function.marketdata.mapping.MarketDataMappingsBuilder;
 import com.opengamma.strata.loader.csv.FxRatesCsvLoader;
 import com.opengamma.strata.loader.csv.QuotesCsvLoader;
 import com.opengamma.strata.loader.csv.RatesCalibrationCsvLoader;
 import com.opengamma.strata.market.curve.CurveGroupDefinition;
 import com.opengamma.strata.market.curve.CurveGroupName;
-import com.opengamma.strata.market.observable.QuoteId;
-import com.opengamma.strata.market.product.deposit.IborFixingDepositCurveNode;
-import com.opengamma.strata.product.Trade;
+import com.opengamma.strata.market.curve.node.IborFixingDepositCurveNode;
+import com.opengamma.strata.market.id.QuoteId;
 
 /**
  * Test for multi-currency curve calibration with 4 curves (2 in USD and 2 in EUR). 
@@ -118,7 +117,7 @@ public class CalibrationXCcyCheckExample {
     // check that all trades have a PV of near 0
     for (int i = 0; i < results.getFirst().size(); i++) {
       Trade trade = results.getFirst().get(i);
-      Result<?> pv = results.getSecond().getCells().get(i);
+      Result<?> pv = results.getSecond().getItems().get(i);
       String output = "  |--> PV for " + trade.getClass().getSimpleName() + " computed: " + pv.isSuccess();
       Object pvValue = pv.getValue();
       ArgChecker.isTrue((pvValue instanceof MultiCurrencyAmount) || (pvValue instanceof CurrencyAmount), "result type");
@@ -177,23 +176,21 @@ public class CalibrationXCcyCheckExample {
 
   // calculates the PV results for the instruments used in calibration from the config
   private static Pair<List<Trade>, Results> calculate(CalculationRunner runner) {
-    // the reference data, such as holidays and securities
-    ReferenceData refData = ReferenceData.standard();
-
     // load quotes and FX rates
     Map<QuoteId, Double> quotes = QuotesCsvLoader.load(VAL_DATE, QUOTES_RESOURCE);
     Map<FxRateId, FxRate> fxRates = FxRatesCsvLoader.load(VAL_DATE, FX_RATES_RESOURCE);
 
     // create the market data used for calculations
-    ScenarioMarketData marketSnapshot = ImmutableScenarioMarketData.builder(VAL_DATE)
-        .addValueMap(quotes)
-        .addValueMap(fxRates)
+    MarketEnvironment marketSnapshot = MarketEnvironment.builder()
+        .valuationDate(VAL_DATE)
+        .addValues(quotes)
+        .addValues(fxRates)
         .build();
 
     // create the market data used for building trades
     MarketData marketData = ImmutableMarketData.builder(VAL_DATE)
-        .addValues(quotes)
-        .addValues(fxRates)
+        .addValuesById(quotes)
+        .addValuesById(fxRates)
         .build();
 
     // load the curve definition
@@ -208,7 +205,7 @@ public class CalibrationXCcyCheckExample {
         .flatMap(defn -> defn.getNodes().stream())
         // IborFixingDeposit is not a real trade, so there is no appropriate comparison
         .filter(node -> !(node instanceof IborFixingDepositCurveNode))
-        .map(node -> node.trade(VAL_DATE, marketData, refData))
+        .map(node -> node.trade(VAL_DATE, marketData))
         .collect(toImmutableList());
 
     // the columns, specifying the measures to be calculated
@@ -220,16 +217,22 @@ public class CalibrationXCcyCheckExample {
         .add(CURVE_GROUP_NAME, curveGroupDefinition)
         .build();
 
+    // the configuration defining the curve group to use when finding a curve
+    MarketDataRules marketDataRules = MarketDataRules.of(
+        MarketDataRule.anyTarget(MarketDataMappingsBuilder.create()
+            .curveGroup(CURVE_GROUP_NAME)
+            .build()));
+
     // the complete set of rules for calculating measures
-    CalculationFunctions functions = StandardComponents.calculationFunctions();
-    RatesMarketDataLookup ratesLookup = RatesMarketDataLookup.of(curveGroupDefinition);
-    CalculationRules rules = CalculationRules.of(functions, ratesLookup);
+    CalculationRules rules = CalculationRules.builder()
+        .pricingRules(StandardComponents.pricingRules())
+        .marketDataRules(marketDataRules)
+        .build();
 
     // calibrate the curves and calculate the results
-    MarketDataRequirements reqs = MarketDataRequirements.of(rules, trades, columns, refData);
-    ScenarioMarketData enhancedMarketData =
-        marketDataFactory().buildMarketData(reqs, marketDataConfig, marketSnapshot, refData);
-    Results results = runner.calculateSingleScenario(rules, trades, columns, enhancedMarketData, refData);
+    MarketDataRequirements reqs = MarketDataRequirements.of(rules, trades, columns);
+    MarketEnvironment enhancedMarketData = marketDataFactory().buildMarketData(reqs, marketSnapshot, marketDataConfig);
+    Results results = runner.calculateSingleScenario(rules, trades, columns, enhancedMarketData);
     return Pair.of(trades, results);
   }
 

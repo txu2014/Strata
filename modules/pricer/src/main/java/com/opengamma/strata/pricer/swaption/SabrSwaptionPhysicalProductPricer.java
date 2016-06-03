@@ -9,15 +9,16 @@ import java.time.ZonedDateTime;
 
 import com.opengamma.strata.basics.value.ValueDerivatives;
 import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.market.product.swaption.SwaptionSabrSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivity;
 import com.opengamma.strata.pricer.impl.option.BlackFormulaRepository;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.swap.DiscountingSwapProductPricer;
-import com.opengamma.strata.product.swap.ResolvedSwap;
-import com.opengamma.strata.product.swap.ResolvedSwapLeg;
+import com.opengamma.strata.product.swap.ExpandedSwap;
+import com.opengamma.strata.product.swap.ExpandedSwapLeg;
 import com.opengamma.strata.product.swap.Swap;
-import com.opengamma.strata.product.swaption.ResolvedSwaption;
+import com.opengamma.strata.product.swaption.ExpandedSwaption;
+import com.opengamma.strata.product.swaption.SwaptionProduct;
 
 /**
  * Pricer for swaption with physical settlement in SABR model on the swap rate.
@@ -62,15 +63,16 @@ public class SabrSwaptionPhysicalProductPricer
    * @return the present value curve sensitivity of the swap product
    */
   public PointSensitivityBuilder presentValueSensitivity(
-      ResolvedSwaption swaption,
+      SwaptionProduct swaption,
       RatesProvider ratesProvider,
       SabrSwaptionVolatilities swaptionVolatilities) {
 
-    validate(swaption, ratesProvider, swaptionVolatilities);
-    ZonedDateTime expiryDateTime = swaption.getExpiry();
+    ExpandedSwaption expanded = swaption.expand();
+    validate(expanded, ratesProvider, swaptionVolatilities);
+    ZonedDateTime expiryDateTime = expanded.getExpiryDateTime();
     double expiry = swaptionVolatilities.relativeTime(expiryDateTime);
-    ResolvedSwap underlying = swaption.getUnderlying();
-    ResolvedSwapLeg fixedLeg = fixedLeg(underlying);
+    ExpandedSwap underlying = expanded.getUnderlying();
+    ExpandedSwapLeg fixedLeg = fixedLeg(underlying);
     if (expiry < 0d) { // Option has expired already
       return PointSensitivityBuilder.none();
     }
@@ -90,7 +92,7 @@ public class SabrSwaptionPhysicalProductPricer
     double price = BlackFormulaRepository.price(shiftedForward, shiftedStrike, expiry, volatilityAdj.getValue(), isCall);
     double delta = BlackFormulaRepository.delta(shiftedForward, shiftedStrike, expiry, volatilityAdj.getValue(), isCall);
     double vega = BlackFormulaRepository.vega(shiftedForward, shiftedStrike, expiry, volatilityAdj.getValue());
-    double sign = swaption.getLongShort().sign();
+    double sign = expanded.getLongShort().sign();
     return pvbpDr.multipliedBy(price * sign * Math.signum(pvbp))
         .combinedWith(forwardDr.multipliedBy((delta + vega * volatilityAdj.getDerivative(0)) * Math.abs(pvbp) * sign));
   }
@@ -107,15 +109,16 @@ public class SabrSwaptionPhysicalProductPricer
    * @return the sensitivity to the SABR model parameters 
    */
   public SwaptionSabrSensitivity presentValueSensitivitySabrParameter(
-      ResolvedSwaption swaption,
+      SwaptionProduct swaption,
       RatesProvider ratesProvider,
       SabrSwaptionVolatilities swaptionVolatilities) {
 
-    validate(swaption, ratesProvider, swaptionVolatilities);
-    ZonedDateTime expiryDateTime = swaption.getExpiry();
+    ExpandedSwaption expanded = swaption.expand();
+    validate(expanded, ratesProvider, swaptionVolatilities);
+    ZonedDateTime expiryDateTime = expanded.getExpiryDateTime();
     double expiry = swaptionVolatilities.relativeTime(expiryDateTime);
-    ResolvedSwap underlying = swaption.getUnderlying();
-    ResolvedSwapLeg fixedLeg = fixedLeg(underlying);
+    ExpandedSwap underlying = expanded.getUnderlying();
+    ExpandedSwapLeg fixedLeg = fixedLeg(underlying);
     double tenor = swaptionVolatilities.tenor(fixedLeg.getStartDate(), fixedLeg.getEndDate());
     double shift = swaptionVolatilities.shift(expiry, tenor);
     double pvbp = getSwapPricer().getLegPricer().pvbp(fixedLeg, ratesProvider);
@@ -130,7 +133,7 @@ public class SabrSwaptionPhysicalProductPricer
         swaptionVolatilities.volatilityAdjoint(expiry, tenor, strike, forward).getDerivatives();
     // Backward sweep
     double vega = Math.abs(pvbp) * BlackFormulaRepository.vega(forward + shift, strike + shift, expiry, volatility)
-        * swaption.getLongShort().sign();
+        * expanded.getLongShort().sign();
     return SwaptionSabrSensitivity.of(
         swaptionVolatilities.getConvention(),
         expiryDateTime,

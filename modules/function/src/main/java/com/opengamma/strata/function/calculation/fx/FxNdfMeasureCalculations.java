@@ -8,17 +8,18 @@ package com.opengamma.strata.function.calculation.fx;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.FxRate;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
-import com.opengamma.strata.data.scenario.CurrencyValuesArray;
-import com.opengamma.strata.data.scenario.MultiCurrencyValuesArray;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.function.calculation.RatesMarketData;
-import com.opengamma.strata.function.calculation.RatesScenarioMarketData;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.runner.function.result.CurrencyValuesArray;
+import com.opengamma.strata.calc.runner.function.result.MultiCurrencyValuesArray;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.pricer.fx.DiscountingFxNdfProductPricer;
+import com.opengamma.strata.pricer.rate.MarketDataRatesProvider;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.product.fx.ResolvedFxNdf;
-import com.opengamma.strata.product.fx.ResolvedFxNdfTrade;
+import com.opengamma.strata.product.fx.ExpandedFxNdf;
+import com.opengamma.strata.product.fx.FxNdfTrade;
 
 /**
  * Multi-scenario measure calculations for FX NDF trades.
@@ -44,113 +45,113 @@ final class FxNdfMeasureCalculations {
   //-------------------------------------------------------------------------
   // calculates present value for all scenarios
   static CurrencyValuesArray presentValue(
-      ResolvedFxNdfTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxNdfTrade trade,
+      ExpandedFxNdf product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxNdf product = trade.getProduct();
     return CurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculatePresentValue(product, marketData.scenario(i)));
   }
 
   // present value for one scenario
-  private static CurrencyAmount calculatePresentValue(ResolvedFxNdf product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static CurrencyAmount calculatePresentValue(ExpandedFxNdf product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.presentValue(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates PV01 for all scenarios
   static MultiCurrencyValuesArray pv01(
-      ResolvedFxNdfTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxNdfTrade trade,
+      ExpandedFxNdf product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxNdf product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculatePv01(product, marketData.scenario(i)));
   }
 
   // PV01 for one scenario
-  private static MultiCurrencyAmount calculatePv01(ResolvedFxNdf product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculatePv01(ExpandedFxNdf product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     PointSensitivities pointSensitivity = PRICER.presentValueSensitivity(product, provider);
-    return provider.parameterSensitivity(pointSensitivity).total().multipliedBy(ONE_BASIS_POINT);
+    return provider.curveParameterSensitivity(pointSensitivity).total().multipliedBy(ONE_BASIS_POINT);
   }
 
   //-------------------------------------------------------------------------
   // calculates bucketed PV01 for all scenarios
-  static ScenarioArray<CurrencyParameterSensitivities> bucketedPv01(
-      ResolvedFxNdfTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<CurveCurrencyParameterSensitivities> bucketedPv01(
+      FxNdfTrade trade,
+      ExpandedFxNdf product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxNdf product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
         i -> calculateBucketedPv01(product, marketData.scenario(i)));
   }
 
   // bucketed PV01 for one scenario
-  private static CurrencyParameterSensitivities calculateBucketedPv01(
-      ResolvedFxNdf product,
-      RatesMarketData marketData) {
+  private static CurveCurrencyParameterSensitivities calculateBucketedPv01(
+      ExpandedFxNdf product,
+      MarketData marketData) {
 
-    RatesProvider provider = marketData.ratesProvider();
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     PointSensitivities pointSensitivity = PRICER.presentValueSensitivity(product, provider);
-    return provider.parameterSensitivity(pointSensitivity).multipliedBy(ONE_BASIS_POINT);
+    return provider.curveParameterSensitivity(pointSensitivity).multipliedBy(ONE_BASIS_POINT);
   }
 
   //-------------------------------------------------------------------------
   // calculates currency exposure for all scenarios
   static MultiCurrencyValuesArray currencyExposure(
-      ResolvedFxNdfTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxNdfTrade trade,
+      ExpandedFxNdf product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxNdf product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateCurrencyExposure(product, marketData.scenario(i)));
   }
 
   // currency exposure for one scenario
-  private static MultiCurrencyAmount calculateCurrencyExposure(ResolvedFxNdf product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculateCurrencyExposure(ExpandedFxNdf product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.currencyExposure(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates current cash for all scenarios
   static CurrencyValuesArray currentCash(
-      ResolvedFxNdfTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxNdfTrade trade,
+      ExpandedFxNdf product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxNdf product = trade.getProduct();
     return CurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateCurrentCash(product, marketData.scenario(i)));
   }
 
   // current cash for one scenario
-  private static CurrencyAmount calculateCurrentCash(ResolvedFxNdf product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static CurrencyAmount calculateCurrentCash(ExpandedFxNdf product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.currentCash(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates forward FX rate for all scenarios
-  static ScenarioArray<FxRate> forwardFxRate(
-      ResolvedFxNdfTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<FxRate> forwardFxRate(
+      FxNdfTrade trade,
+      ExpandedFxNdf product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxNdf product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
         i -> calculateForwardFxRate(product, marketData.scenario(i)));
   }
 
   // current cash for one scenario
-  private static FxRate calculateForwardFxRate(ResolvedFxNdf product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static FxRate calculateForwardFxRate(ExpandedFxNdf product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.forwardFxRate(product, provider);
   }
 

@@ -8,6 +8,7 @@ package com.opengamma.strata.product.swap;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_365F;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
+import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static com.opengamma.strata.collect.TestHelper.date;
@@ -17,7 +18,6 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.RollConventions;
@@ -26,15 +26,13 @@ import com.opengamma.strata.basics.schedule.SchedulePeriod;
 import com.opengamma.strata.basics.value.ValueAdjustment;
 import com.opengamma.strata.basics.value.ValueSchedule;
 import com.opengamma.strata.basics.value.ValueStep;
-import com.opengamma.strata.product.rate.FixedRateComputation;
+import com.opengamma.strata.product.rate.FixedRateObservation;
 
 /**
  * Test.
  */
 @Test
 public class FixedRateCalculationTest {
-
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
 
   public void test_of() {
     FixedRateCalculation test = FixedRateCalculation.of(0.025d, ACT_365F);
@@ -79,17 +77,17 @@ public class FixedRateCalculationTest {
         .build();
     RateAccrualPeriod rap1 = RateAccrualPeriod.builder(period1)
         .yearFraction(period1.yearFraction(ACT_365F, schedule))
-        .rateComputation(FixedRateComputation.of(0.025d))
+        .rateObservation(FixedRateObservation.of(0.025d))
         .build();
     RateAccrualPeriod rap2 = RateAccrualPeriod.builder(period2)
         .yearFraction(period2.yearFraction(ACT_365F, schedule))
-        .rateComputation(FixedRateComputation.of(0.025d))
+        .rateObservation(FixedRateObservation.of(0.025d))
         .build();
     RateAccrualPeriod rap3 = RateAccrualPeriod.builder(period3)
         .yearFraction(period3.yearFraction(ACT_365F, schedule))
-        .rateComputation(FixedRateComputation.of(0.025d))
+        .rateObservation(FixedRateObservation.of(0.025d))
         .build();
-    ImmutableList<RateAccrualPeriod> periods = test.createAccrualPeriods(schedule, schedule, REF_DATA);
+    ImmutableList<RateAccrualPeriod> periods = test.expand(schedule, schedule);
     assertEquals(periods, ImmutableList.of(rap1, rap2, rap3));
   }
 
@@ -111,18 +109,29 @@ public class FixedRateCalculationTest {
         .build();
     RateAccrualPeriod rap1 = RateAccrualPeriod.builder(period1)
         .yearFraction(period1.yearFraction(ACT_365F, schedule))
-        .rateComputation(FixedRateComputation.of(0.025d))
+        .rateObservation(FixedRateObservation.of(0.025d))
         .build();
     RateAccrualPeriod rap2 = RateAccrualPeriod.builder(period2)
         .yearFraction(period2.yearFraction(ACT_365F, schedule))
-        .rateComputation(FixedRateComputation.of(0.020d))
+        .rateObservation(FixedRateObservation.of(0.020d))
         .build();
     RateAccrualPeriod rap3 = RateAccrualPeriod.builder(period3)
         .yearFraction(period3.yearFraction(ACT_365F, schedule))
-        .rateComputation(FixedRateComputation.of(0.015d))
+        .rateObservation(FixedRateObservation.of(0.015d))
         .build();
-    ImmutableList<RateAccrualPeriod> periods = test.createAccrualPeriods(schedule, schedule, REF_DATA);
+    ImmutableList<RateAccrualPeriod> periods = test.expand(schedule, schedule);
     assertEquals(periods, ImmutableList.of(rap1, rap2, rap3));
+  }
+
+  public void test_expand_null() {
+    FixedRateCalculation test = FixedRateCalculation.builder()
+        .dayCount(ACT_365F)
+        .rate(ValueSchedule.of(0.025d))
+        .build();
+    Schedule schedule = Schedule.ofTerm(SchedulePeriod.of(date(2014, 1, 5), date(2014, 7, 5)));
+    assertThrowsIllegalArg(() -> test.expand(schedule, null));
+    assertThrowsIllegalArg(() -> test.expand(null, schedule));
+    assertThrowsIllegalArg(() -> test.expand(null, null));
   }
 
   //-------------------------------------------------------------------------

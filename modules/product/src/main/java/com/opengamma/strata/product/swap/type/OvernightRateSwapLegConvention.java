@@ -28,6 +28,7 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DayCount;
@@ -40,7 +41,6 @@ import com.opengamma.strata.basics.schedule.RollConventions;
 import com.opengamma.strata.basics.schedule.StubConvention;
 import com.opengamma.strata.basics.value.ValueSchedule;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.common.PayReceive;
 import com.opengamma.strata.product.swap.CompoundingMethod;
 import com.opengamma.strata.product.swap.NotionalSchedule;
 import com.opengamma.strata.product.swap.OvernightAccrualMethod;
@@ -489,6 +489,33 @@ public final class OvernightRateSwapLegConvention
    */
   public CompoundingMethod getCompoundingMethod() {
     return compoundingMethod != null ? compoundingMethod : CompoundingMethod.NONE;
+  }
+
+  //-------------------------------------------------------------------------
+  /**
+   * Expands this convention, returning an instance where all the optional fields are present.
+   * <p>
+   * This returns an equivalent instance where any empty optional have been filled in.
+   * 
+   * @return the expanded convention
+   */
+  public OvernightRateSwapLegConvention expand() {
+    return OvernightRateSwapLegConvention.builder()
+        .index(index)
+        .accrualMethod(accrualMethod)
+        .rateCutOffDays(getRateCutOffDays())
+        .currency(getCurrency())
+        .dayCount(getDayCount())
+        .accrualFrequency(getAccrualFrequency())
+        .accrualBusinessDayAdjustment(getAccrualBusinessDayAdjustment())
+        .startDateBusinessDayAdjustment(getStartDateBusinessDayAdjustment())
+        .endDateBusinessDayAdjustment(getEndDateBusinessDayAdjustment())
+        .stubConvention(getStubConvention())
+        .rollConvention(getRollConvention())
+        .paymentFrequency(getPaymentFrequency())
+        .paymentDateOffset(getPaymentDateOffset())
+        .compoundingMethod(getCompoundingMethod())
+        .build();
   }
 
   //-------------------------------------------------------------------------

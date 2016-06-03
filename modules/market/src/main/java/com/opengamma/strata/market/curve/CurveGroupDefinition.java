@@ -36,19 +36,27 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.Trade;
+import com.opengamma.strata.basics.market.MarketData;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.data.MarketData;
 import com.opengamma.strata.market.ValueType;
-import com.opengamma.strata.product.ResolvedTrade;
 
 /**
  * Provides the definition of how to calibrate a group of curves.
  * <p>
  * A curve group contains one or more entries, each of which contains the definition of a curve
- * and a set of currencies and indices specifying how the curve is to be used.
- * The currencies are used to specify that the curve is to be used as a discount curve.
- * The indices are used to specify that the curve is to be used as a forward curve.
+ * and a set of market data keys specifying how the curve is to be used.
+ * <p>
+ * A curve can be used for multiple purposes and therefore the curve itself contains
+ * no information about how it is used.
+ * <p>
+ * In the simple case a curve is only used for a single purpose. For example, if a curve is
+ * used for discounting it will be associated with one key of type {@code DiscountCurveKey}.
+ * <p>
+ * A single curve can also be used as both a discounting curve and a forward curve.
+ * In that case its key set might contain a {@code DiscountCurveKey} and a {@code IborIndexCurveKey}.
+ * <p>
+ * Every curve must be associated with at least once key.
  */
 @BeanDefinition(builderScope = "private")
 public final class CurveGroupDefinition
@@ -165,26 +173,10 @@ public final class CurveGroupDefinition
 
   //-------------------------------------------------------------------------
   /**
-   * Creates the curve metadata for each definition.
-   * <p>
-   * This method returns a list of metadata, one for each curve definition.
-   *
-   * @param valuationDate  the valuation date
-   * @param refData  the reference data
-   * @return the metadata
-   */
-  public ImmutableList<CurveMetadata> metadata(LocalDate valuationDate, ReferenceData refData) {
-    return curveDefinitionsByName.values().stream()
-        .map(curveDef -> curveDef.metadata(valuationDate, refData))
-        .collect(toImmutableList());
-  }
-
-  //-------------------------------------------------------------------------
-  /**
    * Gets the total number of parameters in the group.
    * <p>
    * This returns the total number of parameters in the group, which equals the number of nodes.
-   * The result of {@link #resolvedTrades(LocalDate, MarketData, ReferenceData)}, and
+   * The result of {@link #trades(LocalDate, MarketData)} and
    * {@link #initialGuesses(LocalDate, MarketData)} will be of this size.
    * 
    * @return the number of parameters
@@ -201,17 +193,12 @@ public final class CurveGroupDefinition
    *
    * @param valuationDate  the valuation date used when calibrating the curve
    * @param marketData  the market data required to build a trade for the instrument
-   * @param refData  the reference data, used to resolve the trades
    * @return the list of all trades
    */
-  public ImmutableList<ResolvedTrade> resolvedTrades(
-      LocalDate valuationDate,
-      MarketData marketData,
-      ReferenceData refData) {
-
+  public ImmutableList<Trade> trades(LocalDate valuationDate, MarketData marketData) {
     return curveDefinitionsByName.values().stream()
         .flatMap(curveDef -> curveDef.getNodes().stream())
-        .map(node -> node.resolvedTrade(valuationDate, marketData, refData))
+        .map(node -> node.trade(valuationDate, marketData))
         .collect(toImmutableList());
   }
 
@@ -226,6 +213,7 @@ public final class CurveGroupDefinition
    */
   public ImmutableList<Double> initialGuesses(LocalDate valuationDate, MarketData marketData) {
     ImmutableList.Builder<Double> result = ImmutableList.builder();
+
     for (NodalCurveDefinition defn : curveDefinitions) {
       ValueType valueType = defn.getYValueType();
       for (CurveNode node : defn.getNodes()) {

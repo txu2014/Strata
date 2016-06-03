@@ -34,8 +34,13 @@ import com.opengamma.strata.collect.Messages;
  * Each entry stores the definition of a single curve and how it is to be used.
  * This structure allows the curve itself to be used for multiple purposes.
  * <p>
- * The currencies are used to specify that the curve is to be used as a discount curve.
- * The indices are used to specify that the curve is to be used as a forward curve.
+ * In the simple case a curve is only used for a single purpose.
+ * For example, if a curve is used for discounting it will have one key of type {@code DiscountCurveKey}.
+ * <p>
+ * A single curve can also be used as both a discounting curve and a forward curve.
+ * In that case its key set might contain a {@code DiscountCurveKey} and a {@code IborIndexCurveKey}.
+ * <p>
+ * Every curve must be associated with at least once key.
  */
 @BeanDefinition
 public final class CurveGroupEntry

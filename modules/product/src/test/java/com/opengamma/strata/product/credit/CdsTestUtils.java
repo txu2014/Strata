@@ -9,17 +9,16 @@ package com.opengamma.strata.product.credit;
  * Test utilities.
  */
 public class CdsTestUtils {
-  // separate class to avoid methods being treated as tests by TestNG
 
   public static CdsTrade singleNameTrade() {
     return CdsTrade.builder()
-        .product(CdsTest.sutSingleName())
+        .product(CdsSingleNameTest.sut())
         .build();
   }
 
   public static CdsTrade indexTrade() {
     return CdsTrade.builder()
-        .product(CdsTest.sutIndex())
+        .product(CdsIndexTest.sut())
         .build();
   }
 

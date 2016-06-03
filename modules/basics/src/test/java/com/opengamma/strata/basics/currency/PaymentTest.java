@@ -19,6 +19,8 @@ import java.time.temporal.TemporalAdjusters;
 
 import org.testng.annotations.Test;
 
+import com.opengamma.strata.basics.PayReceive;
+
 /**
  * Test {@link Payment}.
  */
@@ -37,6 +39,7 @@ public class PaymentTest {
     assertEquals(test.getValue(), GBP_P1000);
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getAmount(), 1_000, 0d);
+    assertEquals(test.getPayReceive(), PayReceive.RECEIVE);
     assertEquals(test.getDate(), DATE_2015_06_30);
   }
 
@@ -45,6 +48,7 @@ public class PaymentTest {
     assertEquals(test.getValue(), GBP_P1000);
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getAmount(), 1_000, 0d);
+    assertEquals(test.getPayReceive(), PayReceive.RECEIVE);
     assertEquals(test.getDate(), DATE_2015_06_30);
   }
 
@@ -53,6 +57,7 @@ public class PaymentTest {
     assertEquals(test.getValue(), GBP_M1000);
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getAmount(), -1_000, 0d);
+    assertEquals(test.getPayReceive(), PayReceive.PAY);
     assertEquals(test.getDate(), DATE_2015_06_30);
   }
 
@@ -61,6 +66,7 @@ public class PaymentTest {
     assertEquals(test.getValue(), GBP_P1000);
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getAmount(), 1_000, 0d);
+    assertEquals(test.getPayReceive(), PayReceive.RECEIVE);
     assertEquals(test.getDate(), DATE_2015_06_30);
   }
 
@@ -72,6 +78,7 @@ public class PaymentTest {
     assertEquals(test.getValue(), GBP_P1000);
     assertEquals(test.getCurrency(), GBP);
     assertEquals(test.getAmount(), 1_000, 0d);
+    assertEquals(test.getPayReceive(), PayReceive.RECEIVE);
     assertEquals(test.getDate(), DATE_2015_06_30);
   }
 

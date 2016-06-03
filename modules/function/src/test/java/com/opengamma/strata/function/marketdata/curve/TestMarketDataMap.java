@@ -5,36 +5,34 @@
  */
 package com.opengamma.strata.function.marketdata.curve;
 
-import static com.opengamma.strata.collect.Guavate.toImmutableSet;
-
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.basics.market.MarketDataBox;
+import com.opengamma.strata.basics.market.MarketDataKey;
+import com.opengamma.strata.basics.market.ObservableKey;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.runner.SingleCalculationMarketData;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.MarketDataName;
-import com.opengamma.strata.data.NamedMarketDataId;
-import com.opengamma.strata.data.ObservableId;
-import com.opengamma.strata.data.scenario.MarketDataBox;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
 
 /**
- * Test implementation of {@link ScenarioMarketData} backed by a map.
+ * Test implementation of {@link CalculationMarketData} backed by a map.
  */
-public final class TestMarketDataMap implements ScenarioMarketData {
+public final class TestMarketDataMap implements CalculationMarketData {
 
   private final MarketDataBox<LocalDate> valuationDate;
 
-  private final Map<MarketDataId<?>, Object> valueMap;
+  private final Map<MarketDataKey<?>, Object> valueMap;
 
-  private final Map<ObservableId, LocalDateDoubleTimeSeries> timeSeriesMap;
+  private final Map<ObservableKey, LocalDateDoubleTimeSeries> timeSeriesMap;
 
   public TestMarketDataMap(
       LocalDate valuationDate,
-      Map<MarketDataId<?>, Object> valueMap,
-      Map<ObservableId, LocalDateDoubleTimeSeries> timeSeriesMap) {
+      Map<MarketDataKey<?>, Object> valueMap,
+      Map<ObservableKey, LocalDateDoubleTimeSeries> timeSeriesMap) {
 
     this.valuationDate = MarketDataBox.ofSingleValue(valuationDate);
     this.valueMap = valueMap;
@@ -52,42 +50,40 @@ public final class TestMarketDataMap implements ScenarioMarketData {
   }
 
   @Override
-  public boolean containsValue(MarketDataId<?> id) {
-    return valueMap.containsKey(id);
+  public Stream<MarketData> scenarios() {
+    return IntStream.range(0, getScenarioCount())
+        .mapToObj(scenarioIndex -> SingleCalculationMarketData.of(this, scenarioIndex));
+  }
+
+  @Override
+  public MarketData scenario(int scenarioIndex) {
+    return SingleCalculationMarketData.of(this, scenarioIndex);
+  }
+
+  @Override
+  public boolean containsValue(MarketDataKey<?> key) {
+    return valueMap.containsKey(key);
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T> MarketDataBox<T> getValue(MarketDataId<T> id) {
-    T value = (T) valueMap.get(id);
+  public <T> MarketDataBox<T> getValue(MarketDataKey<T> key) {
+    T value = (T) valueMap.get(key);
     if (value != null) {
       return MarketDataBox.ofSingleValue(value);
     } else {
-      throw new IllegalArgumentException("No market data for " + id);
+      throw new IllegalArgumentException("No market data for " + key);
     }
   }
 
   @Override
-  public <T> Optional<MarketDataBox<T>> findValue(MarketDataId<T> id) {
-    @SuppressWarnings("unchecked")
-    T value = (T) valueMap.get(id);
-    return value == null ? Optional.empty() : Optional.of(MarketDataBox.ofSingleValue(value));
+  public boolean containsTimeSeries(ObservableKey key) {
+    return timeSeriesMap.containsKey(key);
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public <T> Set<MarketDataId<T>> findIds(MarketDataName<T> name) {
-    // no type check against id.getMarketDataType() as checked in factory
-    return valueMap.keySet().stream()
-        .filter(id -> id instanceof NamedMarketDataId)
-        .filter(id -> ((NamedMarketDataId<?>) id).getMarketDataName().equals(name))
-        .map(id -> (MarketDataId<T>) id)
-        .collect(toImmutableSet());
-  }
-
-  @Override
-  public LocalDateDoubleTimeSeries getTimeSeries(ObservableId id) {
-    LocalDateDoubleTimeSeries timeSeries = timeSeriesMap.get(id);
+  public LocalDateDoubleTimeSeries getTimeSeries(ObservableKey key) {
+    LocalDateDoubleTimeSeries timeSeries = timeSeriesMap.get(key);
     return timeSeries == null ? LocalDateDoubleTimeSeries.empty() : timeSeries;
   }
 

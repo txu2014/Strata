@@ -5,8 +5,9 @@
  */
 package com.opengamma.strata.product.fra.type;
 
+import static com.opengamma.strata.basics.BuySell.BUY;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_FOLLOWING;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.GBLO;
 import static com.opengamma.strata.basics.index.IborIndices.GBP_LIBOR_3M;
 import static com.opengamma.strata.basics.index.IborIndices.USD_LIBOR_3M;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
@@ -14,7 +15,6 @@ import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static com.opengamma.strata.collect.TestHelper.date;
-import static com.opengamma.strata.product.common.BuySell.BUY;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
@@ -23,8 +23,6 @@ import java.util.Optional;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.product.fra.Fra;
@@ -36,7 +34,6 @@ import com.opengamma.strata.product.fra.FraTrade;
 @Test
 public class FraTemplateTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final FraConvention FRA_GBP_LIBOR_3M = FraConvention.of(GBP_LIBOR_3M);
   private static final double NOTIONAL_2M = 2_000_000d;
   private static final BusinessDayAdjustment BDA_MOD_FOLLOW = BusinessDayAdjustment.of(MODIFIED_FOLLOWING, GBLO);
@@ -73,10 +70,10 @@ public class FraTemplateTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_createTrade() {
+  public void test_toTrade() {
     FraTemplate base = FraTemplate.of(Period.ofMonths(3), Period.ofMonths(6), FRA_GBP_LIBOR_3M);
     LocalDate tradeDate = LocalDate.of(2015, 5, 4); // trade date is a holiday!
-    FraTrade test = base.createTrade(tradeDate, BUY, NOTIONAL_2M, 0.25d, REF_DATA);
+    FraTrade test = base.toTrade(tradeDate, BUY, NOTIONAL_2M, 0.25d);
     Fra expected = Fra.builder()
         .buySell(BUY)
         .notional(NOTIONAL_2M)
@@ -86,28 +83,28 @@ public class FraTemplateTest {
         .fixedRate(0.25d)
         .index(GBP_LIBOR_3M)
         .build();
-    assertEquals(test.getInfo().getTradeDate(), Optional.of(tradeDate));
+    assertEquals(test.getTradeInfo().getTradeDate(), Optional.of(tradeDate));
     assertEquals(test.getProduct(), expected);
   }
 
-  public void test_createTrade_paymentOffset() {
+  public void test_toTrade_paymentOffset() {
     FraConvention convention = ((ImmutableFraConvention) FRA_GBP_LIBOR_3M).toBuilder()
         .paymentDateOffset(PLUS_TWO_DAYS)
         .build();
     FraTemplate base = FraTemplate.of(Period.ofMonths(3), Period.ofMonths(6), convention);
     LocalDate tradeDate = LocalDate.of(2015, 5, 4); // trade date is a holiday!
-    FraTrade test = base.createTrade(tradeDate, BUY, NOTIONAL_2M, 0.25d, REF_DATA);
+    FraTrade test = base.toTrade(tradeDate, BUY, NOTIONAL_2M, 0.25d);
     Fra expected = Fra.builder()
         .buySell(BUY)
         .notional(NOTIONAL_2M)
         .startDate(date(2015, 8, 5))
         .endDate(date(2015, 11, 5))
         .businessDayAdjustment(BDA_MOD_FOLLOW)
-        .paymentDate(AdjustableDate.of(date(2015, 8, 7), PLUS_TWO_DAYS.getAdjustment()))
+        .paymentDate(PLUS_TWO_DAYS.toAdjustedDate(date(2015, 8, 5)))
         .fixedRate(0.25d)
         .index(GBP_LIBOR_3M)
         .build();
-    assertEquals(test.getInfo().getTradeDate(), Optional.of(tradeDate));
+    assertEquals(test.getTradeInfo().getTradeDate(), Optional.of(tradeDate));
     assertEquals(test.getProduct(), expected);
   }
 

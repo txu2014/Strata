@@ -5,30 +5,31 @@
  */
 package com.opengamma.strata.function.marketdata.curve;
 
-import static com.opengamma.strata.basics.date.BusinessDayConventions.FOLLOWING;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
-
 import java.time.Period;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.StandardId;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
+import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.DayCounts;
+import com.opengamma.strata.basics.date.HolidayCalendars;
 import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.index.IborIndices;
+import com.opengamma.strata.basics.market.ObservableId;
+import com.opengamma.strata.basics.market.ObservableKey;
 import com.opengamma.strata.basics.schedule.Frequency;
-import com.opengamma.strata.data.ObservableId;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.market.ValueType;
 import com.opengamma.strata.market.curve.CurveName;
 import com.opengamma.strata.market.curve.CurveNode;
 import com.opengamma.strata.market.curve.InterpolatedNodalCurveDefinition;
+import com.opengamma.strata.market.curve.node.FixedIborSwapCurveNode;
+import com.opengamma.strata.market.curve.node.FraCurveNode;
+import com.opengamma.strata.market.id.QuoteId;
 import com.opengamma.strata.market.interpolator.CurveExtrapolators;
 import com.opengamma.strata.market.interpolator.CurveInterpolators;
-import com.opengamma.strata.market.observable.QuoteId;
-import com.opengamma.strata.market.product.fra.FraCurveNode;
-import com.opengamma.strata.market.product.swap.FixedIborSwapCurveNode;
+import com.opengamma.strata.market.key.QuoteKey;
 import com.opengamma.strata.product.fra.type.FraTemplate;
 import com.opengamma.strata.product.swap.type.FixedIborSwapConvention;
 import com.opengamma.strata.product.swap.type.FixedIborSwapTemplate;
@@ -43,7 +44,9 @@ final class CurveTestUtils {
 
   private static final String TEST_SCHEME = "test";
 
-  private static final BusinessDayAdjustment BDA_FOLLOW = BusinessDayAdjustment.of(FOLLOWING, GBLO);
+  private static final BusinessDayAdjustment BDA_FOLLOW = BusinessDayAdjustment.of(
+      BusinessDayConventions.FOLLOWING,
+      HolidayCalendars.GBLO);
 
   private static final IborRateSwapLegConvention FLOATING_CONVENTION =
       IborRateSwapLegConvention.of(IborIndices.USD_LIBOR_3M);
@@ -122,25 +125,25 @@ final class CurveTestUtils {
 
   static FraCurveNode fraNode(int startMonths, String id) {
     Period periodToStart = Period.ofMonths(startMonths);
-    QuoteId quoteId = QuoteId.of(StandardId.of(TEST_SCHEME, id));
-    return FraCurveNode.of(FraTemplate.of(periodToStart, IborIndices.USD_LIBOR_3M), quoteId);
+    QuoteKey quoteKey = QuoteKey.of(StandardId.of(TEST_SCHEME, id));
+    return FraCurveNode.of(FraTemplate.of(periodToStart, IborIndices.USD_LIBOR_3M), quoteKey);
   }
 
    static FixedIborSwapCurveNode fixedIborSwapNode(Tenor tenor, String id) {
-    QuoteId quoteId = QuoteId.of(StandardId.of(TEST_SCHEME, id));
+    QuoteKey quoteKey = QuoteKey.of(StandardId.of(TEST_SCHEME, id));
     FixedIborSwapTemplate template = FixedIborSwapTemplate.of(Period.ZERO, tenor, SWAP_CONVENTION);
-    return FixedIborSwapCurveNode.of(template, quoteId);
+    return FixedIborSwapCurveNode.of(template, quoteKey);
   }
 
   static ObservableId id(String nodeName) {
     return QuoteId.of(StandardId.of(TEST_SCHEME, nodeName));
   }
 
-  static ObservableId key(CurveNode node) {
+  static ObservableKey key(CurveNode node) {
     if (node instanceof FraCurveNode) {
-      return ((FraCurveNode) node).getRateId();
+      return ((FraCurveNode) node).getRateKey();
     } else if (node instanceof FixedIborSwapCurveNode) {
-      return ((FixedIborSwapCurveNode) node).getRateId();
+      return ((FixedIborSwapCurveNode) node).getRateKey();
     } else {
       throw new IllegalArgumentException("Unsupported node type " + node.getClass().getName());
     }

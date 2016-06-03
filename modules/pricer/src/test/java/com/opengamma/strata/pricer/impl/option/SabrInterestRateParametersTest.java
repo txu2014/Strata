@@ -5,20 +5,19 @@
  */
 package com.opengamma.strata.pricer.impl.option;
 
-import static com.opengamma.strata.basics.date.DayCounts.ACT_ACT_ISDA;
+import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
-import static com.opengamma.strata.product.swap.type.FixedIborSwapConventions.USD_FIXED_6M_LIBOR_3M;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 import org.testng.annotations.Test;
 
 import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.market.ValueType;
-import com.opengamma.strata.market.surface.ConstantSurface;
+import com.opengamma.strata.market.surface.ConstantNodalSurface;
+import com.opengamma.strata.market.surface.DefaultSurfaceMetadata;
 import com.opengamma.strata.market.surface.InterpolatedNodalSurface;
-import com.opengamma.strata.market.surface.Surface;
-import com.opengamma.strata.market.surface.SurfaceName;
-import com.opengamma.strata.market.surface.Surfaces;
+import com.opengamma.strata.market.surface.NodalSurface;
+import com.opengamma.strata.market.surface.SurfaceMetadata;
 import com.opengamma.strata.math.impl.interpolation.GridInterpolator2D;
 import com.opengamma.strata.math.impl.interpolation.LinearInterpolator1D;
 import com.opengamma.strata.pricer.impl.volatility.smile.function.SabrFormulaData;
@@ -33,17 +32,14 @@ public class SabrInterestRateParametersTest {
 
   private static final LinearInterpolator1D LINEAR = new LinearInterpolator1D();
   private static final GridInterpolator2D GRID = new GridInterpolator2D(LINEAR, LINEAR);
-  private static final InterpolatedNodalSurface ALPHA_SURFACE = InterpolatedNodalSurface.of(
-      Surfaces.swaptionSabrExpiryTenor("SabrAlpha", ACT_ACT_ISDA, USD_FIXED_6M_LIBOR_3M, ValueType.SABR_ALPHA),
+  private static final SurfaceMetadata METADATA = DefaultSurfaceMetadata.of("surface");
+  private static final InterpolatedNodalSurface ALPHA_SURFACE = InterpolatedNodalSurface.of(METADATA,
       DoubleArray.of(0.0, 10, 0.0, 10), DoubleArray.of(0, 0, 10, 10), DoubleArray.of(0.2, 0.2, 0.2, 0.2), GRID);
-  private static final InterpolatedNodalSurface BETA_SURFACE = InterpolatedNodalSurface.of(
-      Surfaces.swaptionSabrExpiryTenor("SabrBeta", ACT_ACT_ISDA, USD_FIXED_6M_LIBOR_3M, ValueType.SABR_BETA),
+  private static final InterpolatedNodalSurface BETA_SURFACE = InterpolatedNodalSurface.of(METADATA,
       DoubleArray.of(0.0, 10, 0.0, 10), DoubleArray.of(0, 0, 10, 10), DoubleArray.of(1, 1, 1, 1), GRID);
-  private static final InterpolatedNodalSurface RHO_SURFACE = InterpolatedNodalSurface.of(
-      Surfaces.swaptionSabrExpiryTenor("SabrRho", ACT_ACT_ISDA, USD_FIXED_6M_LIBOR_3M, ValueType.SABR_RHO),
+  private static final InterpolatedNodalSurface RHO_SURFACE = InterpolatedNodalSurface.of(METADATA,
       DoubleArray.of(0.0, 10, 0.0, 10), DoubleArray.of(0, 0, 10, 10), DoubleArray.of(-0.5, -0.5, -0.5, -0.5), GRID);
-  private static final InterpolatedNodalSurface NU_SURFACE = InterpolatedNodalSurface.of(
-      Surfaces.swaptionSabrExpiryTenor("SabrNu", ACT_ACT_ISDA, USD_FIXED_6M_LIBOR_3M, ValueType.SABR_NU),
+  private static final InterpolatedNodalSurface NU_SURFACE = InterpolatedNodalSurface.of(METADATA,
       DoubleArray.of(0.0, 10, 0.0, 10), DoubleArray.of(0, 0, 10, 10), DoubleArray.of(0.5, 0.5, 0.5, 0.5), GRID);
   private static final SabrHaganVolatilityFunctionProvider FUNCTION = SabrHaganVolatilityFunctionProvider.DEFAULT;
   private static final SabrInterestRateParameters PARAMETERS =
@@ -51,32 +47,32 @@ public class SabrInterestRateParametersTest {
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testNullAlpha() {
-    Surface surface = null;
+    NodalSurface surface = null;
     SabrInterestRateParameters.of(surface, BETA_SURFACE, RHO_SURFACE, NU_SURFACE, FUNCTION);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testNullBeta() {
-    Surface surface = null;
+    NodalSurface surface = null;
     SabrInterestRateParameters.of(ALPHA_SURFACE, surface, RHO_SURFACE, NU_SURFACE, FUNCTION);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testNullRho() {
-    Surface surface = null;
+    NodalSurface surface = null;
     SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, surface, NU_SURFACE, FUNCTION);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testNullNu() {
-    Surface surface = null;
+    NodalSurface surface = null;
     SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, RHO_SURFACE, surface, FUNCTION);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testNullShift() {
-    Surface surface = null;
-    SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, RHO_SURFACE, NU_SURFACE, surface, FUNCTION);
+    NodalSurface surface = null;
+    SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, RHO_SURFACE, NU_SURFACE, FUNCTION, surface);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
@@ -102,7 +98,7 @@ public class SabrInterestRateParametersTest {
     assertEquals(PARAMETERS.getRhoSurface(), RHO_SURFACE);
     assertEquals(PARAMETERS.getNuSurface(), NU_SURFACE);
     assertEquals(PARAMETERS.getSabrFunctionProvider(), FUNCTION);
-    assertEquals(PARAMETERS.getShiftSurface().getName(), SurfaceName.of("Zero shift"));
+    assertEquals(PARAMETERS.getShiftSurface(), ConstantNodalSurface.of("zero shift", 0d));
     double expiry = 2.0;
     double tenor = 3.0;
     assertEquals(PARAMETERS.alpha(expiry, tenor), ALPHA_SURFACE.zValue(expiry, tenor));
@@ -129,14 +125,23 @@ public class SabrInterestRateParametersTest {
         SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, RHO_SURFACE, NU_SURFACE, FUNCTION);
     assertEquals(PARAMETERS, other);
     assertEquals(PARAMETERS.hashCode(), other.hashCode());
+    other = SabrInterestRateParameters.of(BETA_SURFACE, BETA_SURFACE, RHO_SURFACE, NU_SURFACE, FUNCTION);
+    assertFalse(other.equals(PARAMETERS));
+    other = SabrInterestRateParameters.of(ALPHA_SURFACE, ALPHA_SURFACE, RHO_SURFACE, NU_SURFACE, FUNCTION);
+    assertFalse(other.equals(PARAMETERS));
+    other = SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, ALPHA_SURFACE, NU_SURFACE, FUNCTION);
+    assertFalse(other.equals(PARAMETERS));
+    other = SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, RHO_SURFACE, ALPHA_SURFACE, FUNCTION);
+    assertFalse(other.equals(PARAMETERS));
+    assertFalse(other.equals(PARAMETERS));
   }
 
   @Test
   public void negativeRates() {
     double shift = 0.05;
-    Surface surface = ConstantSurface.of("shfit", shift);
+    NodalSurface surface = ConstantNodalSurface.of("shfit", shift);
     SabrInterestRateParameters params =
-        SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, RHO_SURFACE, NU_SURFACE, surface, FUNCTION);
+        SabrInterestRateParameters.of(ALPHA_SURFACE, BETA_SURFACE, RHO_SURFACE, NU_SURFACE, FUNCTION, surface);
     double expiry = 2.0;
     double tenor = 3.0;
     assertEquals(params.alpha(expiry, tenor), ALPHA_SURFACE.zValue(expiry, tenor));
@@ -164,6 +169,11 @@ public class SabrInterestRateParametersTest {
   //-------------------------------------------------------------------------
   public void coverage() {
     coverImmutableBean(PARAMETERS);
+    InterpolatedNodalSurface surface = InterpolatedNodalSurface.of(METADATA,
+        DoubleArray.of(0.0, 5, 0.0, 5), DoubleArray.of(0, 0, 8, 8), DoubleArray.of(0.2, 0.3, 0.2, 0.3), GRID);
+    SabrInterestRateParameters other = SabrInterestRateParameters.of(surface, surface, surface, surface, FUNCTION,
+        surface);
+    coverBeanEquals(PARAMETERS, other);
   }
 
 }

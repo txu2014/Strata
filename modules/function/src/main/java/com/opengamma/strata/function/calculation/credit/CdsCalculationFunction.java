@@ -12,29 +12,27 @@ import java.util.Set;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.Currency;
-import com.opengamma.strata.calc.Measure;
-import com.opengamma.strata.calc.Measures;
-import com.opengamma.strata.calc.runner.CalculationFunction;
-import com.opengamma.strata.calc.runner.CalculationParameters;
-import com.opengamma.strata.calc.runner.FunctionRequirements;
-import com.opengamma.strata.calc.runner.FunctionUtils;
+import com.opengamma.strata.basics.market.MarketDataKey;
+import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.marketdata.FunctionRequirements;
+import com.opengamma.strata.calc.runner.function.CalculationFunction;
+import com.opengamma.strata.calc.runner.function.FunctionUtils;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
-import com.opengamma.strata.market.product.credit.IsdaIndexCreditCurveInputsId;
-import com.opengamma.strata.market.product.credit.IsdaIndexRecoveryRateId;
-import com.opengamma.strata.market.product.credit.IsdaSingleNameCreditCurveInputsId;
-import com.opengamma.strata.market.product.credit.IsdaSingleNameRecoveryRateId;
-import com.opengamma.strata.market.product.credit.IsdaYieldCurveInputsId;
-import com.opengamma.strata.data.scenario.ScenarioArray;
+import com.opengamma.strata.market.key.IsdaIndexCreditCurveInputsKey;
+import com.opengamma.strata.market.key.IsdaIndexRecoveryRateKey;
+import com.opengamma.strata.market.key.IsdaSingleNameCreditCurveInputsKey;
+import com.opengamma.strata.market.key.IsdaSingleNameRecoveryRateKey;
+import com.opengamma.strata.market.key.IsdaYieldCurveInputsKey;
 import com.opengamma.strata.product.credit.Cds;
 import com.opengamma.strata.product.credit.CdsTrade;
+import com.opengamma.strata.product.credit.ExpandedCds;
 import com.opengamma.strata.product.credit.IndexReferenceInformation;
 import com.opengamma.strata.product.credit.ReferenceInformation;
-import com.opengamma.strata.product.credit.ResolvedCdsTrade;
 import com.opengamma.strata.product.credit.SingleNameReferenceInformation;
 
 /**
@@ -94,56 +92,46 @@ public class CdsCalculationFunction
 
   //-------------------------------------------------------------------------
   @Override
-  public Class<CdsTrade> targetType() {
-    return CdsTrade.class;
-  }
-
-  @Override
   public Set<Measure> supportedMeasures() {
     return MEASURES;
   }
 
   @Override
-  public Currency naturalCurrency(CdsTrade trade, ReferenceData refData) {
-    return trade.getProduct().getFeeLeg().getPeriodicPayments().getNotional().getCurrency();
+  public Currency naturalCurrency(CdsTrade target) {
+    return target.getProduct().getFeeLeg().getPeriodicPayments().getNotional().getCurrency();
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public FunctionRequirements requirements(
-      CdsTrade trade,
-      Set<Measure> measures,
-      CalculationParameters parameters,
-      ReferenceData refData) {
-
+  public FunctionRequirements requirements(CdsTrade trade, Set<Measure> measures) {
     Cds cds = trade.getProduct();
 
     Currency notionalCurrency = cds.getFeeLeg().getPeriodicPayments().getNotional().getCurrency();
     Currency feeCurrency = cds.getFeeLeg().getUpfrontFee().getCurrency();
 
-    Set<MarketDataId<?>> rateCurveIds = ImmutableSet.of(
-        IsdaYieldCurveInputsId.of(notionalCurrency),
-        IsdaYieldCurveInputsId.of(feeCurrency));
+    Set<MarketDataKey<?>> rateCurveKeys = ImmutableSet.of(
+        IsdaYieldCurveInputsKey.of(notionalCurrency),
+        IsdaYieldCurveInputsKey.of(feeCurrency));
 
     Set<Currency> currencies = ImmutableSet.of(notionalCurrency, feeCurrency);
     ReferenceInformation refInfo = cds.getReferenceInformation();
     if (refInfo instanceof SingleNameReferenceInformation) {
       SingleNameReferenceInformation singleNameRefInfo = (SingleNameReferenceInformation) refInfo;
-      Set<MarketDataId<?>> keys = ImmutableSet.of(
-          IsdaSingleNameCreditCurveInputsId.of(singleNameRefInfo),
-          IsdaSingleNameRecoveryRateId.of(singleNameRefInfo));
+      Set<MarketDataKey<?>> keys = ImmutableSet.of(
+          IsdaSingleNameCreditCurveInputsKey.of(singleNameRefInfo),
+          IsdaSingleNameRecoveryRateKey.of(singleNameRefInfo));
       return FunctionRequirements.builder()
-          .valueRequirements(Sets.union(rateCurveIds, keys))
+          .singleValueRequirements(Sets.union(rateCurveKeys, keys))
           .outputCurrencies(currencies)
           .build();
 
     } else if (refInfo instanceof IndexReferenceInformation) {
       IndexReferenceInformation indexRefInfo = (IndexReferenceInformation) refInfo;
-      Set<MarketDataId<?>> keys = ImmutableSet.of(
-          IsdaIndexCreditCurveInputsId.of(indexRefInfo),
-          IsdaIndexRecoveryRateId.of(indexRefInfo));
+      Set<MarketDataKey<?>> keys = ImmutableSet.of(
+          IsdaIndexCreditCurveInputsKey.of(indexRefInfo),
+          IsdaIndexRecoveryRateKey.of(indexRefInfo));
       return FunctionRequirements.builder()
-          .valueRequirements(Sets.union(rateCurveIds, keys))
+          .singleValueRequirements(Sets.union(rateCurveKeys, keys))
           .outputCurrencies(currencies)
           .build();
 
@@ -157,17 +145,15 @@ public class CdsCalculationFunction
   public Map<Measure, Result<?>> calculate(
       CdsTrade trade,
       Set<Measure> measures,
-      CalculationParameters parameters,
-      ScenarioMarketData scenarioMarketData,
-      ReferenceData refData) {
+      CalculationMarketData scenarioMarketData) {
 
-    // resolve the trade once for all measures and all scenarios
-    ResolvedCdsTrade resolved = trade.resolve(refData);
+    // expand the trade once for all measures and all scenarios
+    ExpandedCds product = trade.getProduct().expand();
 
     // loop around measures, calculating all scenarios for one measure
     Map<Measure, Result<?>> results = new HashMap<>();
     for (Measure measure : measures) {
-      results.put(measure, calculate(measure, resolved, scenarioMarketData));
+      results.put(measure, calculate(measure, trade, product, scenarioMarketData));
     }
     // The calculated value is the same for these two measures but they are handled differently WRT FX conversion
     FunctionUtils.duplicateResult(Measures.PRESENT_VALUE, Measures.PRESENT_VALUE_MULTI_CCY, results);
@@ -177,22 +163,24 @@ public class CdsCalculationFunction
   // calculate one measure
   private Result<?> calculate(
       Measure measure,
-      ResolvedCdsTrade trade,
-      ScenarioMarketData scenarioMarketData) {
+      CdsTrade trade,
+      ExpandedCds product,
+      CalculationMarketData scenarioMarketData) {
 
     SingleMeasureCalculation calculator = CALCULATORS.get(measure);
     if (calculator == null) {
       return Result.failure(FailureReason.INVALID_INPUT, "Unsupported measure: {}", measure);
     }
-    return Result.of(() -> calculator.calculate(trade, scenarioMarketData));
+    return Result.of(() -> calculator.calculate(trade, product, scenarioMarketData));
   }
 
   //-------------------------------------------------------------------------
   @FunctionalInterface
   interface SingleMeasureCalculation {
-    public abstract ScenarioArray<?> calculate(
-        ResolvedCdsTrade trade,
-        ScenarioMarketData marketData);
+    public abstract ScenarioResult<?> calculate(
+        CdsTrade trade,
+        ExpandedCds product,
+        CalculationMarketData marketData);
   }
 
 }

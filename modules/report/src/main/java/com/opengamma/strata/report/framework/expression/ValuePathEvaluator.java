@@ -13,11 +13,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.index.IborIndex;
-import com.opengamma.strata.calc.Measure;
+import com.opengamma.strata.calc.config.Measure;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
 import com.opengamma.strata.product.fra.Fra;
@@ -44,11 +43,9 @@ public class ValuePathEvaluator {
   private static final ImmutableList<TokenEvaluator<?>> EVALUATORS = ImmutableList.of(
       new CurrencyAmountTokenEvaluator(),
       new MapTokenEvaluator(),
-      new CurrencyParameterSensitivitiesTokenEvaluator(),
-      new CurrencyParameterSensitivityTokenEvaluator(),
-      new PositionTokenEvaluator(),
+      new CurveCurrencyParameterSensitivitiesTokenEvaluator(),
+      new CurveCurrencyParameterSensitivityTokenEvaluator(),
       new TradeTokenEvaluator(),
-      new SecurityTokenEvaluator(),
       new BeanTokenEvaluator(),
       new IterableTokenEvaluator());
 
@@ -86,7 +83,7 @@ public class ValuePathEvaluator {
 
     if (tokens.size() < 1) {
       return Collections.nCopies(
-          results.getTargets().size(),
+          results.getTrades().size(),
           Result.failure(FailureReason.INVALID_INPUT, "Column expressions must not be empty"));
     }
     int rowCount = results.getCalculationResults().getRowCount();
@@ -97,8 +94,7 @@ public class ValuePathEvaluator {
 
   // Tokens always has at least one token
   private static <T> Result<?> evaluate(List<String> tokens, TokenEvaluator<T> evaluator, T target) {
-    List<String> remaining = tokens.subList(1, tokens.size());
-    EvaluationResult evaluationResult = evaluator.evaluate(target, tokens.get(0), remaining);
+    EvaluationResult evaluationResult = evaluator.evaluate(target, tokens.get(0), tokens.subList(1, tokens.size()));
 
     if (evaluationResult.isComplete()) {
       return evaluationResult.getResult();
@@ -108,14 +104,13 @@ public class ValuePathEvaluator {
 
     return nextEvaluator.isPresent() ?
         evaluate(evaluationResult.getRemainingTokens(), nextEvaluator.get(), value) :
-        noEvaluatorResult(remaining, value);
+        noEvaluatorResult(value);
   }
 
-  private static Result<?> noEvaluatorResult(List<String> remaining, Object value) {
+  private static Result<?> noEvaluatorResult(Object value) {
     return Result.failure(
         FailureReason.INVALID_INPUT,
-        "Expression '{}' cannot be invoked on type {}",
-        Joiner.on('.').join(remaining),
+        "No evaluator available for objects of type {}",
         value.getClass().getName());
   }
 

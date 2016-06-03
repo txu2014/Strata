@@ -6,8 +6,8 @@
 package com.opengamma.strata.pricer;
 
 import static com.opengamma.strata.basics.date.DayCounts.ACT_365F;
-import static com.opengamma.strata.market.product.CompoundedRateType.CONTINUOUS;
-import static com.opengamma.strata.market.product.CompoundedRateType.PERIODIC;
+import static com.opengamma.strata.market.value.CompoundedRateType.CONTINUOUS;
+import static com.opengamma.strata.market.value.CompoundedRateType.PERIODIC;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
@@ -17,11 +17,11 @@ import org.testng.annotations.Test;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.Payment;
-import com.opengamma.strata.market.curve.ConstantCurve;
+import com.opengamma.strata.market.curve.ConstantNodalCurve;
 import com.opengamma.strata.market.curve.Curves;
-import com.opengamma.strata.market.product.SimpleDiscountFactors;
-import com.opengamma.strata.market.product.ZeroRateSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
+import com.opengamma.strata.market.sensitivity.ZeroRateSensitivity;
+import com.opengamma.strata.market.view.SimpleDiscountFactors;
 import com.opengamma.strata.pricer.fx.RatesProviderFxDataSets;
 import com.opengamma.strata.pricer.rate.SimpleRatesProvider;
 
@@ -41,7 +41,7 @@ public class DiscountingPaymentPricerTest {
   private static final Payment PAYMENT = Payment.of(CurrencyAmount.of(USD, NOTIONAL_USD), PAYMENT_DATE);
   private static final Payment PAYMENT_PAST = Payment.of(CurrencyAmount.of(USD, NOTIONAL_USD), PAYMENT_DATE_PAST);
 
-  private static final ConstantCurve CURVE = ConstantCurve.of(Curves.discountFactors("Test", ACT_365F), DF);
+  private static final ConstantNodalCurve CURVE = ConstantNodalCurve.of(Curves.discountFactors("Test", ACT_365F), DF);
   private static final SimpleDiscountFactors DISCOUNT_FACTORS = SimpleDiscountFactors.of(USD, VAL_DATE_2014_01_22, CURVE);
   private static final BaseProvider PROVIDER = new SimpleRatesProvider(VAL_DATE_2014_01_22, DISCOUNT_FACTORS);
   private static final double Z_SPREAD = 0.02;

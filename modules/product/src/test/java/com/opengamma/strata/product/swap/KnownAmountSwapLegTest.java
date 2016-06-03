@@ -5,17 +5,17 @@
  */
 package com.opengamma.strata.product.swap;
 
+import static com.opengamma.strata.basics.PayReceive.PAY;
+import static com.opengamma.strata.basics.PayReceive.RECEIVE;
 import static com.opengamma.strata.basics.currency.Currency.EUR;
 import static com.opengamma.strata.basics.currency.Currency.GBP;
 import static com.opengamma.strata.basics.date.BusinessDayConventions.FOLLOWING;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.GBLO;
 import static com.opengamma.strata.basics.schedule.Frequency.P1M;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static com.opengamma.strata.collect.TestHelper.date;
-import static com.opengamma.strata.product.common.PayReceive.PAY;
-import static com.opengamma.strata.product.common.PayReceive.RECEIVE;
 import static com.opengamma.strata.product.swap.SwapLegType.FIXED;
 import static org.testng.Assert.assertEquals;
 
@@ -24,10 +24,8 @@ import java.time.LocalDate;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.Payment;
-import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.basics.index.Index;
@@ -42,7 +40,6 @@ import com.opengamma.strata.basics.value.ValueStep;
 @Test
 public class KnownAmountSwapLegTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate DATE_01_05 = date(2014, 1, 5);
   private static final LocalDate DATE_01_06 = date(2014, 1, 6);
   private static final LocalDate DATE_02_05 = date(2014, 2, 5);
@@ -57,12 +54,11 @@ public class KnownAmountSwapLegTest {
 
   //-------------------------------------------------------------------------
   public void test_builder() {
-    BusinessDayAdjustment bda = BusinessDayAdjustment.of(FOLLOWING, GBLO);
     PeriodicSchedule accrualSchedule = PeriodicSchedule.builder()
         .startDate(DATE_01_05)
         .endDate(DATE_04_05)
         .frequency(P1M)
-        .businessDayAdjustment(bda)
+        .businessDayAdjustment(BusinessDayAdjustment.of(FOLLOWING, GBLO))
         .build();
     PaymentSchedule paymentSchedule = PaymentSchedule.builder()
         .paymentFrequency(P1M)
@@ -77,8 +73,8 @@ public class KnownAmountSwapLegTest {
         .currency(GBP)
         .build();
     assertEquals(test.getPayReceive(), PAY);
-    assertEquals(test.getStartDate(), AdjustableDate.of(DATE_01_05, bda));
-    assertEquals(test.getEndDate(), AdjustableDate.of(DATE_04_05, bda));
+    assertEquals(test.getStartDate(), DATE_01_06);
+    assertEquals(test.getEndDate(), DATE_04_07);
     assertEquals(test.getAccrualSchedule(), accrualSchedule);
     assertEquals(test.getPaymentSchedule(), paymentSchedule);
     assertEquals(test.getAmount(), amountSchedule);
@@ -109,7 +105,7 @@ public class KnownAmountSwapLegTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_resolve() {
+  public void test_expand() {
     // test case
     KnownAmountSwapLeg test = KnownAmountSwapLeg.builder()
         .payReceive(PAY)
@@ -148,7 +144,7 @@ public class KnownAmountSwapLegTest {
         .unadjustedEndDate(DATE_04_05)
         .build();
     // assertion
-    assertEquals(test.resolve(REF_DATA), ResolvedSwapLeg.builder()
+    assertEquals(test.expand(), ExpandedSwapLeg.builder()
         .type(FIXED)
         .payReceive(PAY)
         .paymentPeriods(rpp1, rpp2, rpp3)

@@ -10,7 +10,6 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.Set;
 
 import org.joda.beans.Bean;
@@ -25,14 +24,13 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.common.BuySell;
 import com.opengamma.strata.product.deposit.TermDeposit;
 import com.opengamma.strata.product.deposit.TermDepositTrade;
 
@@ -89,7 +87,7 @@ public final class ImmutableTermDepositConvention
    * The start date of the term deposit is equal to the spot date 
    * and the end date of the term deposit is relative to the start date.
    */
-  @PropertyDefinition(validate = "notNull", overrideGet = true)
+  @PropertyDefinition(validate = "notNull")
   private final DaysAdjustment spotDateOffset;
 
   //-----------------------------------------------------------------------
@@ -131,35 +129,45 @@ public final class ImmutableTermDepositConvention
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this convention, returning an instance where all the optional fields are present.
+   * <p>
+   * This returns an equivalent instance where any empty optional have been filled in.
+   * 
+   * @return the expanded convention
+   */
+  public ImmutableTermDepositConvention expand() {
+    return toBuilder().name(getName()).build();
+  }
+
+  //-------------------------------------------------------------------------
   @Override
-  public TermDepositTrade createTrade(
+  public TermDepositTrade toTrade(
       LocalDate tradeDate,
       Period depositPeriod,
       BuySell buySell,
       double notional,
-      double rate,
-      ReferenceData refData) {
+      double rate) {
 
-    LocalDate startDate = calculateSpotDateFromTradeDate(tradeDate, refData);
+    LocalDate startDate = getSpotDateOffset().adjust(tradeDate);
     LocalDate endDate = startDate.plus(depositPeriod);
     return toTrade(tradeDate, startDate, endDate, buySell, notional, rate);
   }
 
   @Override
   public TermDepositTrade toTrade(
-      TradeInfo tradeInfo,
+      LocalDate tradeDate,
       LocalDate startDate,
       LocalDate endDate,
       BuySell buySell,
       double notional,
       double rate) {
 
-    Optional<LocalDate> tradeDate = tradeInfo.getTradeDate();
-    if (tradeDate.isPresent()) {
-      ArgChecker.inOrderOrEqual(tradeDate.get(), startDate, "tradeDate", "startDate");
-    }
+    ArgChecker.inOrderOrEqual(tradeDate, startDate, "tradeDate", "startDate");
     return TermDepositTrade.builder()
-        .info(tradeInfo)
+        .tradeInfo(TradeInfo.builder()
+            .tradeDate(tradeDate)
+            .build())
         .product(TermDeposit.builder()
             .buySell(buySell)
             .currency(currency)
@@ -280,7 +288,6 @@ public final class ImmutableTermDepositConvention
    * and the end date of the term deposit is relative to the start date.
    * @return the value of the property, not null
    */
-  @Override
   public DaysAdjustment getSpotDateOffset() {
     return spotDateOffset;
   }

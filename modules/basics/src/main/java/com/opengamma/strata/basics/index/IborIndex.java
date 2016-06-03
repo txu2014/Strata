@@ -7,15 +7,13 @@ package com.opengamma.strata.basics.index;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
-import java.util.function.Function;
 
 import org.joda.convert.FromString;
 import org.joda.convert.ToString;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
+import com.opengamma.strata.basics.date.HolidayCalendar;
 import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.date.TenorAdjustment;
 import com.opengamma.strata.collect.ArgChecker;
@@ -75,13 +73,13 @@ public interface IborIndex
   public abstract DayCount getDayCount();
 
   /**
-   * Gets the calendar that determines which dates are fixing dates.
+   * Gets the fixing calendar of the index.
    * <p>
    * The rate will be fixed on each business day in this calendar.
    * 
-   * @return the calendar used to determine the fixing dates of the index
+   * @return the currency pair of the index
    */
-  public abstract HolidayCalendarId getFixingCalendar();
+  public abstract HolidayCalendar getFixingCalendar();
 
   /**
    * Gets the tenor of the index.
@@ -91,6 +89,62 @@ public interface IborIndex
   public abstract Tenor getTenor();
 
   //-------------------------------------------------------------------------
+  /**
+   * Converts the fixing date-time from the fixing date.
+   * <p>
+   * The fixing date is the date on which the index is to be observed.
+   * The fixing date-time is the specific date and time of the observation.
+   * <p>
+   * No error is thrown if the input date is not a valid fixing date.
+   * 
+   * @param fixingDate  the fixing date
+   * @return  the fixing date-time
+   */
+  public abstract ZonedDateTime calculateFixingDateTime(LocalDate fixingDate);
+
+  /**
+   * Calculates the effective date from the fixing date.
+   * <p>
+   * The fixing date is the date on which the index is to be observed.
+   * The effective date is the date on which the implied deposit starts.
+   * <p>
+   * No error is thrown if the input date is not a valid fixing date.
+   * Instead, the fixing date is moved to the next valid fixing date and then processed.
+   * 
+   * @param fixingDate  the fixing date
+   * @return the effective date
+   */
+  public abstract LocalDate calculateEffectiveFromFixing(LocalDate fixingDate);
+
+  /**
+   * Calculates the fixing date from the effective date.
+   * <p>
+   * The fixing date is the date on which the index is to be observed.
+   * The effective date is the date on which the implied deposit starts.
+   * <p>
+   * No error is thrown if the input date is not a valid effective date.
+   * Instead, the effective date is moved to the next valid effective date and then processed.
+   * 
+   * @param effectiveDate  the effective date
+   * @return the fixing date
+   */
+  public abstract LocalDate calculateFixingFromEffective(LocalDate effectiveDate);
+
+  /**
+   * Calculates the maturity date from the effective date.
+   * <p>
+   * The effective date is the date on which the implied deposit starts.
+   * The maturity date is the date on which the implied deposit ends.
+   * <p>
+   * No error is thrown if the input date is not a valid effective date.
+   * Instead, the effective date is moved to the next valid effective date and then processed.
+   * 
+   * @param effectiveDate  the effective date
+   * @return the maturity date
+   */
+  public abstract LocalDate calculateMaturityFromEffective(LocalDate effectiveDate);
+
+  //-----------------------------------------------------------------------
   /**
    * Gets the adjustment applied to the effective date to obtain the fixing date.
    * <p>
@@ -122,97 +176,6 @@ public interface IborIndex
    * @return the tenor date offset
    */
   public abstract TenorAdjustment getMaturityDateOffset();
-
-  //-------------------------------------------------------------------------
-  /**
-   * Converts the fixing date-time from the fixing date.
-   * <p>
-   * The fixing date is the date on which the index is to be observed.
-   * The fixing date-time is the specific date and time of the observation.
-   * <p>
-   * No error is thrown if the input date is not a valid fixing date.
-   * 
-   * @param fixingDate  the fixing date
-   * @return  the fixing date-time
-   */
-  public abstract ZonedDateTime calculateFixingDateTime(LocalDate fixingDate);
-
-  /**
-   * Calculates the effective date from the fixing date.
-   * <p>
-   * The fixing date is the date on which the index is to be observed.
-   * The effective date is the date on which the implied deposit starts.
-   * <p>
-   * No error is thrown if the input date is not a valid fixing date.
-   * Instead, the fixing date is moved to the next valid fixing date and then processed.
-   * 
-   * @param fixingDate  the fixing date
-   * @param refData  the reference data, used to resolve the holiday calendar
-   * @return the effective date
-   */
-  public abstract LocalDate calculateEffectiveFromFixing(LocalDate fixingDate, ReferenceData refData);
-
-  /**
-   * Calculates the maturity date from the fixing date.
-   * <p>
-   * The fixing date is the date on which the index is to be observed.
-   * The maturity date is the date on which the implied deposit ends.
-   * <p>
-   * No error is thrown if the input date is not a valid fixing date.
-   * Instead, the fixing date is moved to the next valid fixing date and then processed.
-   * 
-   * @param fixingDate  the fixing date
-   * @param refData  the reference data, used to resolve the holiday calendar
-   * @return the maturity date
-   */
-  public abstract LocalDate calculateMaturityFromFixing(LocalDate fixingDate, ReferenceData refData);
-
-  /**
-   * Calculates the fixing date from the effective date.
-   * <p>
-   * The fixing date is the date on which the index is to be observed.
-   * The effective date is the date on which the implied deposit starts.
-   * <p>
-   * No error is thrown if the input date is not a valid effective date.
-   * Instead, the effective date is moved to the next valid effective date and then processed.
-   * 
-   * @param effectiveDate  the effective date
-   * @param refData  the reference data, used to resolve the holiday calendar
-   * @return the fixing date
-   */
-  public abstract LocalDate calculateFixingFromEffective(LocalDate effectiveDate, ReferenceData refData);
-
-  /**
-   * Calculates the maturity date from the effective date.
-   * <p>
-   * The effective date is the date on which the implied deposit starts.
-   * The maturity date is the date on which the implied deposit ends.
-   * <p>
-   * No error is thrown if the input date is not a valid effective date.
-   * Instead, the effective date is moved to the next valid effective date and then processed.
-   * 
-   * @param effectiveDate  the effective date
-   * @param refData  the reference data, used to resolve the holiday calendar
-   * @return the maturity date
-   */
-  public abstract LocalDate calculateMaturityFromEffective(LocalDate effectiveDate, ReferenceData refData);
-
-  //-------------------------------------------------------------------------
-  /**
-   * Resolves this index using the specified reference data, returning a function.
-   * <p>
-   * This returns a {@link Function} that converts fixing dates to observations.
-   * It binds the holiday calendar, looked up from the reference data, into the result.
-   * As such, there is no need to pass the reference data in again.
-   * <p>
-   * This method is intended for use when looping to create multiple instances
-   * of {@code IborIndexObservation}. Implementations of the method are intended
-   * to optimize, avoiding repeated calls to resolve the holiday calendar
-   * 
-   * @param refData  the reference data, used to resolve the holiday calendar
-   * @return a function that converts fixing date to observation
-   */
-  public abstract Function<LocalDate, IborIndexObservation> resolve(ReferenceData refData);
 
   //-------------------------------------------------------------------------
   /**

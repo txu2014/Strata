@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 import org.joda.convert.FromString;
 
 import com.opengamma.strata.collect.Messages;
-import com.opengamma.strata.collect.TypedString;
+import com.opengamma.strata.collect.type.TypedString;
 
 /**
  * The type of a value.
@@ -67,49 +67,13 @@ public final class ValueType
   public static final ValueType ISDA_CREDIT = of("IsdaCredit");
 
   /**
-   * Type used when each value is a Black model implied volatility - 'BlackVolatility'.
+   * Type used when each value is a volatility - 'Volatility'.
    */
-  public static final ValueType BLACK_VOLATILITY = of("BlackVolatility");
-  /**
-   * Type used when each value is a Normal (Bachelier) model implied volatility - 'NormalVolatility'.
-   */
-  public static final ValueType NORMAL_VOLATILITY = of("NormalVolatility");
-  /**
-   * Type used when each value is a local volatility - 'LocalVolatility'.
-   */
-  public static final ValueType LOCAL_VOLATILITY = of("LocalVolatility");
-  /**
-   * Type used when each value is a Price - 'Price'.
-   */
-  public static final ValueType PRICE = of("Price");
+  public static final ValueType VOLATILITY = of("Volatility");
   /**
    * Type used when each value is a strike - 'Strike'.
    */
   public static final ValueType STRIKE = of("Strike");
-  /**
-   * Type used when each value is simple-moneyness, i.e. the value refers to strike minus forward - 'SimpleMoneyness'.
-   */
-  public static final ValueType SIMPLE_MONEYNESS = of("SimpleMoneyness");
-  /**
-   * Type used when each value is log-moneyness, i.e. the value refers to log of strike divided by forward - 'LogMoneyness'.
-   */
-  public static final ValueType LOG_MONEYNESS = of("LogMoneyness");
-  /**
-   * Type used when each value is the SABR alpha parameter - 'SabrAlpha'.
-   */
-  public static final ValueType SABR_ALPHA = of("SabrAlpha");
-  /**
-   * Type used when each value is the SABR beta parameter - 'SabrBeta'.
-   */
-  public static final ValueType SABR_BETA = of("SabrBeta");
-  /**
-   * Type used when each value is the SABR rho parameter - 'SabrRho'.
-   */
-  public static final ValueType SABR_RHO = of("SabrRho");
-  /**
-   * Type used when each value is the SABR nu parameter - 'SabrNu'.
-   */
-  public static final ValueType SABR_NU = of("SabrNu");
 
   //-------------------------------------------------------------------------
   /**

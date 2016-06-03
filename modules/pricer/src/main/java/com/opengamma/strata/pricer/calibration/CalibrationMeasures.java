@@ -12,15 +12,15 @@ import java.util.List;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.array.DoubleArray;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivity;
 import com.opengamma.strata.market.curve.CurveParameterSize;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.param.UnitParameterSensitivities;
+import com.opengamma.strata.market.curve.CurveUnitParameterSensitivities;
+import com.opengamma.strata.market.curve.CurveUnitParameterSensitivity;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.product.ResolvedTrade;
 
 /**
  * Provides access to the measures needed to perform curve calibration.
@@ -64,7 +64,7 @@ public final class CalibrationMeasures {
   /**
    * The calibration measure providers keyed by type.
    */
-  private final ImmutableMap<Class<?>, CalibrationMeasure<? extends ResolvedTrade>> measuresByTrade;
+  private final ImmutableMap<Class<?>, CalibrationMeasure<? extends Trade>> measuresByTrade;
 
   //-------------------------------------------------------------------------
   /**
@@ -77,7 +77,7 @@ public final class CalibrationMeasures {
    * @return the calibration measures
    * @throws IllegalArgumentException if a trade type is specified more than once
    */
-  public static CalibrationMeasures of(String name, List<? extends CalibrationMeasure<? extends ResolvedTrade>> measures) {
+  public static CalibrationMeasures of(String name, List<? extends CalibrationMeasure<? extends Trade>> measures) {
     return new CalibrationMeasures(name, measures);
   }
 
@@ -92,13 +92,13 @@ public final class CalibrationMeasures {
    * @throws IllegalArgumentException if a trade type is specified more than once
    */
   @SafeVarargs
-  public static CalibrationMeasures of(String name, CalibrationMeasure<? extends ResolvedTrade>... measures) {
+  public static CalibrationMeasures of(String name, CalibrationMeasure<? extends Trade>... measures) {
     return new CalibrationMeasures(name, ImmutableList.copyOf(measures));
   }
 
   //-------------------------------------------------------------------------
   // restricted constructor
-  private CalibrationMeasures(String name, List<? extends CalibrationMeasure<? extends ResolvedTrade>> measures) {
+  private CalibrationMeasures(String name, List<? extends CalibrationMeasure<? extends Trade>> measures) {
     this.name = ArgChecker.notEmpty(name, "name");
     this.measuresByTrade = measures.stream()
         .collect(toImmutableMap(CalibrationMeasure::getTradeType, m -> m));
@@ -134,8 +134,8 @@ public final class CalibrationMeasures {
    * @return the sensitivity
    * @throws IllegalArgumentException if the trade cannot be valued
    */
-  public double value(ResolvedTrade trade, RatesProvider provider) {
-    CalibrationMeasure<ResolvedTrade> measure = getMeasure(trade);
+  public double value(Trade trade, RatesProvider provider) {
+    CalibrationMeasure<Trade> measure = getMeasure(trade.getClass());
     return measure.value(trade, provider);
   }
 
@@ -150,8 +150,8 @@ public final class CalibrationMeasures {
    * @param curveOrder  the order of the curves
    * @return the sensitivity derivative
    */
-  public DoubleArray derivative(ResolvedTrade trade, RatesProvider provider, List<CurveParameterSize> curveOrder) {
-    UnitParameterSensitivities unitSens = extractSensitivities(trade, provider);
+  public DoubleArray derivative(Trade trade, RatesProvider provider, List<CurveParameterSize> curveOrder) {
+    CurveUnitParameterSensitivities unitSens = extractSensitivities(trade, provider);
 
     // expand to a concatenated array
     DoubleArray result = DoubleArray.EMPTY;
@@ -165,12 +165,12 @@ public final class CalibrationMeasures {
   }
 
   // determine the curve parameter sensitivities, removing the curency
-  private UnitParameterSensitivities extractSensitivities(ResolvedTrade trade, RatesProvider provider) {
-    CalibrationMeasure<ResolvedTrade> measure = getMeasure(trade);
-    CurrencyParameterSensitivities paramSens = measure.sensitivities(trade, provider);
-    UnitParameterSensitivities unitSens = UnitParameterSensitivities.empty();
-    for (CurrencyParameterSensitivity ccySens : paramSens.getSensitivities()) {
-      unitSens = unitSens.combinedWith(ccySens.toUnitParameterSensitivity());
+  private CurveUnitParameterSensitivities extractSensitivities(Trade trade, RatesProvider provider) {
+    CalibrationMeasure<Trade> measure = getMeasure(trade.getClass());
+    CurveCurrencyParameterSensitivities paramSens = measure.sensitivities(trade, provider);
+    CurveUnitParameterSensitivities unitSens = CurveUnitParameterSensitivities.empty();
+    for (CurveCurrencyParameterSensitivity ccySens : paramSens.getSensitivities()) {
+      unitSens = unitSens.combinedWith(CurveUnitParameterSensitivity.of(ccySens.getMetadata(), ccySens.getSensitivity()));
     }
     return unitSens;
   }
@@ -178,15 +178,13 @@ public final class CalibrationMeasures {
   //-------------------------------------------------------------------------
   // finds the correct measure implementation
   @SuppressWarnings("unchecked")
-  private <T extends ResolvedTrade> CalibrationMeasure<ResolvedTrade> getMeasure(ResolvedTrade trade) {
-    Class<? extends ResolvedTrade> tradeType = trade.getClass();
-    CalibrationMeasure<? extends ResolvedTrade> measure = measuresByTrade.get(tradeType);
+  private <T extends Trade> CalibrationMeasure<Trade> getMeasure(Class<?> tradeType) {
+    CalibrationMeasure<? extends Trade> measure = measuresByTrade.get(tradeType);
     if (measure == null) {
-      throw new IllegalArgumentException(Messages.format(
-          "Trade type '{}' is not supported for calibration", tradeType.getSimpleName()));
+      throw new IllegalArgumentException("Trade type " + tradeType.getName() + " is not supported for calibration");
     }
     // cast makes life easier for the code using this method
-    return (CalibrationMeasure<ResolvedTrade>) measure;
+    return (CalibrationMeasure<Trade>) measure;
   }
 
   //-------------------------------------------------------------------------

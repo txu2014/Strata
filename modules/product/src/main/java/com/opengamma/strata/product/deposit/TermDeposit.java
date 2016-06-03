@@ -25,15 +25,11 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.Resolvable;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
-import com.opengamma.strata.basics.date.DateAdjuster;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.Product;
-import com.opengamma.strata.product.common.BuySell;
 
 /**
  * A term deposit.
@@ -48,7 +44,7 @@ import com.opengamma.strata.product.common.BuySell;
  */
 @BeanDefinition
 public final class TermDeposit
-    implements Product, Resolvable<ResolvedTermDeposit>, ImmutableBean, Serializable {
+    implements TermDepositProduct, ImmutableBean, Serializable {
 
   /**
    * Whether the term deposit is 'Buy' or 'Sell'.
@@ -124,13 +120,21 @@ public final class TermDeposit
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this term deposit.
+   * <p>
+   * Expanding a term deposit causes the dates to be adjusted according to the relevant
+   * holiday calendar. Other one-off calculations may also be performed.
+   * 
+   * @return the equivalent expanded term deposit
+   * @throws RuntimeException if unable to expand due to an invalid definition
+   */
   @Override
-  public ResolvedTermDeposit resolve(ReferenceData refData) {
-    DateAdjuster bda = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).resolve(refData);
-    LocalDate start = bda.adjust(startDate);
-    LocalDate end = bda.adjust(endDate);
+  public ExpandedTermDeposit expand() {
+    LocalDate start = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).adjust(startDate);
+    LocalDate end = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).adjust(endDate);
     double yearFraction = dayCount.yearFraction(start, end);
-    return ResolvedTermDeposit.builder()
+    return ExpandedTermDeposit.builder()
         .startDate(start)
         .endDate(end)
         .yearFraction(yearFraction)

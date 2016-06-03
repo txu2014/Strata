@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.opengamma.strata.basics.date.HolidayCalendar;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
 import com.opengamma.strata.basics.date.ImmutableHolidayCalendar;
 
 /**
@@ -22,8 +21,7 @@ import com.opengamma.strata.basics.date.ImmutableHolidayCalendar;
  */
 public class CalendarUSD {
 
-  public static final HolidayCalendarId NYC = HolidayCalendarId.of("TestNYC");
-  public static final HolidayCalendar NYC_CALENDAR;
+  public static final HolidayCalendar NYC;
   static {
     List<LocalDate> holidays = new ArrayList<>();
     int startYear = 2013;
@@ -60,7 +58,7 @@ public class CalendarUSD {
     holidays.add(LocalDate.of(2017, 9, 4));
     holidays.add(LocalDate.of(2017, 10, 9));
     holidays.add(LocalDate.of(2017, 11, 23));
-    NYC_CALENDAR = ImmutableHolidayCalendar.of(NYC, holidays, SATURDAY, SUNDAY);
+    NYC = ImmutableHolidayCalendar.of("NYC", holidays, SATURDAY, SUNDAY);
   }
 
 }

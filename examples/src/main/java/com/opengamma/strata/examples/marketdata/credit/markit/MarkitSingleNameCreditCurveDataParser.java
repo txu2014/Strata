@@ -22,14 +22,13 @@ import com.google.common.collect.Maps;
 import com.google.common.io.CharSource;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.Tenor;
+import com.opengamma.strata.calc.marketdata.MarketEnvironmentBuilder;
 import com.opengamma.strata.collect.io.CsvFile;
-import com.opengamma.strata.collect.io.CsvRow;
-import com.opengamma.strata.data.scenario.ImmutableScenarioMarketDataBuilder;
 import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.market.product.credit.CdsRecoveryRate;
-import com.opengamma.strata.market.product.credit.IsdaCreditCurveInputs;
-import com.opengamma.strata.market.product.credit.IsdaSingleNameCreditCurveInputsId;
-import com.opengamma.strata.market.product.credit.IsdaSingleNameRecoveryRateId;
+import com.opengamma.strata.market.curve.IsdaCreditCurveInputs;
+import com.opengamma.strata.market.id.IsdaSingleNameCreditCurveInputsId;
+import com.opengamma.strata.market.id.IsdaSingleNameRecoveryRateId;
+import com.opengamma.strata.market.value.CdsRecoveryRate;
 import com.opengamma.strata.product.credit.RestructuringClause;
 import com.opengamma.strata.product.credit.SeniorityLevel;
 import com.opengamma.strata.product.credit.SingleNameReferenceInformation;
@@ -90,7 +89,7 @@ public class MarkitSingleNameCreditCurveDataParser {
    * @param staticDataSource  the source of static data to parse
    */
   public static void parse(
-      ImmutableScenarioMarketDataBuilder builder,
+      MarketEnvironmentBuilder builder,
       CharSource curveSource,
       CharSource staticDataSource) {
 
@@ -179,9 +178,9 @@ public class MarkitSingleNameCreditCurveDataParser {
   private static Map<MarkitRedCode, CdsConvention> parseStaticData(CharSource source) {
     CsvFile csv = CsvFile.of(source, true);
     Map<MarkitRedCode, CdsConvention> result = Maps.newHashMap();
-    for (CsvRow row : csv.rows()) {
-      String redCodeText = row.getField("RedCode");
-      String conventionText = row.getField("Convention");
+    for (int i = 0; i < csv.rowCount(); i++) {
+      String redCodeText = csv.field(i, "RedCode");
+      String conventionText = csv.field(i, "Convention");
       result.put(MarkitRedCode.of(redCodeText), CdsConvention.of(conventionText));
     }
     return result;

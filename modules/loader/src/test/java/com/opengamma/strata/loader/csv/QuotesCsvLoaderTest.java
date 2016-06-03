@@ -18,9 +18,9 @@ import java.util.Map;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.StandardId;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.collect.io.ResourceLocator;
-import com.opengamma.strata.market.observable.QuoteId;
+import com.opengamma.strata.market.id.QuoteId;
 
 /**
  * Test {@link QuotesCsvLoader}.

@@ -11,22 +11,22 @@ import java.util.Set;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.index.IborIndex;
-import com.opengamma.strata.calc.Measure;
-import com.opengamma.strata.calc.Measures;
-import com.opengamma.strata.calc.runner.CalculationFunction;
-import com.opengamma.strata.calc.runner.CalculationParameters;
-import com.opengamma.strata.calc.runner.FunctionRequirements;
-import com.opengamma.strata.calc.runner.FunctionUtils;
+import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.marketdata.FunctionRequirements;
+import com.opengamma.strata.calc.runner.function.CalculationFunction;
+import com.opengamma.strata.calc.runner.function.FunctionUtils;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.function.calculation.RatesMarketDataLookup;
-import com.opengamma.strata.function.calculation.RatesScenarioMarketData;
-import com.opengamma.strata.product.swaption.ResolvedSwaptionTrade;
+import com.opengamma.strata.market.key.DiscountCurveKey;
+import com.opengamma.strata.market.key.IborIndexCurveKey;
+import com.opengamma.strata.market.key.IndexRateKey;
+import com.opengamma.strata.market.key.SwaptionVolatilitiesKey;
+import com.opengamma.strata.product.swaption.ExpandedSwaption;
 import com.opengamma.strata.product.swaption.Swaption;
 import com.opengamma.strata.product.swaption.SwaptionTrade;
 
@@ -66,39 +66,31 @@ public class SwaptionCalculationFunction
 
   //-------------------------------------------------------------------------
   @Override
-  public Class<SwaptionTrade> targetType() {
-    return SwaptionTrade.class;
-  }
-
-  @Override
   public Set<Measure> supportedMeasures() {
     return MEASURES;
   }
 
   @Override
-  public Currency naturalCurrency(SwaptionTrade trade, ReferenceData refData) {
-    return trade.getProduct().getCurrency();
+  public Currency naturalCurrency(SwaptionTrade target) {
+    return target.getProduct().getCurrency();
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public FunctionRequirements requirements(
-      SwaptionTrade trade,
-      Set<Measure> measures,
-      CalculationParameters parameters,
-      ReferenceData refData) {
-
-    // extract data from product
+  public FunctionRequirements requirements(SwaptionTrade trade, Set<Measure> measures) {
     Swaption product = trade.getProduct();
-    Currency currency = product.getCurrency();
-    IborIndex index = product.getIndex();
 
-    // use lookup to build requirements
-    RatesMarketDataLookup ratesLookup = parameters.getParameter(RatesMarketDataLookup.class);
-    FunctionRequirements ratesReqs = ratesLookup.requirements(currency, index);
-    SwaptionMarketDataLookup swaptionLookup = parameters.getParameter(SwaptionMarketDataLookup.class);
-    FunctionRequirements swaptionReqs = swaptionLookup.requirements(index);
-    return ratesReqs.combinedWith(swaptionReqs);
+    IborIndex index = product.getIndex();
+    DiscountCurveKey dfKey = DiscountCurveKey.of(product.getCurrency());
+    IborIndexCurveKey iborKey = IborIndexCurveKey.of(index);
+    SwaptionVolatilitiesKey volKey = SwaptionVolatilitiesKey.of(index);
+    IndexRateKey iborRateKey = IndexRateKey.of(index);
+
+    return FunctionRequirements.builder()
+        .singleValueRequirements(dfKey, iborKey, volKey)
+        .timeSeriesRequirements(iborRateKey)
+        .outputCurrencies(product.getCurrency())
+        .build();
   }
 
   //-------------------------------------------------------------------------
@@ -106,21 +98,17 @@ public class SwaptionCalculationFunction
   public Map<Measure, Result<?>> calculate(
       SwaptionTrade trade,
       Set<Measure> measures,
-      CalculationParameters parameters,
-      ScenarioMarketData scenarioMarketData,
-      ReferenceData refData) {
+      CalculationMarketData scenarioMarketData) {
 
     // expand the trade once for all measures and all scenarios
-    ResolvedSwaptionTrade resolved = trade.resolve(refData);
-    RatesMarketDataLookup ratesLookup = parameters.getParameter(RatesMarketDataLookup.class);
-    RatesScenarioMarketData ratesMarketData = ratesLookup.marketDataView(scenarioMarketData);
-    SwaptionMarketDataLookup swaptionLookup = parameters.getParameter(SwaptionMarketDataLookup.class);
-    SwaptionScenarioMarketData swaptionMarketData = swaptionLookup.marketDataView(scenarioMarketData);
+    ExpandedSwaption product = trade.getProduct().expand();
+    IborIndex index = trade.getProduct().getIndex();
+    SwaptionVolatilitiesKey volKey = SwaptionVolatilitiesKey.of(index);
 
     // loop around measures, calculating all scenarios for one measure
     Map<Measure, Result<?>> results = new HashMap<>();
     for (Measure measure : measures) {
-      results.put(measure, calculate(measure, resolved, ratesMarketData, swaptionMarketData));
+      results.put(measure, calculate(measure, trade, product, scenarioMarketData, volKey));
     }
     // The calculated value is the same for these two measures but they are handled differently WRT FX conversion
     FunctionUtils.duplicateResult(Measures.PRESENT_VALUE, Measures.PRESENT_VALUE_MULTI_CCY, results);
@@ -130,24 +118,26 @@ public class SwaptionCalculationFunction
   // calculate one measure
   private Result<?> calculate(
       Measure measure,
-      ResolvedSwaptionTrade trade,
-      RatesScenarioMarketData ratesMarketData,
-      SwaptionScenarioMarketData swaptionMarketData) {
+      SwaptionTrade trade,
+      ExpandedSwaption product,
+      CalculationMarketData scenarioMarketData,
+      SwaptionVolatilitiesKey volKey) {
 
     SingleMeasureCalculation calculator = CALCULATORS.get(measure);
     if (calculator == null) {
       return Result.failure(FailureReason.INVALID_INPUT, "Unsupported measure: {}", measure);
     }
-    return Result.of(() -> calculator.calculate(trade, ratesMarketData, swaptionMarketData));
+    return Result.of(() -> calculator.calculate(trade, product, scenarioMarketData, volKey));
   }
 
   //-------------------------------------------------------------------------
   @FunctionalInterface
   interface SingleMeasureCalculation {
-    public abstract ScenarioArray<?> calculate(
-        ResolvedSwaptionTrade trade,
-        RatesScenarioMarketData ratesMarketData,
-        SwaptionScenarioMarketData swaptionMarketData);
+    public abstract ScenarioResult<?> calculate(
+        SwaptionTrade trade,
+        ExpandedSwaption product,
+        CalculationMarketData marketData,
+        SwaptionVolatilitiesKey volatilityKey);
   }
 
 }

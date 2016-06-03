@@ -18,32 +18,30 @@ import org.testng.annotations.Test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.index.IborIndex;
-import com.opengamma.strata.calc.Measure;
-import com.opengamma.strata.calc.Measures;
-import com.opengamma.strata.calc.runner.CalculationParameters;
-import com.opengamma.strata.calc.runner.FunctionRequirements;
+import com.opengamma.strata.calc.config.FunctionConfig;
+import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.config.pricing.FunctionGroup;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.marketdata.FunctionRequirements;
+import com.opengamma.strata.calc.runner.function.result.CurrencyValuesArray;
+import com.opengamma.strata.calc.runner.function.result.ValuesArray;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.collect.result.Result;
-import com.opengamma.strata.data.FieldName;
-import com.opengamma.strata.data.scenario.CurrencyValuesArray;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
-import com.opengamma.strata.data.scenario.ValuesArray;
-import com.opengamma.strata.function.calculation.RatesMarketDataLookup;
 import com.opengamma.strata.function.marketdata.curve.TestMarketDataMap;
-import com.opengamma.strata.market.curve.ConstantCurve;
+import com.opengamma.strata.market.curve.ConstantNodalCurve;
 import com.opengamma.strata.market.curve.Curve;
-import com.opengamma.strata.market.curve.CurveId;
 import com.opengamma.strata.market.curve.Curves;
-import com.opengamma.strata.market.observable.IndexQuoteId;
-import com.opengamma.strata.market.observable.QuoteId;
+import com.opengamma.strata.market.key.DiscountCurveKey;
+import com.opengamma.strata.market.key.IborIndexCurveKey;
+import com.opengamma.strata.market.key.IndexRateKey;
+import com.opengamma.strata.market.key.QuoteKey;
 import com.opengamma.strata.pricer.index.DiscountingIborFutureTradePricer;
-import com.opengamma.strata.pricer.rate.RatesProvider;
+import com.opengamma.strata.pricer.rate.MarketDataRatesProvider;
 import com.opengamma.strata.product.index.IborFutureTrade;
-import com.opengamma.strata.product.index.ResolvedIborFutureTrade;
 import com.opengamma.strata.product.index.type.IborFutureConventions;
 
 /**
@@ -52,48 +50,47 @@ import com.opengamma.strata.product.index.type.IborFutureConventions;
 @Test
 public class IborFutureCalculationFunctionTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final double MARKET_PRICE = 99.42;
-  public static final IborFutureTrade TRADE = IborFutureConventions.USD_LIBOR_3M_QUARTERLY_IMM.createTrade(
-      LocalDate.of(2014, 9, 12), Period.ofMonths(1), 2, 5, 1_000_000, 0.9998, REF_DATA);
-
-  private static final StandardId SEC_ID = TRADE.getProduct().getSecurityId().getStandardId();
+  public static final IborFutureTrade TRADE = IborFutureConventions.USD_LIBOR_3M_QUARTERLY_IMM.toTrade(
+      LocalDate.of(2014, 9, 12), Period.ofMonths(1), 2, 5, 1_000_000, 0.9998);
+  private static final StandardId SEC_ID = TRADE.getSecurity().getStandardId();
   private static final Currency CURRENCY = TRADE.getProduct().getCurrency();
   private static final IborIndex INDEX = TRADE.getProduct().getIndex();
-  private static final CurveId DISCOUNT_CURVE_ID = CurveId.of("Default", "Discount");
-  private static final CurveId FORWARD_CURVE_ID = CurveId.of("Default", "Forward");
-  private static final RatesMarketDataLookup RATES_LOOKUP = RatesMarketDataLookup.of(
-      ImmutableMap.of(CURRENCY, DISCOUNT_CURVE_ID),
-      ImmutableMap.of(INDEX, FORWARD_CURVE_ID));
-  private static final CalculationParameters PARAMS = CalculationParameters.of(RATES_LOOKUP);
   private static final LocalDate VAL_DATE = TRADE.getProduct().getLastTradeDate().minusDays(7);
-  private static final QuoteId QUOTE_KEY = QuoteId.of(SEC_ID, FieldName.SETTLEMENT_PRICE);
 
   //-------------------------------------------------------------------------
+  public void test_group() {
+    FunctionGroup<IborFutureTrade> test = IborFutureFunctionGroups.discounting();
+    assertThat(test.configuredMeasures(TRADE)).contains(
+        Measures.PRESENT_VALUE);
+    FunctionConfig<IborFutureTrade> config =
+        IborFutureFunctionGroups.discounting().functionConfig(TRADE, Measures.PRESENT_VALUE).get();
+    assertThat(config.createFunction()).isInstanceOf(IborFutureCalculationFunction.class);
+  }
+
   public void test_requirementsAndCurrency() {
     IborFutureCalculationFunction function = new IborFutureCalculationFunction();
     Set<Measure> measures = function.supportedMeasures();
-    FunctionRequirements reqs = function.requirements(TRADE, measures, PARAMS, REF_DATA);
+    FunctionRequirements reqs = function.requirements(TRADE, measures);
     assertThat(reqs.getOutputCurrencies()).containsOnly(CURRENCY);
-    assertThat(reqs.getValueRequirements()).isEqualTo(
-        ImmutableSet.of(DISCOUNT_CURVE_ID, FORWARD_CURVE_ID, QUOTE_KEY));
-    assertThat(reqs.getTimeSeriesRequirements()).isEqualTo(ImmutableSet.of(IndexQuoteId.of(INDEX)));
-    assertThat(function.naturalCurrency(TRADE, REF_DATA)).isEqualTo(CURRENCY);
+    assertThat(reqs.getSingleValueRequirements()).isEqualTo(
+        ImmutableSet.of(DiscountCurveKey.of(CURRENCY), IborIndexCurveKey.of(INDEX), QuoteKey.of(SEC_ID)));
+    assertThat(reqs.getTimeSeriesRequirements()).isEqualTo(ImmutableSet.of(IndexRateKey.of(INDEX)));
+    assertThat(function.naturalCurrency(TRADE)).isEqualTo(CURRENCY);
   }
 
   public void test_simpleMeasures() {
     IborFutureCalculationFunction function = new IborFutureCalculationFunction();
-    ScenarioMarketData md = marketData();
-    RatesProvider provider = RATES_LOOKUP.ratesProvider(md.scenario(0));
-    ResolvedIborFutureTrade resolved = TRADE.resolve(REF_DATA);
-    CurrencyAmount expectedPv = DiscountingIborFutureTradePricer.DEFAULT.presentValue(resolved, provider, MARKET_PRICE / 100);
-    double expectedParSpread = DiscountingIborFutureTradePricer.DEFAULT.parSpread(resolved, provider, MARKET_PRICE / 100);
+    CalculationMarketData md = marketData();
+    MarketDataRatesProvider provider = MarketDataRatesProvider.of(md.scenario(0));
+    CurrencyAmount expectedPv = DiscountingIborFutureTradePricer.DEFAULT.presentValue(TRADE, provider, MARKET_PRICE / 100);
+    double expectedParSpread = DiscountingIborFutureTradePricer.DEFAULT.parSpread(TRADE, provider, MARKET_PRICE / 100);
 
     Set<Measure> measures = ImmutableSet.of(
         Measures.PRESENT_VALUE,
         Measures.PRESENT_VALUE_MULTI_CCY,
         Measures.PAR_SPREAD);
-    assertThat(function.calculate(TRADE, measures, PARAMS, md, REF_DATA))
+    assertThat(function.calculate(TRADE, measures, md))
         .containsEntry(
             Measures.PRESENT_VALUE, Result.success(CurrencyValuesArray.of(ImmutableList.of(expectedPv))))
         .containsEntry(
@@ -103,20 +100,21 @@ public class IborFutureCalculationFunctionTest {
   }
 
   //-------------------------------------------------------------------------
-  private ScenarioMarketData marketData() {
-    Curve curve = ConstantCurve.of(Curves.discountFactors("Test", ACT_360), 0.99);
+  private CalculationMarketData marketData() {
+    Curve curve = ConstantNodalCurve.of(Curves.discountFactors("Test", ACT_360), 0.99);
     TestMarketDataMap md = new TestMarketDataMap(
         VAL_DATE,
         ImmutableMap.of(
-            DISCOUNT_CURVE_ID, curve,
-            FORWARD_CURVE_ID, curve,
-            QUOTE_KEY, MARKET_PRICE),
+            DiscountCurveKey.of(CURRENCY), curve,
+            IborIndexCurveKey.of(INDEX), curve,
+            QuoteKey.of(SEC_ID), MARKET_PRICE),
         ImmutableMap.of());
     return md;
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
+    coverPrivateConstructor(IborFutureFunctionGroups.class);
     coverPrivateConstructor(IborFutureMeasureCalculations.class);
   }
 

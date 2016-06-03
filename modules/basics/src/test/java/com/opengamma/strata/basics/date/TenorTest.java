@@ -167,6 +167,7 @@ public class TenorTest {
         {"2"},
         {"2K"},
         {"-2D"},
+        {null},
     };
   }
 

@@ -25,13 +25,13 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.schedule.Schedule;
 import com.opengamma.strata.basics.schedule.SchedulePeriod;
 import com.opengamma.strata.basics.value.ValueSchedule;
-import com.opengamma.strata.product.rate.FixedRateComputation;
+import com.opengamma.strata.collect.ArgChecker;
+import com.opengamma.strata.product.rate.FixedRateObservation;
 
 /**
  * Defines the calculation of a fixed rate swap leg.
@@ -90,11 +90,9 @@ public final class FixedRateCalculation
   }
 
   @Override
-  public ImmutableList<RateAccrualPeriod> createAccrualPeriods(
-      Schedule accrualSchedule,
-      Schedule paymentSchedule,
-      ReferenceData refData) {
-
+  public ImmutableList<RateAccrualPeriod> expand(Schedule accrualSchedule, Schedule paymentSchedule) {
+    ArgChecker.notNull(accrualSchedule, "accrualSchedule");
+    ArgChecker.notNull(paymentSchedule, "paymentSchedule");
     // resolve data by schedule
     List<Double> resolvedRates = rate.resolveValues(accrualSchedule.getPeriods());
     // build accrual periods
@@ -103,7 +101,7 @@ public final class FixedRateCalculation
       SchedulePeriod period = accrualSchedule.getPeriod(i);
       accrualPeriods.add(RateAccrualPeriod.builder(period)
           .yearFraction(period.yearFraction(dayCount, accrualSchedule))
-          .rateComputation(FixedRateComputation.of(resolvedRates.get(i)))
+          .rateObservation(FixedRateObservation.of(resolvedRates.get(i)))
           .build());
     }
     return accrualPeriods.build();

@@ -7,13 +7,13 @@ package com.opengamma.strata.pricer.bond;
 
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
-import com.opengamma.strata.product.bond.ResolvedBondFuture;
-import com.opengamma.strata.product.bond.ResolvedBondFutureTrade;
+import com.opengamma.strata.product.bond.BondFuture;
+import com.opengamma.strata.product.bond.BondFutureTrade;
 
 /**
  * Base pricer for bond futures.
  * <p>
- * This function provides common code used when pricing an {@link ResolvedBondFuture}.
+ * This function provides common code used when pricing an {@link BondFuture}.
  */
 public abstract class AbstractBondFutureTradePricer {
 
@@ -35,17 +35,15 @@ public abstract class AbstractBondFutureTradePricer {
    * Calculates the present value of the bond future trade from the current price.
    * <p>
    * The present value of the product is the value on the valuation date.
-   * <p>
-   * The calculation is performed against a reference price. The reference price should
-   * be the settlement price except on the trade date, when it is the trade price.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param currentPrice  the price on the valuation date
-   * @param referencePrice  the price with respect to which the margining should be done
+   * @param referencePrice  the price with respect to which the margining should be done. The reference price is
+   *   the trade date before any margining has taken place and the price used for the last margining otherwise.
    * @return the present value
    */
-  public CurrencyAmount presentValue(ResolvedBondFutureTrade trade, double currentPrice, double referencePrice) {
-    ResolvedBondFuture future = trade.getProduct();
+  public CurrencyAmount presentValue(BondFutureTrade trade, double currentPrice, double referencePrice) {
+    BondFuture future = trade.getSecurity().getProduct();
     double priceIndex = getProductPricer().marginIndex(future, currentPrice);
     double referenceIndex = getProductPricer().marginIndex(future, referencePrice);
     double pv = (priceIndex - referenceIndex) * trade.getQuantity();
@@ -54,16 +52,14 @@ public abstract class AbstractBondFutureTradePricer {
 
   /**
    * Calculates the currency exposure of the bond future trade from the current price.
-   * <p>
-   * The calculation is performed against a reference price. The reference price should
-   * be the settlement price except on the trade date, when it is the trade price.
    * 
-   * @param trade  the trade
+   * @param trade  the trade to price
    * @param currentPrice  the price on the valuation date
-   * @param referencePrice  the price with respect to which the margining should be done
+   * @param referencePrice  the price with respect to which the margining should be done. The reference price is
+   *   the trade date before any margining has taken place and the price used for the last margining otherwise.
    * @return the currency exposure
    */
-  public MultiCurrencyAmount currencyExposure(ResolvedBondFutureTrade trade, double currentPrice, double referencePrice) {
+  public MultiCurrencyAmount currencyExposure(BondFutureTrade trade, double currentPrice, double referencePrice) {
     return MultiCurrencyAmount.of(presentValue(trade, currentPrice, referencePrice));
   }
 

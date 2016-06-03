@@ -30,10 +30,10 @@ import com.opengamma.strata.market.curve.InterpolatedNodalCurve;
 import com.opengamma.strata.market.curve.NodalCurve;
 import com.opengamma.strata.market.interpolator.CurveInterpolator;
 import com.opengamma.strata.market.interpolator.CurveInterpolators;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.param.ParameterMetadata;
-import com.opengamma.strata.market.product.fx.FxOptionSensitivity;
-import com.opengamma.strata.market.product.fx.FxVolatilitySurfaceYearFractionParameterMetadata;
+import com.opengamma.strata.market.sensitivity.FxOptionSensitivity;
+import com.opengamma.strata.market.surface.SurfaceCurrencyParameterSensitivity;
+import com.opengamma.strata.market.surface.SurfaceParameterMetadata;
+import com.opengamma.strata.market.surface.meta.FxVolatilitySurfaceYearFractionNodeMetadata;
 
 /**
  * Test {@link BlackVolatilityFlatFxProvider}.
@@ -113,10 +113,10 @@ public class BlackVolatilityFlatFxProviderTest {
       for (int j = 0; j < NB_STRIKE; ++j) {
         FxOptionSensitivity sensi = FxOptionSensitivity.of(
             CURRENCY_PAIR, TEST_EXPIRY[i], TEST_STRIKE[j], FORWARD[i], GBP, 1d);
-        CurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
-        Iterator<ParameterMetadata> itr = computed.getParameterMetadata().iterator();
+        SurfaceCurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
+        Iterator<SurfaceParameterMetadata> itr = computed.getMetadata().getParameterMetadata().get().iterator();
         for (double value : computed.getSensitivity().toArray()) {
-          FxVolatilitySurfaceYearFractionParameterMetadata meta = ((FxVolatilitySurfaceYearFractionParameterMetadata) itr.next());
+          FxVolatilitySurfaceYearFractionNodeMetadata meta = ((FxVolatilitySurfaceYearFractionNodeMetadata) itr.next());
           double nodeExpiry = meta.getYearFraction();
           double expected = nodeSensitivity(
               PROVIDER, CURRENCY_PAIR, TEST_EXPIRY[i], TEST_STRIKE[j], FORWARD[i], nodeExpiry);
@@ -131,10 +131,10 @@ public class BlackVolatilityFlatFxProviderTest {
       for (int j = 0; j < NB_STRIKE; ++j) {
         FxOptionSensitivity sensi = FxOptionSensitivity.of(
             CURRENCY_PAIR.inverse(), TEST_EXPIRY[i], 1d / TEST_STRIKE[j], 1d / FORWARD[i], GBP, 1d);
-        CurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
-        Iterator<ParameterMetadata> itr = computed.getParameterMetadata().iterator();
+        SurfaceCurrencyParameterSensitivity computed = PROVIDER.surfaceParameterSensitivity(sensi);
+        Iterator<SurfaceParameterMetadata> itr = computed.getMetadata().getParameterMetadata().get().iterator();
         for (double value : computed.getSensitivity().toArray()) {
-          double nodeExpiry = ((FxVolatilitySurfaceYearFractionParameterMetadata) itr.next()).getYearFraction();
+          double nodeExpiry = ((FxVolatilitySurfaceYearFractionNodeMetadata) itr.next()).getYearFraction();
           double expected = nodeSensitivity(
               PROVIDER, CURRENCY_PAIR.inverse(), TEST_EXPIRY[i], 1d / TEST_STRIKE[j], 1d / FORWARD[i], nodeExpiry);
           assertEquals(value, expected, EPS);

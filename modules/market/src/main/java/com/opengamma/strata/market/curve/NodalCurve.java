@@ -5,8 +5,11 @@
  */
 package com.opengamma.strata.market.curve;
 
+import java.util.List;
+import java.util.function.DoubleBinaryOperator;
+
+import com.opengamma.strata.basics.value.ValueAdjustment;
 import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.market.param.ParameterPerturbation;
 
 /**
  * A curve based on {@code double} nodal points.
@@ -21,18 +24,6 @@ import com.opengamma.strata.market.param.ParameterPerturbation;
  */
 public interface NodalCurve
     extends Curve {
-
-  /**
-   * Returns a new curve with the specified metadata.
-   * <p>
-   * This allows the metadata of the curve to be changed while retaining all other information.
-   * If parameter metadata is present, the size of the list must match the number of parameters of this curve.
-   * 
-   * @param metadata  the new metadata for the curve
-   * @return the new curve
-   */
-  @Override
-  public abstract NodalCurve withMetadata(CurveMetadata metadata);
 
   /**
    * Gets the known x-values of the curve.
@@ -65,12 +56,44 @@ public interface NodalCurve
   public abstract NodalCurve withYValues(DoubleArray values);
 
   //-------------------------------------------------------------------------
-  @Override
-  abstract NodalCurve withParameter(int parameterIndex, double newValue);
+  /**
+   * Returns a new curve where each y-value has been shifted.
+   * <p>
+   * The desired adjustment is specified using {@link DoubleBinaryOperator}.
+   * <p>
+   * The operator will be called once for each parameter of the curve.
+   * The input will be the x and y values of the parameter.
+   * The output will be the new y-value.
+   * 
+   * @param operator  the operator that provides the change
+   * @return the new curve
+   */
+  public default NodalCurve shiftedBy(DoubleBinaryOperator operator) {
+    DoubleArray xValues = getXValues();
+    DoubleArray yValues = getYValues();
+    return withYValues(yValues.mapWithIndex((i, v) -> operator.applyAsDouble(xValues.get(i), v)));
+  }
 
+  /**
+   * Returns a new curve where each y-value has been shifted.
+   * <p>
+   * The desired adjustment is specified using {@link ValueAdjustment}.
+   * The size of the list of adjustments will typically match the number of parameters.
+   * If there are too many adjustments, no error will occur and the excess will be ignored.
+   * If there are too few adjustments, no error will occur and the remaining points will not be adjusted.
+   * 
+   * @param adjustments  the adjustments to make
+   * @return the new curve
+   */
+  public default NodalCurve shiftedBy(List<ValueAdjustment> adjustments) {
+    DoubleArray yValues = getYValues();
+    return withYValues(yValues.mapWithIndex((i, v) -> i < adjustments.size() ? adjustments.get(i).adjust(v) : v));
+  }
+
+  //-------------------------------------------------------------------------
   @Override
-  default NodalCurve withPerturbation(ParameterPerturbation perturbation) {
-    return (NodalCurve) Curve.super.withPerturbation(perturbation);
+  public default NodalCurve toNodalCurve() {
+    return this;
   }
 
 }

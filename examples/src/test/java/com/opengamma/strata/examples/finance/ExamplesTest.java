@@ -37,7 +37,7 @@ public class ExamplesTest {
 
   //-------------------------------------------------------------------------
   public void test_dsfPricing_standalone() {
-    assertValidCapturedAsciiTable(caputureSystemOut(() -> DsfPricingExample.main(NO_ARGS)));
+    assertValidCapturedAsciiTable(caputureSystemOut(() -> DeliverableSwapFuturePricingExample.main(NO_ARGS)));
   }
 
   public void test_dsfPricing_tool() {
@@ -63,12 +63,12 @@ public class ExamplesTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_genericSecurityPricing_standalone() {
-    assertValidCapturedAsciiTable(caputureSystemOut(() -> GenericSecurityPricingExample.main(NO_ARGS)));
+  public void test_genericFuturePricing_standalone() {
+    assertValidCapturedAsciiTable(caputureSystemOut(() -> GenericFuturePricingExample.main(NO_ARGS)));
   }
 
-  public void test_genericSecurityPricing_tool() {
-    assertValidCapturedAsciiTable(caputureSystemOut(() -> ReportRunnerTool.main(toolArgs("security"))));
+  public void test_genericFuturePricing_tool() {
+    assertValidCapturedAsciiTable(caputureSystemOut(() -> ReportRunnerTool.main(toolArgs("future"))));
   }
 
   //-------------------------------------------------------------------------
@@ -190,7 +190,6 @@ public class ExamplesTest {
     assertFalse(captured.contains("ERROR"), captured);
     assertFalse(captured.contains("FAIL"), captured);
     assertFalse(captured.contains("Exception"), captured);
-    assertFalse(captured.contains("drill down"), captured);
   }
 
 }

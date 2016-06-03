@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Optional;
 
 import com.google.common.collect.ImmutableList;
+import com.opengamma.strata.basics.PayReceive;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
@@ -31,9 +33,7 @@ import com.opengamma.strata.collect.io.XmlElement;
 import com.opengamma.strata.loader.fpml.FpmlDocument;
 import com.opengamma.strata.loader.fpml.FpmlParseException;
 import com.opengamma.strata.loader.fpml.FpmlParserPlugin;
-import com.opengamma.strata.product.Trade;
-import com.opengamma.strata.product.TradeInfoBuilder;
-import com.opengamma.strata.product.common.PayReceive;
+import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.swap.CompoundingMethod;
 import com.opengamma.strata.product.swap.FixedRateCalculation;
 import com.opengamma.strata.product.swap.FixingRelativeTo;
@@ -47,7 +47,6 @@ import com.opengamma.strata.product.swap.OvernightAccrualMethod;
 import com.opengamma.strata.product.swap.OvernightRateCalculation;
 import com.opengamma.strata.product.swap.PaymentRelativeTo;
 import com.opengamma.strata.product.swap.PaymentSchedule;
-import com.opengamma.strata.product.swap.PriceIndexCalculationMethod;
 import com.opengamma.strata.product.swap.RateCalculation;
 import com.opengamma.strata.product.swap.RateCalculationSwapLeg;
 import com.opengamma.strata.product.swap.ResetSchedule;
@@ -60,24 +59,6 @@ import com.opengamma.strata.product.swap.SwapTrade;
  * FpML parser for Swaps.
  * <p>
  * This parser handles the subset of FpML necessary to populate the trade model.
- * <p>
- * The following features are not available in the Strata trade model:
- * <ul>
- * <li>initial fixing date
- * <li>first payment date
- * <li>last regular payment date
- * <li>weekly reset frequency
- * <li>known amount in a stub
- * <li>spread/gearing in a stub
- * <li>overnight leg first rate is known
- * <li>overnight leg stubs
- * <li>FRA discounting
- * <li>future value notional
- * <li>non-delivered settlement
- * <li>rate treatment
- * <li>FX reset first rate is known
- * <li>notional varies by formula
- * </ul>
  */
 final class SwapFpmlParserPlugin
     implements FpmlParserPlugin {
@@ -121,16 +102,7 @@ final class SwapFpmlParserPlugin
     // rejected elements:
     //  'swapStream/calculationPeriodAmount/calculation/fxLinkedNotionalSchedule'
     //  'swapStream/calculationPeriodAmount/calculation/futureValueNotional'
-    TradeInfoBuilder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
-    Swap swap = parseSwap(document, tradeEl, tradeInfoBuilder);
-    return SwapTrade.builder()
-        .info(tradeInfoBuilder.build())
-        .product(swap)
-        .build();
-  }
-
-  // parses the swap
-  Swap parseSwap(FpmlDocument document, XmlElement tradeEl, TradeInfoBuilder tradeInfoBuilder) {
+    TradeInfo.Builder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
     XmlElement swapEl = tradeEl.getChild("swap");
     ImmutableList<XmlElement> legEls = swapEl.getChildren("swapStream");
     ImmutableList.Builder<SwapLeg> legsBuilder = ImmutableList.builder();
@@ -175,7 +147,10 @@ final class SwapFpmlParserPlugin
             .build());
       }
     }
-    return Swap.of(legsBuilder.build());
+    return SwapTrade.builder()
+        .tradeInfo(tradeInfoBuilder.build())
+        .product(Swap.of(legsBuilder.build()))
+        .build();
   }
 
   // parses the accrual schedule
@@ -527,11 +502,11 @@ final class SwapFpmlParserPlugin
     //  'calculationPeriodAmount/calculation/inflationRateCalculation/floatingRateMultiplierSchedule?'
     //  'calculationPeriodAmount/calculation/inflationRateCalculation/inflationLag'
     //  'calculationPeriodAmount/calculation/inflationRateCalculation/interpolationMethod'
-    //  'calculationPeriodAmount/calculation/inflationRateCalculation/initialIndexLevel?'
     //  'calculationPeriodAmount/calculation/dayCountFraction'
     // ignored elements:
     // 'calculationPeriodAmount/calculation/inflationRateCalculation/indexSource'
     // 'calculationPeriodAmount/calculation/inflationRateCalculation/mainPublication'
+    // 'calculationPeriodAmount/calculation/inflationRateCalculation/initialIndexLevel'
     // 'calculationPeriodAmount/calculation/inflationRateCalculation/fallbackBondApplicable'
     //  'calculationPeriodAmount/calculation/floatingRateCalculation/initialRate?'
     //  'calculationPeriodAmount/calculation/floatingRateCalculation/finalRateRounding?'
@@ -556,12 +531,7 @@ final class SwapFpmlParserPlugin
     builder.lag(document.parsePeriod(inflationEl.getChild("inflationLag")));
     // interpolation
     String interpStr = inflationEl.getChild("interpolationMethod").getContent();
-    builder.indexCalculationMethod(interpStr.toLowerCase(Locale.ENGLISH).contains("linear") ?
-        PriceIndexCalculationMethod.INTERPOLATED : PriceIndexCalculationMethod.MONTHLY);
-    // initial index
-    inflationEl.findChild("initialIndexLevel").ifPresent(el -> {
-      builder.firstIndexValue(document.parseDecimal(el));
-    });
+    builder.interpolated(interpStr.toLowerCase(Locale.ENGLISH).contains("linear"));
     // gearing
     inflationEl.findChild("floatingRateMultiplierSchedule").ifPresent(el -> {
       builder.gearing(parseSchedule(el, document));

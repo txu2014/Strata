@@ -14,17 +14,16 @@ import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_F
 import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_365F;
 import static com.opengamma.strata.basics.date.DayCounts.THIRTY_U_360;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.CHZU;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.EUTA;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.GBLO;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.JPTO;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.USNY;
+import static com.opengamma.strata.basics.date.HolidayCalendars.CHZU;
+import static com.opengamma.strata.basics.date.HolidayCalendars.EUTA;
+import static com.opengamma.strata.basics.date.HolidayCalendars.GBLO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.JPTO;
+import static com.opengamma.strata.basics.date.HolidayCalendars.USNY;
 import static com.opengamma.strata.basics.schedule.Frequency.P12M;
 import static com.opengamma.strata.basics.schedule.Frequency.P6M;
-import static com.opengamma.strata.basics.schedule.Frequency.P3M;
 
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
+import com.opengamma.strata.basics.date.HolidayCalendar;
 import com.opengamma.strata.basics.index.IborIndices;
 
 /**
@@ -35,11 +34,11 @@ import com.opengamma.strata.basics.index.IborIndices;
 final class StandardFixedIborSwapConventions {
 
   // GBLO+USNY calendar
-  private static final HolidayCalendarId GBLO_USNY = GBLO.combinedWith(USNY);
+  private static final HolidayCalendar GBLO_USNY = GBLO.combineWith(USNY);
   // GBLO+CHZU calendar
-  private static final HolidayCalendarId GBLO_CHZU = GBLO.combinedWith(CHZU);
+  private static final HolidayCalendar GBLO_CHZU = GBLO.combineWith(CHZU);
   // GBLO+JPTO calendar
-  private static final HolidayCalendarId GBLO_JPTO = GBLO.combinedWith(JPTO);
+  private static final HolidayCalendar GBLO_JPTO = GBLO.combineWith(JPTO);
 
   /**
    * USD(NY) vanilla fixed vs LIBOR 3M swap.
@@ -103,16 +102,6 @@ final class StandardFixedIborSwapConventions {
           FixedRateSwapLegConvention.of(GBP, ACT_365F, P6M, BusinessDayAdjustment.of(MODIFIED_FOLLOWING, GBLO)),
           IborRateSwapLegConvention.of(IborIndices.GBP_LIBOR_6M));
 
-  /**
-   * GBP(>1Y) vanilla fixed vs LIBOR 3M swap.
-   * The fixed leg pays every 3 months with day count 'Act/365F'.
-   */
-  public static final FixedIborSwapConvention GBP_FIXED_3M_LIBOR_3M =
-      ImmutableFixedIborSwapConvention.of(
-          "GBP-FIXED-3M-LIBOR-3M",
-          FixedRateSwapLegConvention.of(GBP, ACT_365F, P3M, BusinessDayAdjustment.of(MODIFIED_FOLLOWING, GBLO)),
-          IborRateSwapLegConvention.of(IborIndices.GBP_LIBOR_3M));
-
   //-------------------------------------------------------------------------
   /**
    * CHF(1Y) vanilla fixed vs LIBOR 3M swap.
@@ -151,7 +140,7 @@ final class StandardFixedIborSwapConventions {
    */
   public static final FixedIborSwapConvention JPY_FIXED_6M_LIBOR_6M =
       ImmutableFixedIborSwapConvention.of(
-          "JPY-FIXED-6M-LIBOR-6M",
+          "JPY-FIXED-6M-TIBOR-JAPAN-6M",
           FixedRateSwapLegConvention.of(JPY, ACT_365F, P6M, BusinessDayAdjustment.of(MODIFIED_FOLLOWING, GBLO_JPTO)),
           IborRateSwapLegConvention.of(IborIndices.JPY_LIBOR_6M));
 

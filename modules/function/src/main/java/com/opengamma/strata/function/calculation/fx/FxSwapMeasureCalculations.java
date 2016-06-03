@@ -6,17 +6,18 @@
 package com.opengamma.strata.function.calculation.fx;
 
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
-import com.opengamma.strata.data.scenario.MultiCurrencyValuesArray;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.data.scenario.ValuesArray;
-import com.opengamma.strata.function.calculation.RatesMarketData;
-import com.opengamma.strata.function.calculation.RatesScenarioMarketData;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.runner.function.result.MultiCurrencyValuesArray;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
+import com.opengamma.strata.calc.runner.function.result.ValuesArray;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.pricer.fx.DiscountingFxSwapProductPricer;
+import com.opengamma.strata.pricer.rate.MarketDataRatesProvider;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.product.fx.ResolvedFxSwap;
-import com.opengamma.strata.product.fx.ResolvedFxSwapTrade;
+import com.opengamma.strata.product.fx.ExpandedFxSwap;
+import com.opengamma.strata.product.fx.FxSwapTrade;
 
 /**
  * Multi-scenario measure calculations for FX swap trades.
@@ -42,113 +43,113 @@ final class FxSwapMeasureCalculations {
   //-------------------------------------------------------------------------
   // calculates par spread for all scenarios
   static ValuesArray parSpread(
-      ResolvedFxSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxSwapTrade trade,
+      ExpandedFxSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxSwap product = trade.getProduct();
     return ValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateParSpread(product, marketData.scenario(i)));
   }
 
   // par spread for one scenario
-  private static double calculateParSpread(ResolvedFxSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static double calculateParSpread(ExpandedFxSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.parSpread(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates present value for all scenarios
   static MultiCurrencyValuesArray presentValue(
-      ResolvedFxSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxSwapTrade trade,
+      ExpandedFxSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculatePresentValue(product, marketData.scenario(i)));
   }
 
   // present value for one scenario
-  private static MultiCurrencyAmount calculatePresentValue(ResolvedFxSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculatePresentValue(ExpandedFxSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.presentValue(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates PV01 for all scenarios
   static MultiCurrencyValuesArray pv01(
-      ResolvedFxSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxSwapTrade trade,
+      ExpandedFxSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculatePv01(product, marketData.scenario(i)));
   }
 
   // PV01 for one scenario
-  private static MultiCurrencyAmount calculatePv01(ResolvedFxSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculatePv01(ExpandedFxSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     PointSensitivities pointSensitivity = PRICER.presentValueSensitivity(product, provider);
-    return provider.parameterSensitivity(pointSensitivity).total().multipliedBy(ONE_BASIS_POINT);
+    return provider.curveParameterSensitivity(pointSensitivity).total().multipliedBy(ONE_BASIS_POINT);
   }
 
   //-------------------------------------------------------------------------
   // calculates bucketed PV01 for all scenarios
-  static ScenarioArray<CurrencyParameterSensitivities> bucketedPv01(
-      ResolvedFxSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+  static ScenarioResult<CurveCurrencyParameterSensitivities> bucketedPv01(
+      FxSwapTrade trade,
+      ExpandedFxSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxSwap product = trade.getProduct();
-    return ScenarioArray.of(
+    return ScenarioResult.of(
         marketData.getScenarioCount(),
         i -> calculateBucketedPv01(product, marketData.scenario(i)));
   }
 
   // bucketed PV01 for one scenario
-  private static CurrencyParameterSensitivities calculateBucketedPv01(
-      ResolvedFxSwap product,
-      RatesMarketData marketData) {
+  private static CurveCurrencyParameterSensitivities calculateBucketedPv01(
+      ExpandedFxSwap product,
+      MarketData marketData) {
 
-    RatesProvider provider = marketData.ratesProvider();
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     PointSensitivities pointSensitivity = PRICER.presentValueSensitivity(product, provider);
-    return provider.parameterSensitivity(pointSensitivity).multipliedBy(ONE_BASIS_POINT);
+    return provider.curveParameterSensitivity(pointSensitivity).multipliedBy(ONE_BASIS_POINT);
   }
 
   //-------------------------------------------------------------------------
   // calculates currency exposure for all scenarios
   static MultiCurrencyValuesArray currencyExposure(
-      ResolvedFxSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxSwapTrade trade,
+      ExpandedFxSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateCurrencyExposure(product, marketData.scenario(i)));
   }
 
   // currency exposure for one scenario
-  private static MultiCurrencyAmount calculateCurrencyExposure(ResolvedFxSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculateCurrencyExposure(ExpandedFxSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.currencyExposure(product, provider);
   }
 
   //-------------------------------------------------------------------------
   // calculates current cash for all scenarios
   static MultiCurrencyValuesArray currentCash(
-      ResolvedFxSwapTrade trade,
-      RatesScenarioMarketData marketData) {
+      FxSwapTrade trade,
+      ExpandedFxSwap product,
+      CalculationMarketData marketData) {
 
-    ResolvedFxSwap product = trade.getProduct();
     return MultiCurrencyValuesArray.of(
         marketData.getScenarioCount(),
         i -> calculateCurrentCash(product, marketData.scenario(i)));
   }
 
   // current cash for one scenario
-  private static MultiCurrencyAmount calculateCurrentCash(ResolvedFxSwap product, RatesMarketData marketData) {
-    RatesProvider provider = marketData.ratesProvider();
+  private static MultiCurrencyAmount calculateCurrentCash(ExpandedFxSwap product, MarketData marketData) {
+    RatesProvider provider = MarketDataRatesProvider.of(marketData);
     return PRICER.currentCash(product, provider.getValuationDate());
   }
 

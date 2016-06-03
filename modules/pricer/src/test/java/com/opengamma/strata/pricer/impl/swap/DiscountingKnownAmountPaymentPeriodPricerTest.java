@@ -20,7 +20,7 @@ import com.opengamma.strata.basics.currency.Payment;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DayCounts;
 import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.market.curve.ConstantCurve;
+import com.opengamma.strata.market.curve.ConstantNodalCurve;
 import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.Curves;
 import com.opengamma.strata.market.curve.InterpolatedNodalCurve;
@@ -29,11 +29,11 @@ import com.opengamma.strata.market.explain.ExplainMap;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.interpolator.CurveInterpolator;
 import com.opengamma.strata.market.interpolator.CurveInterpolators;
-import com.opengamma.strata.market.product.DiscountFactors;
-import com.opengamma.strata.market.product.SimpleDiscountFactors;
-import com.opengamma.strata.market.product.ZeroRateSensitivity;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.sensitivity.ZeroRateSensitivity;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.SimpleDiscountFactors;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
 import com.opengamma.strata.pricer.rate.RatesProvider;
 import com.opengamma.strata.pricer.rate.SimpleRatesProvider;
@@ -247,7 +247,7 @@ public class DiscountingKnownAmountPaymentPeriodPricerTest {
   //-------------------------------------------------------------------------
   // creates a simple provider
   private SimpleRatesProvider createProvider(LocalDate valDate) {
-    Curve curve = ConstantCurve.of(Curves.discountFactors("Test", DAY_COUNT), DISCOUNT_FACTOR);
+    Curve curve = ConstantNodalCurve.of(Curves.discountFactors("Test", DAY_COUNT), DISCOUNT_FACTOR);
     DiscountFactors df = SimpleDiscountFactors.of(GBP, valDate, curve);
     SimpleRatesProvider prov = new SimpleRatesProvider(valDate);
     prov.setDayCount(DAY_COUNT);

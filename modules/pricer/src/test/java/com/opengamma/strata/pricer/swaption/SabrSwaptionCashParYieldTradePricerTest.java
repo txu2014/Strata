@@ -15,25 +15,23 @@ import java.time.ZonedDateTime;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.BuySell;
+import com.opengamma.strata.basics.LongShort;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.currency.Payment;
 import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.Tenor;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
-import com.opengamma.strata.market.product.swaption.SwaptionSabrSensitivity;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
+import com.opengamma.strata.market.sensitivity.SwaptionSabrSensitivity;
 import com.opengamma.strata.pricer.DiscountingPaymentPricer;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.common.LongShort;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swaption.CashSettlement;
 import com.opengamma.strata.product.swaption.CashSettlementMethod;
-import com.opengamma.strata.product.swaption.ResolvedSwaption;
-import com.opengamma.strata.product.swaption.ResolvedSwaptionTrade;
 import com.opengamma.strata.product.swaption.Swaption;
+import com.opengamma.strata.product.swaption.SwaptionTrade;
 
 /**
  * Test {@link SabrSwaptionCashParYieldTradePricer}.
@@ -41,7 +39,6 @@ import com.opengamma.strata.product.swaption.Swaption;
 @Test
 public class SabrSwaptionCashParYieldTradePricerTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate VAL_DATE = LocalDate.of(2014, 1, 22);
   // swaption trades
   private static final double NOTIONAL = 100000000; //100m
@@ -49,38 +46,37 @@ public class SabrSwaptionCashParYieldTradePricerTest {
   private static final int TENOR_YEAR = 7;
   private static final Tenor TENOR = Tenor.ofYears(TENOR_YEAR);
   private static final ZonedDateTime MATURITY_DATE = LocalDate.of(2016, 1, 22).atStartOfDay(ZoneOffset.UTC); // 2Y
-  private static final Swap SWAP_REC = SwaptionSabrRateVolatilityDataSet.SWAP_CONVENTION_USD.createTrade(
-      MATURITY_DATE.toLocalDate(), TENOR, BuySell.SELL, NOTIONAL, RATE, REF_DATA).getProduct();
+  private static final Swap SWAP_REC = SwaptionSabrRateVolatilityDataSet.SWAP_CONVENTION_USD.toTrade(
+      MATURITY_DATE.toLocalDate(), TENOR, BuySell.SELL, NOTIONAL, RATE).getProduct();
   private static final LocalDate SETTLE_DATE = SwaptionSabrRateVolatilityDataSet.SWAP_CONVENTION_USD.getFloatingLeg()
-      .getIndex().calculateEffectiveFromFixing(MATURITY_DATE.toLocalDate(), REF_DATA);
+      .getIndex().calculateEffectiveFromFixing(MATURITY_DATE.toLocalDate());
   private static final CashSettlement PAR_YIELD = CashSettlement.builder()
       .cashSettlementMethod(CashSettlementMethod.PAR_YIELD)
       .settlementDate(SETTLE_DATE)
       .build();
-  private static final ResolvedSwaption SWAPTION_LONG_REC = Swaption.builder()
+  private static final Swaption SWAPTION_LONG_REC = Swaption.builder()
       .expiryDate(AdjustableDate.of(MATURITY_DATE.toLocalDate()))
       .expiryTime(MATURITY_DATE.toLocalTime())
       .expiryZone(MATURITY_DATE.getZone())
       .longShort(LongShort.LONG)
       .swaptionSettlement(PAR_YIELD)
       .underlying(SWAP_REC)
-      .build()
-      .resolve(REF_DATA);
+      .build();
   private static final double PREMIUM_AMOUNT = 100_000;
   private static final Payment PREMIUM_FWD_PAY = Payment.of(
       CurrencyAmount.of(USD, -PREMIUM_AMOUNT), MATURITY_DATE.toLocalDate());
-  private static final ResolvedSwaptionTrade SWAPTION_PREFWD_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PREFWD_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_FWD_PAY)
       .build();
   private static final Payment PREMIUM_TRA_PAY = Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT), VAL_DATE);
-  private static final ResolvedSwaptionTrade SWAPTION_PRETOD_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PRETOD_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_TRA_PAY)
       .build();
   private static final Payment PREMIUM_PAST_PAY =
       Payment.of(CurrencyAmount.of(USD, -PREMIUM_AMOUNT), VAL_DATE.minusDays(1));
-  private static final ResolvedSwaptionTrade SWAPTION_PREPAST_LONG_REC = ResolvedSwaptionTrade.builder()
+  private static final SwaptionTrade SWAPTION_PREPAST_LONG_REC = SwaptionTrade.builder()
       .product(SWAPTION_LONG_REC)
       .premium(PREMIUM_PAST_PAY)
       .build();
@@ -155,10 +151,10 @@ public class SabrSwaptionCashParYieldTradePricerTest {
     PointSensitivityBuilder pvcsProduct = PRICER_PRODUCT
         .presentValueSensitivity(SWAPTION_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
     PointSensitivityBuilder pvcsPremium = PRICER_PAYMENT.presentValueSensitivity(PREMIUM_FWD_PAY, RATE_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade =
-        RATE_PROVIDER.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct =
-        RATE_PROVIDER.parameterSensitivity(pvcsProduct.combinedWith(pvcsPremium).build());
+    CurveCurrencyParameterSensitivities pvpsTrade =
+        RATE_PROVIDER.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct =
+        RATE_PROVIDER.curveParameterSensitivity(pvcsProduct.combinedWith(pvcsPremium).build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, NOTIONAL * NOTIONAL * TOL));
   }
 
@@ -167,8 +163,8 @@ public class SabrSwaptionCashParYieldTradePricerTest {
         .presentValueSensitivity(SWAPTION_PRETOD_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
     PointSensitivityBuilder pvcsProduct = PRICER_PRODUCT
         .presentValueSensitivity(SWAPTION_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.parameterSensitivity(pvcsProduct.build());
+    CurveCurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.curveParameterSensitivity(pvcsProduct.build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, NOTIONAL * NOTIONAL * TOL));
   }
 
@@ -177,8 +173,8 @@ public class SabrSwaptionCashParYieldTradePricerTest {
         .presentValueSensitivity(SWAPTION_PREPAST_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
     PointSensitivityBuilder pvcsProduct = PRICER_PRODUCT
         .presentValueSensitivity(SWAPTION_LONG_REC, RATE_PROVIDER, VOL_PROVIDER);
-    CurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.parameterSensitivity(pvcsTrade.build());
-    CurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.parameterSensitivity(pvcsProduct.build());
+    CurveCurrencyParameterSensitivities pvpsTrade = RATE_PROVIDER.curveParameterSensitivity(pvcsTrade.build());
+    CurveCurrencyParameterSensitivities pvpsProduct = RATE_PROVIDER.curveParameterSensitivity(pvcsProduct.build());
     assertTrue(pvpsTrade.equalWithTolerance(pvpsProduct, NOTIONAL * NOTIONAL * TOL));
   }
 

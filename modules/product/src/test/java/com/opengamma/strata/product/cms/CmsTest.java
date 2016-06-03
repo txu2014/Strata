@@ -5,14 +5,14 @@
  */
 package com.opengamma.strata.product.cms;
 
+import static com.opengamma.strata.basics.PayReceive.PAY;
+import static com.opengamma.strata.basics.PayReceive.RECEIVE;
 import static com.opengamma.strata.basics.currency.Currency.EUR;
 import static com.opengamma.strata.basics.date.DayCounts.ACT_360;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.EUTA;
+import static com.opengamma.strata.basics.date.HolidayCalendars.EUTA;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
-import static com.opengamma.strata.product.common.PayReceive.PAY;
-import static com.opengamma.strata.product.common.PayReceive.RECEIVE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -20,7 +20,6 @@ import java.time.LocalDate;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.BusinessDayConventions;
@@ -44,7 +43,6 @@ import com.opengamma.strata.product.swap.SwapLeg;
 @Test
 public class CmsTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final ValueSchedule NOTIONAL = ValueSchedule.of(1.0e6);
   private static final SwapIndex INDEX = SwapIndices.EUR_EURIBOR_1100_10Y;
   private static final LocalDate START = LocalDate.of(2015, 10, 21);
@@ -55,7 +53,13 @@ public class CmsTest {
   private static final PeriodicSchedule SCHEDULE_EUR =
       PeriodicSchedule.of(START, END, FREQUENCY, BUSS_ADJ_EUR, StubConvention.NONE, RollConventions.NONE);
   private static final ValueSchedule STRIKE = ValueSchedule.of(0.0125);
-  private static final CmsLeg CMS_LEG = CmsLegTest.sutCap();
+  private static final CmsLeg CMS_LEG = CmsLeg.builder()
+      .capSchedule(STRIKE)
+      .index(INDEX)
+      .notional(NOTIONAL)
+      .payReceive(RECEIVE)
+      .paymentSchedule(SCHEDULE_EUR)
+      .build();
   private static final SwapLeg PAY_LEG = RateCalculationSwapLeg.builder()
       .payReceive(PAY)
       .accrualSchedule(SCHEDULE_EUR)
@@ -67,9 +71,8 @@ public class CmsTest {
           NotionalSchedule.of(CurrencyAmount.of(EUR, 1.0e6)))
       .build();
 
-  //-------------------------------------------------------------------------
   public void test_of_twoLegs() {
-    Cms test = sutCap();
+    Cms test = Cms.of(CMS_LEG, PAY_LEG);
     assertEquals(test.getCmsLeg(), CMS_LEG);
     assertEquals(test.getPayLeg().get(), PAY_LEG);
   }
@@ -80,37 +83,25 @@ public class CmsTest {
     assertFalse(test.getPayLeg().isPresent());
   }
 
-  public void test_resolve_twoLegs() {
-    Cms base = sutCap();
-    ResolvedCms test = base.resolve(REF_DATA);
-    assertEquals(test.getCmsLeg(), CMS_LEG.resolve(REF_DATA));
-    assertEquals(test.getPayLeg().get(), PAY_LEG.resolve(REF_DATA));
+  public void test_expand_twoLegs() {
+    Cms base = Cms.of(CMS_LEG, PAY_LEG);
+    ExpandedCms test = base.expand();
+    assertEquals(test.getCmsLeg(), CMS_LEG.expand());
+    assertEquals(test.getPayLeg().get(), PAY_LEG.expand());
   }
 
-  public void test_resolve_oneLeg() {
+  public void test_expand_oneLeg() {
     Cms base = Cms.of(CMS_LEG);
-    ResolvedCms test = base.resolve(REF_DATA);
-    assertEquals(test.getCmsLeg(), CMS_LEG.resolve(REF_DATA));
+    ExpandedCms test = base.expand();
+    assertEquals(test.getCmsLeg(), CMS_LEG.expand());
     assertFalse(test.getPayLeg().isPresent());
   }
 
   //-------------------------------------------------------------------------
   public void coverage() {
-    coverImmutableBean(sutCap());
-    coverBeanEquals(sutCap(), sutFloor());
-  }
-
-  public void test_serialization() {
-    assertSerialization(sutCap());
-  }
-
-  //-------------------------------------------------------------------------
-  static Cms sutCap() {
-    return Cms.of(CMS_LEG, PAY_LEG);
-  }
-
-  static Cms sutFloor() {
-    return Cms.of(
+    Cms test1 = Cms.of(CMS_LEG, PAY_LEG);
+    coverImmutableBean(test1);
+    Cms test2 = Cms.of(
         CmsLeg.builder()
             .floorSchedule(STRIKE)
             .index(INDEX)
@@ -118,6 +109,12 @@ public class CmsTest {
             .payReceive(RECEIVE)
             .paymentSchedule(SCHEDULE_EUR)
             .build());
+    coverBeanEquals(test1, test2);
+  }
+
+  public void test_serialization() {
+    Cms test = Cms.of(CMS_LEG, PAY_LEG);
+    assertSerialization(test);
   }
 
 }

@@ -16,23 +16,22 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.google.common.base.Strings;
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.CalculationRunner;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.Results;
-import com.opengamma.strata.calc.marketdata.MarketDataConfig;
+import com.opengamma.strata.calc.config.pricing.PricingRules;
 import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
-import com.opengamma.strata.calc.runner.CalculationFunctions;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
 import com.opengamma.strata.calc.runner.CalculationTasks;
+import com.opengamma.strata.calc.runner.Results;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.Messages;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
 import com.opengamma.strata.examples.marketdata.ExampleMarketData;
 import com.opengamma.strata.examples.marketdata.ExampleMarketDataBuilder;
 import com.opengamma.strata.function.StandardComponents;
-import com.opengamma.strata.function.calculation.RatesMarketDataLookup;
-import com.opengamma.strata.product.Trade;
+import com.opengamma.strata.product.FinanceTrade;
 import com.opengamma.strata.report.Report;
 import com.opengamma.strata.report.ReportCalculationResults;
 import com.opengamma.strata.report.ReportRequirements;
@@ -86,7 +85,7 @@ public class ReportRunnerTool implements AutoCloseable {
       description = "Report output format, ascii or csv",
       converter = ReportOutputFormatParameterConverter.class)
   private ReportOutputFormat format = ReportOutputFormat.ASCII_TABLE;
-
+  
   @Parameter(
       names = {"-i", "--id"},
       description = "An ID by which to select a single trade")
@@ -97,7 +96,7 @@ public class ReportRunnerTool implements AutoCloseable {
       description = "Displays this message",
       help = true)
   private boolean help;
-
+  
   @Parameter(
       names = {"-v", "--version"},
       description = "Prints the version of this tool",
@@ -167,14 +166,17 @@ public class ReportRunnerTool implements AutoCloseable {
   private ReportCalculationResults runCalculationRequirements(ReportRequirements requirements) {
     List<Column> columns = requirements.getTradeMeasureRequirements();
 
-    ExampleMarketDataBuilder marketDataBuilder =
-        marketDataRoot == null ? ExampleMarketData.builder() : ExampleMarketDataBuilder.ofPath(marketDataRoot.toPath());
+    PricingRules pricingRules = StandardComponents.pricingRules();
 
-    CalculationFunctions functions = StandardComponents.calculationFunctions();
-    RatesMarketDataLookup ratesLookup = marketDataBuilder.ratesLookup(valuationDate);
-    CalculationRules rules = CalculationRules.of(functions, ratesLookup);
+    ExampleMarketDataBuilder marketDataBuilder = marketDataRoot == null ?
+        ExampleMarketData.builder() : ExampleMarketDataBuilder.ofPath(marketDataRoot.toPath());
 
-    ScenarioMarketData marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
+    CalculationRules rules = CalculationRules.builder()
+        .pricingRules(pricingRules)
+        .marketDataRules(marketDataBuilder.rules())
+        .build();
+
+    MarketEnvironment marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
 
     List<Trade> trades;
 
@@ -182,8 +184,10 @@ public class ReportRunnerTool implements AutoCloseable {
       trades = portfolio.getTrades();
     } else {
       trades = portfolio.getTrades().stream()
-          .filter(t -> t.getInfo().getId().isPresent())
-          .filter(t -> t.getInfo().getId().get().getValue().equals(idSearch))
+          .filter(t -> t instanceof FinanceTrade)
+          .map(t -> (FinanceTrade) t)
+          .filter(t -> t.getTradeInfo().getId().isPresent())
+          .filter(t -> t.getTradeInfo().getId().get().getValue().equals(idSearch))
           .collect(toImmutableList());
       if (trades.size() > 1) {
         throw new IllegalArgumentException(
@@ -194,17 +198,18 @@ public class ReportRunnerTool implements AutoCloseable {
       throw new IllegalArgumentException("No trades found. Please check the input portfolio or trade ID filter.");
     }
 
-    // the reference data, such as holidays and securities
-    ReferenceData refData = ReferenceData.standard();
-
     // calculate the results
     CalculationTasks tasks = CalculationTasks.of(rules, trades, columns);
-    MarketDataRequirements reqs = tasks.requirements(refData);
-    ScenarioMarketData enhancedMarketData =
-        marketDataFactory().buildMarketData(reqs, MarketDataConfig.empty(), marketSnapshot, refData);
-    Results results = runner.getTaskRunner().calculateSingleScenario(tasks, enhancedMarketData, refData);
+    MarketDataRequirements reqs = tasks.getRequirements();
+    MarketEnvironment enhancedMarketData = marketDataFactory().buildMarketData(reqs, marketSnapshot, MarketDataConfig.empty());
+    Results results = runner.getTaskRunner().calculateSingleScenario(tasks, enhancedMarketData);
 
-    return ReportCalculationResults.of(valuationDate, trades, requirements.getTradeMeasureRequirements(), results, refData);
+    return ReportCalculationResults.builder()
+        .valuationDate(valuationDate)
+        .trades(trades)
+        .columns(requirements.getTradeMeasureRequirements())
+        .calculationResults(results)
+        .build();
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})

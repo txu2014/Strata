@@ -7,7 +7,7 @@ package com.opengamma.strata.market.option;
 
 import org.joda.convert.FromString;
 
-import com.opengamma.strata.collect.TypedString;
+import com.opengamma.strata.collect.type.TypedString;
 
 /**
  * The type of a strike.
