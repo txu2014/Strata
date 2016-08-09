@@ -16,11 +16,10 @@ import com.google.common.collect.Maps;
 import com.google.common.io.CharSource;
 import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.collect.io.CsvFile;
-import com.opengamma.strata.collect.io.CsvRow;
 import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.pricer.credit.IsdaYieldCurveInputs;
-import com.opengamma.strata.pricer.credit.IsdaYieldCurveInputsId;
-import com.opengamma.strata.pricer.credit.IsdaYieldCurveUnderlyingType;
+import com.opengamma.strata.market.curve.IsdaYieldCurveInputs;
+import com.opengamma.strata.market.curve.IsdaYieldCurveUnderlyingType;
+import com.opengamma.strata.market.id.IsdaYieldCurveInputsId;
 import com.opengamma.strata.product.credit.type.IsdaYieldCurveConvention;
 
 /**
@@ -47,12 +46,12 @@ public class MarkitYieldCurveDataParser {
     // parse the curve data
     Map<IsdaYieldCurveConvention, List<Point>> curveData = Maps.newHashMap();
     CsvFile csv = CsvFile.of(source, true);
-    for (CsvRow row : csv.rows()) {
-      String dateText = row.getField(DATE);
-      String tenorText = row.getField(TENOR);
-      String instrumentText = row.getField(INSTRUMENT);
-      String rateText = row.getField(RATE);
-      String conventionText = row.getField(CONVENTION);
+    for (int i = 0; i < csv.rowCount(); i++) {
+      String dateText = csv.field(i, DATE);
+      String tenorText = csv.field(i, TENOR);
+      String instrumentText = csv.field(i, INSTRUMENT);
+      String rateText = csv.field(i, RATE);
+      String conventionText = csv.field(i, CONVENTION);
 
       Point point = new Point(
           Tenor.parse(tenorText),

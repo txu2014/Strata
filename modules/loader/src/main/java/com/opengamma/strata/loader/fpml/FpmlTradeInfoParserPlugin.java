@@ -8,9 +8,8 @@ package com.opengamma.strata.loader.fpml;
 import java.time.LocalDate;
 
 import com.google.common.collect.ListMultimap;
-import com.opengamma.strata.basics.StandardId;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.TradeInfoBuilder;
 
 /**
  * Pluggable FpML trade information parser.
@@ -56,7 +55,7 @@ public interface FpmlTradeInfoParserPlugin {
    * @return the trade info object
    * @throws RuntimeException if unable to parse
    */
-  public abstract TradeInfoBuilder parseTrade(
+  public abstract TradeInfo.Builder parseTrade(
       FpmlDocument document,
       LocalDate tradeDate,
       ListMultimap<String, StandardId> allTradeIds);

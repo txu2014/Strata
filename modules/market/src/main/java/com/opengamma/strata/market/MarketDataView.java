@@ -6,9 +6,9 @@
 package com.opengamma.strata.market;
 
 import java.time.LocalDate;
-import java.util.Optional;
 
-import com.opengamma.strata.data.MarketDataName;
+import com.opengamma.strata.basics.market.MarketDataId;
+import com.opengamma.strata.basics.market.MarketDataKey;
 
 /**
  * A high-level view of a single item of market data.
@@ -16,6 +16,9 @@ import com.opengamma.strata.data.MarketDataName;
  * Implementations provide a high-level view of a single piece of market data.
  * The market data has typically been calibrated, such as a curve or surface.
  * The data is valid on a single valuation date.
+ *
+ * @see MarketDataKey
+ * @see MarketDataId
  */
 public interface MarketDataView {
 
@@ -27,17 +30,5 @@ public interface MarketDataView {
    * @return the valuation date
    */
   public abstract LocalDate getValuationDate();
-
-  /**
-   * Finds the market data with the specified name.
-   * <p>
-   * This is most commonly used to find an underlying curve or surface by name.
-   * If the market data cannot be found, empty is returned.
-   * 
-   * @param <T>  the type of the market data value
-   * @param name  the name to find
-   * @return the market data value, empty if not found
-   */
-  public abstract <T> Optional<T> findData(MarketDataName<T> name);
 
 }

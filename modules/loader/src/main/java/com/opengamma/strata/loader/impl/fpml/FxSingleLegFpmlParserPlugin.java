@@ -11,21 +11,21 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Optional;
 
+import com.opengamma.strata.basics.PayReceive;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.FxRate;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
+import com.opengamma.strata.basics.date.HolidayCalendar;
 import com.opengamma.strata.basics.index.FxIndex;
 import com.opengamma.strata.basics.index.ImmutableFxIndex;
 import com.opengamma.strata.collect.io.XmlElement;
 import com.opengamma.strata.loader.fpml.FpmlDocument;
 import com.opengamma.strata.loader.fpml.FpmlParseException;
 import com.opengamma.strata.loader.fpml.FpmlParserPlugin;
-import com.opengamma.strata.product.Trade;
-import com.opengamma.strata.product.TradeInfoBuilder;
-import com.opengamma.strata.product.common.PayReceive;
+import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.fx.FxNdf;
 import com.opengamma.strata.product.fx.FxNdfTrade;
 import com.opengamma.strata.product.fx.FxSingle;
@@ -69,7 +69,7 @@ final class FxSingleLegFpmlParserPlugin
     document.validateNotPresent(fxEl, "currency1ValueDate");
     document.validateNotPresent(fxEl, "currency2ValueDate");
     // amounts
-    TradeInfoBuilder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
+    TradeInfo.Builder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
     XmlElement curr1El = fxEl.getChild("exchangedCurrency1");
     XmlElement curr2El = fxEl.getChild("exchangedCurrency2");
     // pay/receive and counterparty
@@ -94,7 +94,7 @@ final class FxSingleLegFpmlParserPlugin
     Optional<XmlElement> ndfEl = fxEl.findChild("nonDeliverableSettlement");
     if (!ndfEl.isPresent()) {
       return FxSingleTrade.builder()
-          .info(tradeInfoBuilder.build())
+          .tradeInfo(tradeInfoBuilder.build())
           .product(FxSingle.of(curr1Amount, curr2Amount, valueDate))
           .build();
     }
@@ -108,7 +108,7 @@ final class FxSingleLegFpmlParserPlugin
       CurrencyAmount curr1Amount,
       CurrencyAmount curr2Amount,
       LocalDate valueDate,
-      TradeInfoBuilder tradeInfoBuilder) {
+      TradeInfo.Builder tradeInfoBuilder) {
 
     // rate
     XmlElement rateEl = fxEl.getChild("exchangeRate");
@@ -137,7 +137,7 @@ final class FxSingleLegFpmlParserPlugin
     String primarySource = primarySourceEl.getChild("rateSource").getContent();
     String primaryPage = primarySourceEl.findChild("rateSourcePage").map(e -> e.getContent()).orElse("");
     LocalTime time = document.parseTime(sourceEl.getChild("fixingTime").getChild("hourMinuteTime"));  // required for our model
-    HolidayCalendarId calendar = document.parseBusinessCenter(sourceEl.getChild("fixingTime").getChild("businessCenter"));
+    HolidayCalendar calendar = document.parseBusinessCenter(sourceEl.getChild("fixingTime").getChild("businessCenter"));
     FxIndex index = ImmutableFxIndex.builder()
         .name(primarySource + "/" + primaryPage + "/" + time)
         .currencyPair(CurrencyPair.of(curr1, curr2))
@@ -145,7 +145,7 @@ final class FxSingleLegFpmlParserPlugin
         .maturityDateOffset(offset)
         .build();
     return FxNdfTrade.builder()
-        .info(tradeInfoBuilder.build())
+        .tradeInfo(tradeInfoBuilder.build())
         .product(FxNdf.builder()
             .settlementCurrencyNotional(settleCurrAmount)
             .agreedFxRate(fxRate)

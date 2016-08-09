@@ -5,10 +5,7 @@
  */
 
 /**
- * Provides the ability to obtain market data and perform calibrations and scenario perturbations.
- * <p>
- * The main entry point is {@link com.opengamma.strata.calc.marketdata.MarketDataFactory MarketDataFactory}.
- * It provides two "build" methods that process a set of requirements to produce market data.
+ * Market data containers used by the calculation engine.
  */
 package com.opengamma.strata.calc.marketdata;
 

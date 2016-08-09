@@ -26,18 +26,14 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.Resolvable;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
-import com.opengamma.strata.basics.date.DateAdjuster;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.Product;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.rate.IborRateComputation;
+import com.opengamma.strata.product.rate.IborRateObservation;
 
 /**
  * An Ibor fixing deposit.
@@ -51,12 +47,12 @@ import com.opengamma.strata.product.rate.IborRateComputation;
  */
 @BeanDefinition
 public final class IborFixingDeposit
-    implements Product, Resolvable<ResolvedIborFixingDeposit>, ImmutableBean, Serializable {
+    implements IborFixingDepositProduct, ImmutableBean, Serializable {
 
   /**
    * Whether the Ibor fixing deposit is 'Buy' or 'Sell'.
    * <p>
-   * A value of 'Buy' implies that the floating rate is paid to the counterparty, with the fixed rate being received.
+   * A value of 'Buy' implies that the floating rate is paid to the counterparty, with the fixed rate being received. 
    * A value of 'Sell' implies that the floating rate is received from the counterparty, with the fixed rate being paid.
    */
   @PropertyDefinition(validate = "notNull")
@@ -169,20 +165,28 @@ public final class IborFixingDeposit
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this Ibor fixing deposit.
+   * <p>
+   * Expanding an Ibor fixing deposit causes the dates to be adjusted according to the relevant
+   * holiday calendar. Other one-off calculations may also be performed.
+   * 
+   * @return the equivalent expanded Ibor fixing deposit
+   * @throws RuntimeException if unable to expand due to an invalid definition
+   */
   @Override
-  public ResolvedIborFixingDeposit resolve(ReferenceData refData) {
-    DateAdjuster bda = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).resolve(refData);
-    LocalDate start = bda.adjust(startDate);
-    LocalDate end = bda.adjust(endDate);
+  public ExpandedIborFixingDeposit expand() {
+    LocalDate start = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).adjust(startDate);
+    LocalDate end = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).adjust(endDate);
     double yearFraction = dayCount.yearFraction(start, end);
-    LocalDate fixingDate = fixingDateOffset.adjust(startDate, refData);
-    return ResolvedIborFixingDeposit.builder()
+    LocalDate fixingDate = fixingDateOffset.adjust(startDate);
+    return ExpandedIborFixingDeposit.builder()
         .startDate(start)
         .endDate(end)
         .yearFraction(yearFraction)
         .currency(getCurrency())
         .notional(buySell.normalize(notional))
-        .floatingRate(IborRateComputation.of(index, fixingDate, refData))
+        .floatingRate(IborRateObservation.of(index, fixingDate))
         .fixedRate(fixedRate)
         .build();
   }

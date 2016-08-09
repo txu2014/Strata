@@ -10,11 +10,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.collect.ImmutableMap;
-import com.opengamma.strata.basics.StandardId;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
-import com.opengamma.strata.basics.date.AdjustableDate;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
+import com.opengamma.strata.collect.id.StandardId;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivity;
 
 /**
  * Provides and caches format settings across types.
@@ -37,10 +36,9 @@ public class FormatSettingsProvider {
           .put(Currency.class, FormatSettings.of(FormatCategory.TEXT, ValueFormatters.TO_STRING))
           .put(StandardId.class, FormatSettings.of(FormatCategory.TEXT, ValueFormatters.TO_STRING))
           .put(LocalDate.class, FormatSettings.of(FormatCategory.DATE, ValueFormatters.TO_STRING))
-          .put(AdjustableDate.class, FormatSettings.of(FormatCategory.DATE, ValueFormatters.ADJUSTABLE_DATE))
           .put(CurrencyAmount.class, FormatSettings.of(FormatCategory.NUMERIC, ValueFormatters.CURRENCY_AMOUNT))
-          .put(CurrencyParameterSensitivity.class,
-              FormatSettings.of(FormatCategory.TEXT, ValueFormatters.CURRENCY_PARAMETER_SENSITIVITY))
+          .put(CurveCurrencyParameterSensitivity.class,
+              FormatSettings.of(FormatCategory.TEXT, ValueFormatters.CURVE_CURRENCY_PARAMETER_SENSITIVITY))
           .put(Double.class, FormatSettings.of(FormatCategory.NUMERIC, ValueFormatters.DOUBLE))
           .put(Short.class, FormatSettings.of(FormatCategory.NUMERIC, ValueFormatters.TO_STRING))
           .put(Integer.class, FormatSettings.of(FormatCategory.NUMERIC, ValueFormatters.TO_STRING))

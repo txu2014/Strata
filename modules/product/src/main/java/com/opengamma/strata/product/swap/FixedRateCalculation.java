@@ -5,12 +5,10 @@
  */
 package com.opengamma.strata.product.swap;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.Set;
 
 import org.joda.beans.Bean;
@@ -27,14 +25,13 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.schedule.Schedule;
 import com.opengamma.strata.basics.schedule.SchedulePeriod;
 import com.opengamma.strata.basics.value.ValueSchedule;
-import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.product.rate.FixedRateComputation;
+import com.opengamma.strata.collect.ArgChecker;
+import com.opengamma.strata.product.rate.FixedRateObservation;
 
 /**
  * Defines the calculation of a fixed rate swap leg.
@@ -62,26 +59,6 @@ public final class FixedRateCalculation
    */
   @PropertyDefinition(validate = "notNull")
   private final ValueSchedule rate;
-  /**
-   * The initial stub, optional.
-   * <p>
-   * The initial stub of a swap may have a different rate from the regular accrual periods.
-   * This property allows the stub rate to be specified, either as a known amount or a rate.
-   * If this property is not present, then the rate derived from the {@code rate} property applies during the stub.
-   * If this property is present and there is no initial stub, it is ignored.
-   */
-  @PropertyDefinition(get = "optional")
-  private final FixedRateStubCalculation initialStub;
-  /**
-   * The final stub, optional.
-   * <p>
-   * The final stub of a swap may have a different rate from the regular accrual periods.
-   * This property allows the stub rate to be specified, either as a known amount or a rate.
-   * If this property is not present, then the rate derived from the {@code rate} property applies during the stub.
-   * If this property is present and there is no initial stub, it is ignored.
-   */
-  @PropertyDefinition(get = "optional")
-  private final FixedRateStubCalculation finalStub;
 
   //-------------------------------------------------------------------------
   /**
@@ -113,39 +90,19 @@ public final class FixedRateCalculation
   }
 
   @Override
-  public ImmutableList<RateAccrualPeriod> createAccrualPeriods(
-      Schedule accrualSchedule,
-      Schedule paymentSchedule,
-      ReferenceData refData) {
-
-    // avoid null stub definitions if there are stubs
-    FixedRateStubCalculation initialStub = firstNonNull(this.initialStub, FixedRateStubCalculation.NONE);
-    FixedRateStubCalculation finalStub = firstNonNull(this.finalStub, FixedRateStubCalculation.NONE);
-    Optional<SchedulePeriod> scheduleInitialStub = accrualSchedule.getInitialStub();
-    Optional<SchedulePeriod> scheduleFinalStub = accrualSchedule.getFinalStub();
+  public ImmutableList<RateAccrualPeriod> expand(Schedule accrualSchedule, Schedule paymentSchedule) {
+    ArgChecker.notNull(accrualSchedule, "accrualSchedule");
+    ArgChecker.notNull(paymentSchedule, "paymentSchedule");
     // resolve data by schedule
-    DoubleArray resolvedRates = rate.resolveValues(accrualSchedule);
+    List<Double> resolvedRates = rate.resolveValues(accrualSchedule.getPeriods());
     // build accrual periods
     ImmutableList.Builder<RateAccrualPeriod> accrualPeriods = ImmutableList.builder();
     for (int i = 0; i < accrualSchedule.size(); i++) {
       SchedulePeriod period = accrualSchedule.getPeriod(i);
-      // handle stubs
-      if (scheduleInitialStub.isPresent() && scheduleInitialStub.get() == period) {
-        accrualPeriods.add(RateAccrualPeriod.builder(period)
-            .yearFraction(period.yearFraction(dayCount, accrualSchedule))
-            .rateComputation(initialStub.createRateComputation(resolvedRates.get(i)))
-            .build());
-      } else if (scheduleFinalStub.isPresent() && scheduleFinalStub.get() == period) {
-        accrualPeriods.add(RateAccrualPeriod.builder(period)
-            .yearFraction(period.yearFraction(dayCount, accrualSchedule))
-            .rateComputation(finalStub.createRateComputation(resolvedRates.get(i)))
-            .build());
-      } else {
-        accrualPeriods.add(RateAccrualPeriod.builder(period)
-            .yearFraction(period.yearFraction(dayCount, accrualSchedule))
-            .rateComputation(FixedRateComputation.of(resolvedRates.get(i)))
-            .build());
-      }
+      accrualPeriods.add(RateAccrualPeriod.builder(period)
+          .yearFraction(period.yearFraction(dayCount, accrualSchedule))
+          .rateObservation(FixedRateObservation.of(resolvedRates.get(i)))
+          .build());
     }
     return accrualPeriods.build();
   }
@@ -179,15 +136,11 @@ public final class FixedRateCalculation
 
   private FixedRateCalculation(
       DayCount dayCount,
-      ValueSchedule rate,
-      FixedRateStubCalculation initialStub,
-      FixedRateStubCalculation finalStub) {
+      ValueSchedule rate) {
     JodaBeanUtils.notNull(dayCount, "dayCount");
     JodaBeanUtils.notNull(rate, "rate");
     this.dayCount = dayCount;
     this.rate = rate;
-    this.initialStub = initialStub;
-    this.finalStub = finalStub;
   }
 
   @Override
@@ -232,34 +185,6 @@ public final class FixedRateCalculation
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the initial stub, optional.
-   * <p>
-   * The initial stub of a swap may have a different rate from the regular accrual periods.
-   * This property allows the stub rate to be specified, either as a known amount or a rate.
-   * If this property is not present, then the rate derived from the {@code rate} property applies during the stub.
-   * If this property is present and there is no initial stub, it is ignored.
-   * @return the optional value of the property, not null
-   */
-  public Optional<FixedRateStubCalculation> getInitialStub() {
-    return Optional.ofNullable(initialStub);
-  }
-
-  //-----------------------------------------------------------------------
-  /**
-   * Gets the final stub, optional.
-   * <p>
-   * The final stub of a swap may have a different rate from the regular accrual periods.
-   * This property allows the stub rate to be specified, either as a known amount or a rate.
-   * If this property is not present, then the rate derived from the {@code rate} property applies during the stub.
-   * If this property is present and there is no initial stub, it is ignored.
-   * @return the optional value of the property, not null
-   */
-  public Optional<FixedRateStubCalculation> getFinalStub() {
-    return Optional.ofNullable(finalStub);
-  }
-
-  //-----------------------------------------------------------------------
-  /**
    * Returns a builder that allows this bean to be mutated.
    * @return the mutable builder, not null
    */
@@ -275,9 +200,7 @@ public final class FixedRateCalculation
     if (obj != null && obj.getClass() == this.getClass()) {
       FixedRateCalculation other = (FixedRateCalculation) obj;
       return JodaBeanUtils.equal(dayCount, other.dayCount) &&
-          JodaBeanUtils.equal(rate, other.rate) &&
-          JodaBeanUtils.equal(initialStub, other.initialStub) &&
-          JodaBeanUtils.equal(finalStub, other.finalStub);
+          JodaBeanUtils.equal(rate, other.rate);
     }
     return false;
   }
@@ -287,19 +210,15 @@ public final class FixedRateCalculation
     int hash = getClass().hashCode();
     hash = hash * 31 + JodaBeanUtils.hashCode(dayCount);
     hash = hash * 31 + JodaBeanUtils.hashCode(rate);
-    hash = hash * 31 + JodaBeanUtils.hashCode(initialStub);
-    hash = hash * 31 + JodaBeanUtils.hashCode(finalStub);
     return hash;
   }
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(160);
+    StringBuilder buf = new StringBuilder(96);
     buf.append("FixedRateCalculation{");
     buf.append("dayCount").append('=').append(dayCount).append(',').append(' ');
-    buf.append("rate").append('=').append(rate).append(',').append(' ');
-    buf.append("initialStub").append('=').append(initialStub).append(',').append(' ');
-    buf.append("finalStub").append('=').append(JodaBeanUtils.toString(finalStub));
+    buf.append("rate").append('=').append(JodaBeanUtils.toString(rate));
     buf.append('}');
     return buf.toString();
   }
@@ -325,24 +244,12 @@ public final class FixedRateCalculation
     private final MetaProperty<ValueSchedule> rate = DirectMetaProperty.ofImmutable(
         this, "rate", FixedRateCalculation.class, ValueSchedule.class);
     /**
-     * The meta-property for the {@code initialStub} property.
-     */
-    private final MetaProperty<FixedRateStubCalculation> initialStub = DirectMetaProperty.ofImmutable(
-        this, "initialStub", FixedRateCalculation.class, FixedRateStubCalculation.class);
-    /**
-     * The meta-property for the {@code finalStub} property.
-     */
-    private final MetaProperty<FixedRateStubCalculation> finalStub = DirectMetaProperty.ofImmutable(
-        this, "finalStub", FixedRateCalculation.class, FixedRateStubCalculation.class);
-    /**
      * The meta-properties.
      */
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
         "dayCount",
-        "rate",
-        "initialStub",
-        "finalStub");
+        "rate");
 
     /**
      * Restricted constructor.
@@ -357,10 +264,6 @@ public final class FixedRateCalculation
           return dayCount;
         case 3493088:  // rate
           return rate;
-        case 1233359378:  // initialStub
-          return initialStub;
-        case 355242820:  // finalStub
-          return finalStub;
       }
       return super.metaPropertyGet(propertyName);
     }
@@ -397,22 +300,6 @@ public final class FixedRateCalculation
       return rate;
     }
 
-    /**
-     * The meta-property for the {@code initialStub} property.
-     * @return the meta-property, not null
-     */
-    public MetaProperty<FixedRateStubCalculation> initialStub() {
-      return initialStub;
-    }
-
-    /**
-     * The meta-property for the {@code finalStub} property.
-     * @return the meta-property, not null
-     */
-    public MetaProperty<FixedRateStubCalculation> finalStub() {
-      return finalStub;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     protected Object propertyGet(Bean bean, String propertyName, boolean quiet) {
@@ -421,10 +308,6 @@ public final class FixedRateCalculation
           return ((FixedRateCalculation) bean).getDayCount();
         case 3493088:  // rate
           return ((FixedRateCalculation) bean).getRate();
-        case 1233359378:  // initialStub
-          return ((FixedRateCalculation) bean).initialStub;
-        case 355242820:  // finalStub
-          return ((FixedRateCalculation) bean).finalStub;
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -448,8 +331,6 @@ public final class FixedRateCalculation
 
     private DayCount dayCount;
     private ValueSchedule rate;
-    private FixedRateStubCalculation initialStub;
-    private FixedRateStubCalculation finalStub;
 
     /**
      * Restricted constructor.
@@ -464,8 +345,6 @@ public final class FixedRateCalculation
     private Builder(FixedRateCalculation beanToCopy) {
       this.dayCount = beanToCopy.getDayCount();
       this.rate = beanToCopy.getRate();
-      this.initialStub = beanToCopy.initialStub;
-      this.finalStub = beanToCopy.finalStub;
     }
 
     //-----------------------------------------------------------------------
@@ -476,10 +355,6 @@ public final class FixedRateCalculation
           return dayCount;
         case 3493088:  // rate
           return rate;
-        case 1233359378:  // initialStub
-          return initialStub;
-        case 355242820:  // finalStub
-          return finalStub;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
       }
@@ -493,12 +368,6 @@ public final class FixedRateCalculation
           break;
         case 3493088:  // rate
           this.rate = (ValueSchedule) newValue;
-          break;
-        case 1233359378:  // initialStub
-          this.initialStub = (FixedRateStubCalculation) newValue;
-          break;
-        case 355242820:  // finalStub
-          this.finalStub = (FixedRateStubCalculation) newValue;
           break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
@@ -534,9 +403,7 @@ public final class FixedRateCalculation
     public FixedRateCalculation build() {
       return new FixedRateCalculation(
           dayCount,
-          rate,
-          initialStub,
-          finalStub);
+          rate);
     }
 
     //-----------------------------------------------------------------------
@@ -568,45 +435,13 @@ public final class FixedRateCalculation
       return this;
     }
 
-    /**
-     * Sets the initial stub, optional.
-     * <p>
-     * The initial stub of a swap may have a different rate from the regular accrual periods.
-     * This property allows the stub rate to be specified, either as a known amount or a rate.
-     * If this property is not present, then the rate derived from the {@code rate} property applies during the stub.
-     * If this property is present and there is no initial stub, it is ignored.
-     * @param initialStub  the new value
-     * @return this, for chaining, not null
-     */
-    public Builder initialStub(FixedRateStubCalculation initialStub) {
-      this.initialStub = initialStub;
-      return this;
-    }
-
-    /**
-     * Sets the final stub, optional.
-     * <p>
-     * The final stub of a swap may have a different rate from the regular accrual periods.
-     * This property allows the stub rate to be specified, either as a known amount or a rate.
-     * If this property is not present, then the rate derived from the {@code rate} property applies during the stub.
-     * If this property is present and there is no initial stub, it is ignored.
-     * @param finalStub  the new value
-     * @return this, for chaining, not null
-     */
-    public Builder finalStub(FixedRateStubCalculation finalStub) {
-      this.finalStub = finalStub;
-      return this;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(160);
+      StringBuilder buf = new StringBuilder(96);
       buf.append("FixedRateCalculation.Builder{");
       buf.append("dayCount").append('=').append(JodaBeanUtils.toString(dayCount)).append(',').append(' ');
-      buf.append("rate").append('=').append(JodaBeanUtils.toString(rate)).append(',').append(' ');
-      buf.append("initialStub").append('=').append(JodaBeanUtils.toString(initialStub)).append(',').append(' ');
-      buf.append("finalStub").append('=').append(JodaBeanUtils.toString(finalStub));
+      buf.append("rate").append('=').append(JodaBeanUtils.toString(rate));
       buf.append('}');
       return buf.toString();
     }

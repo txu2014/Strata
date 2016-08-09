@@ -28,9 +28,7 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.market.ValueType;
-import com.opengamma.strata.market.param.ParameterMetadata;
 
 /**
  * Default metadata for a curve.
@@ -81,8 +79,8 @@ public final class DefaultCurveMetadata
    * <p>
    * If present, the parameter metadata will match the number of parameters on the curve.
    */
-  @PropertyDefinition(get = "optional", overrideGet = true, type = "List<>", builderType = "List<? extends ParameterMetadata>")
-  private final ImmutableList<ParameterMetadata> parameterMetadata;
+  @PropertyDefinition(get = "optional", overrideGet = true, type = "List<>", builderType = "List<? extends CurveParameterMetadata>")
+  private final ImmutableList<CurveParameterMetadata> parameterMetadata;
 
   //-------------------------------------------------------------------------
   /**
@@ -126,40 +124,19 @@ public final class DefaultCurveMetadata
   }
 
   //-------------------------------------------------------------------------
-  @Override
-  public <T> T getInfo(CurveInfoType<T> type) {
-    // overridden for performance
-    @SuppressWarnings("unchecked")
-    T value = (T) info.get(type);
-    if (value == null) {
-      throw new IllegalArgumentException(Messages.format("Curve info not found for type '{}'", type));
-    }
-    return value;
-  }
-
   @SuppressWarnings("unchecked")
   @Override
   public <T> Optional<T> findInfo(CurveInfoType<T> type) {
     return Optional.ofNullable((T) info.get(type));
   }
 
-  //-------------------------------------------------------------------------
   @Override
-  public <T> DefaultCurveMetadata withInfo(CurveInfoType<T> type, T value) {
-    return toBuilder().addInfo(type, value).build();
-  }
-
-  @Override
-  public DefaultCurveMetadata withParameterMetadata(List<? extends ParameterMetadata> parameterMetadata) {
-    if (parameterMetadata == null) {
-      return this.parameterMetadata != null ? toBuilder().clearParameterMetadata().build() : this;
-    }
+  public DefaultCurveMetadata withParameterMetadata(List<CurveParameterMetadata> parameterMetadata) {
     return toBuilder().parameterMetadata(parameterMetadata).build();
   }
 
-  //-------------------------------------------------------------------------
   /**
-   * Returns a mutable builder initialized with the state of this bean.
+   * Returns a builder that allows this bean to be mutated.
    * 
    * @return the mutable builder, not null
    */
@@ -199,7 +176,7 @@ public final class DefaultCurveMetadata
       ValueType xValueType,
       ValueType yValueType,
       Map<CurveInfoType<?>, Object> info,
-      List<? extends ParameterMetadata> parameterMetadata) {
+      List<? extends CurveParameterMetadata> parameterMetadata) {
     JodaBeanUtils.notNull(curveName, "curveName");
     JodaBeanUtils.notNull(xValueType, "xValueType");
     JodaBeanUtils.notNull(yValueType, "yValueType");
@@ -288,7 +265,7 @@ public final class DefaultCurveMetadata
    * @return the optional value of the property, not null
    */
   @Override
-  public Optional<List<ParameterMetadata>> getParameterMetadata() {
+  public Optional<List<CurveParameterMetadata>> getParameterMetadata() {
     return Optional.ofNullable(parameterMetadata);
   }
 
@@ -368,7 +345,7 @@ public final class DefaultCurveMetadata
      * The meta-property for the {@code parameterMetadata} property.
      */
     @SuppressWarnings({"unchecked", "rawtypes" })
-    private final MetaProperty<List<ParameterMetadata>> parameterMetadata = DirectMetaProperty.ofImmutable(
+    private final MetaProperty<List<CurveParameterMetadata>> parameterMetadata = DirectMetaProperty.ofImmutable(
         this, "parameterMetadata", DefaultCurveMetadata.class, (Class) List.class);
     /**
      * The meta-properties.
@@ -456,7 +433,7 @@ public final class DefaultCurveMetadata
      * The meta-property for the {@code parameterMetadata} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<List<ParameterMetadata>> parameterMetadata() {
+    public MetaProperty<List<CurveParameterMetadata>> parameterMetadata() {
       return parameterMetadata;
     }
 
@@ -499,7 +476,7 @@ public final class DefaultCurveMetadata
     private ValueType xValueType;
     private ValueType yValueType;
     private Map<CurveInfoType<?>, Object> info = ImmutableMap.of();
-    private List<? extends ParameterMetadata> parameterMetadata;
+    private List<? extends CurveParameterMetadata> parameterMetadata;
 
     /**
      * Restricted constructor.
@@ -544,7 +521,7 @@ public final class DefaultCurveMetadata
           this.info = (Map<CurveInfoType<?>, Object>) newValue;
           break;
         case -1169106440:  // parameterMetadata
-          this.parameterMetadata = (List<? extends ParameterMetadata>) newValue;
+          this.parameterMetadata = (List<? extends CurveParameterMetadata>) newValue;
           break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);

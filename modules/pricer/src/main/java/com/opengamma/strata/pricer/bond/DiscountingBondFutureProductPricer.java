@@ -10,38 +10,33 @@ import com.google.common.primitives.Doubles;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.sensitivity.PointSensitivities;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.pricer.CompoundedRateType;
+import com.opengamma.strata.market.value.CompoundedRateType;
+import com.opengamma.strata.pricer.rate.LegalEntityDiscountingProvider;
+import com.opengamma.strata.product.Security;
+import com.opengamma.strata.product.bond.BondFuture;
 import com.opengamma.strata.product.bond.FixedCouponBond;
-import com.opengamma.strata.product.bond.ResolvedBondFuture;
-import com.opengamma.strata.product.bond.ResolvedFixedCouponBond;
 
 /**
  * Pricer for for bond future products.
  * <p>
- * This function provides the ability to price a {@link ResolvedBondFuture}.
- * 
- * <h4>Price</h4>
- * Strata uses <i>decimal prices</i> for bond futures in the trade model, pricers and market data.
- * This is coherent with the pricing of {@link FixedCouponBond}. The bond futures delivery is a bond
- * for an amount computed from the bond future price, a conversion factor and the accrued interest.
+ * This function provides the ability to price a {@link BondFuture}.
  */
-public final class DiscountingBondFutureProductPricer {
+public final class DiscountingBondFutureProductPricer extends AbstractBondFutureProductPricer {
 
   /**
    * Default implementation.
    */
   public static final DiscountingBondFutureProductPricer DEFAULT = new DiscountingBondFutureProductPricer(
       DiscountingFixedCouponBondProductPricer.DEFAULT);
-
   /**
    * Underlying pricer.
    */
   private final DiscountingFixedCouponBondProductPricer bondPricer;
 
   /**
-   * Creates an instance.
+   * Creates an instance. 
    * 
-   * @param bondPricer  the pricer for {@link ResolvedFixedCouponBond}.
+   * @param bondPricer  the pricer for {@link FixedCouponBond}.
    */
   public DiscountingBondFutureProductPricer(DiscountingFixedCouponBondProductPricer bondPricer) {
     this.bondPricer = ArgChecker.notNull(bondPricer, "bondPricer");
@@ -49,56 +44,23 @@ public final class DiscountingBondFutureProductPricer {
 
   //-------------------------------------------------------------------------
   /**
-   * Calculates the number related to bond futures product on which the daily margin is computed.
-   * <p>
-   * For two consecutive settlement prices C1 and C2, the daily margin is computed as 
-   *    {@code (marginIndex(future, C2) - marginIndex(future, C1))}.
-   * 
-   * @param future  the future
-   * @param price  the price of the product, in decimal form
-   * @return the index
-   */
-  double marginIndex(ResolvedBondFuture future, double price) {
-    return price * future.getNotional();
-  }
-
-  /**
-   * Calculates the margin index sensitivity of the bond future product.
-   * <p>
-   * The margin index sensitivity is the sensitivity of the margin index to the underlying curves.
-   * For two consecutive settlement prices C1 and C2, the daily margin is computed as 
-   *    {@code (marginIndex(future, C2) - marginIndex(future, C1))}.
-   * 
-   * @param future  the future
-   * @param priceSensitivity  the price sensitivity of the product
-   * @return the index sensitivity
-   */
-  PointSensitivities marginIndexSensitivity(ResolvedBondFuture future, PointSensitivities priceSensitivity) {
-    return priceSensitivity.multipliedBy(future.getNotional());
-  }
-
-  //-------------------------------------------------------------------------
-  /**
    * Calculates the price of the bond future product.
    * <p>
    * The price of the product is the price on the valuation date.
-   * <p>
-   * Strata uses <i>decimal prices</i> for bond futures. This is coherent with the pricing of {@link FixedCouponBond}.
-   * For example, a price of 99.32% is represented in Strata by 0.9932.
    * 
-   * @param future  the future
+   * @param future  the future to price
    * @param provider  the rates provider
    * @return the price of the product, in decimal form
    */
-  public double price(ResolvedBondFuture future, LegalEntityDiscountingProvider provider) {
-    ImmutableList<ResolvedFixedCouponBond> basket = future.getDeliveryBasket();
-    int size = basket.size();
+  public double price(BondFuture future, LegalEntityDiscountingProvider provider) {
+    ImmutableList<Security<FixedCouponBond>> bondSecurity = future.getBondSecurityBasket();
+    int size = bondSecurity.size();
     double[] priceBonds = new double[size];
     for (int i = 0; i < size; ++i) {
-      ResolvedFixedCouponBond bond = basket.get(i);
+      Security<FixedCouponBond> bond = bondSecurity.get(i);
       double dirtyPrice = bondPricer.dirtyPriceFromCurves(bond, provider, future.getLastDeliveryDate());
       priceBonds[i] = bondPricer.cleanPriceFromDirtyPrice(
-          bond, future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactors().get(i);
+          bond.getProduct(), future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactor().get(i);
     }
     return Doubles.min(priceBonds);
   }
@@ -109,12 +71,9 @@ public final class DiscountingBondFutureProductPricer {
    * The price of the product is the price on the valuation date.
    * <p>
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
-   * of the issuer discounting curve.
-   * <p>
-   * Strata uses <i>decimal prices</i> for bond futures. This is coherent with the pricing of {@link FixedCouponBond}.
-   * For example, a price of 99.32% is represented in Strata by 0.9932.
+   * of the issuer discounting curve. 
    * 
-   * @param future  the future
+   * @param future  the future to price
    * @param provider  the rates provider
    * @param zSpread  the z-spread
    * @param compoundedRateType  the compounded rate type
@@ -122,21 +81,21 @@ public final class DiscountingBondFutureProductPricer {
    * @return the price of the product, in decimal form
    */
   public double priceWithZSpread(
-      ResolvedBondFuture future,
+      BondFuture future,
       LegalEntityDiscountingProvider provider,
       double zSpread,
       CompoundedRateType compoundedRateType,
       int periodPerYear) {
 
-    ImmutableList<ResolvedFixedCouponBond> basket = future.getDeliveryBasket();
-    int size = basket.size();
+    ImmutableList<Security<FixedCouponBond>> bondSecurity = future.getBondSecurityBasket();
+    int size = bondSecurity.size();
     double[] priceBonds = new double[size];
     for (int i = 0; i < size; ++i) {
-      ResolvedFixedCouponBond bond = basket.get(i);
+      Security<FixedCouponBond> bond = bondSecurity.get(i);
       double dirtyPrice = bondPricer.dirtyPriceFromCurvesWithZSpread(
           bond, provider, zSpread, compoundedRateType, periodPerYear, future.getLastDeliveryDate());
       priceBonds[i] = bondPricer.cleanPriceFromDirtyPrice(
-          bond, future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactors().get(i);
+          bond.getProduct(), future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactor().get(i);
     }
     return Doubles.min(priceBonds);
   }
@@ -147,32 +106,31 @@ public final class DiscountingBondFutureProductPricer {
    * <p>
    * The price sensitivity of the product is the sensitivity of the price to the underlying curves.
    * <p>
-   * Note that the price sensitivity should be no currency.
+   * Note that the price sensitivity should be no currency. 
    * 
-   * @param future  the future
+   * @param future  the future to price
    * @param provider  the rates provider
    * @return the price curve sensitivity of the product
    */
-  public PointSensitivities priceSensitivity(ResolvedBondFuture future, LegalEntityDiscountingProvider provider) {
-    ImmutableList<ResolvedFixedCouponBond> basket = future.getDeliveryBasket();
-    int size = basket.size();
+  public PointSensitivities priceSensitivity(BondFuture future, LegalEntityDiscountingProvider provider) {
+    ImmutableList<Security<FixedCouponBond>> bondSecurity = future.getBondSecurityBasket();
+    int size = bondSecurity.size();
     double[] priceBonds = new double[size];
     int indexCTD = 0;
     double priceMin = 2d;
     for (int i = 0; i < size; i++) {
-      ResolvedFixedCouponBond bond = basket.get(i);
+      Security<FixedCouponBond> bond = bondSecurity.get(i);
       double dirtyPrice = bondPricer.dirtyPriceFromCurves(bond, provider, future.getLastDeliveryDate());
       priceBonds[i] = bondPricer.cleanPriceFromDirtyPrice(
-          bond, future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactors().get(i);
+          bond.getProduct(), future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactor().get(i);
       if (priceBonds[i] < priceMin) {
         priceMin = priceBonds[i];
         indexCTD = i;
       }
     }
-    ResolvedFixedCouponBond bond = basket.get(indexCTD);
     PointSensitivityBuilder pointSensi = bondPricer.dirtyPriceSensitivity(
-        bond, provider, future.getLastDeliveryDate());
-    return pointSensi.multipliedBy(1d / future.getConversionFactors().get(indexCTD)).build();
+        bondSecurity.get(indexCTD), provider, future.getLastDeliveryDate());
+    return pointSensi.multipliedBy(1d / future.getConversionFactor().get(indexCTD)).build();
   }
 
   /**
@@ -181,11 +139,11 @@ public final class DiscountingBondFutureProductPricer {
    * The price sensitivity of the product is the sensitivity of the price to the underlying curves.
    * <p>
    * The z-spread is a parallel shift applied to continuously compounded rates or periodic compounded rates 
-   * of the issuer discounting curve.
+   * of the issuer discounting curve. 
    * <p>
-   * Note that the price sensitivity should be no currency.
+   * Note that the price sensitivity should be no currency. 
    * 
-   * @param future  the future
+   * @param future  the future to price
    * @param provider  the rates provider
    * @param zSpread  the z-spread
    * @param compoundedRateType  the compounded rate type
@@ -193,32 +151,31 @@ public final class DiscountingBondFutureProductPricer {
    * @return the price curve sensitivity of the product
    */
   public PointSensitivities priceSensitivityWithZSpread(
-      ResolvedBondFuture future,
+      BondFuture future,
       LegalEntityDiscountingProvider provider,
       double zSpread,
       CompoundedRateType compoundedRateType,
       int periodPerYear) {
 
-    ImmutableList<ResolvedFixedCouponBond> basket = future.getDeliveryBasket();
-    int size = basket.size();
+    ImmutableList<Security<FixedCouponBond>> bondSecurity = future.getBondSecurityBasket();
+    int size = bondSecurity.size();
     double[] priceBonds = new double[size];
     int indexCTD = 0;
     double priceMin = 2d;
     for (int i = 0; i < size; i++) {
-      ResolvedFixedCouponBond bond = basket.get(i);
+      Security<FixedCouponBond> bond = bondSecurity.get(i);
       double dirtyPrice = bondPricer.dirtyPriceFromCurvesWithZSpread(
           bond, provider, zSpread, compoundedRateType, periodPerYear, future.getLastDeliveryDate());
       priceBonds[i] = bondPricer.cleanPriceFromDirtyPrice(
-          bond, future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactors().get(i);
+          bond.getProduct(), future.getLastDeliveryDate(), dirtyPrice) / future.getConversionFactor().get(i);
       if (priceBonds[i] < priceMin) {
         priceMin = priceBonds[i];
         indexCTD = i;
       }
     }
-    ResolvedFixedCouponBond bond = basket.get(indexCTD);
     PointSensitivityBuilder pointSensi = bondPricer.dirtyPriceSensitivityWithZspread(
-        bond, provider, zSpread, compoundedRateType, periodPerYear, future.getLastDeliveryDate());
-    return pointSensi.multipliedBy(1d / future.getConversionFactors().get(indexCTD)).build();
+        bondSecurity.get(indexCTD), provider, zSpread, compoundedRateType, periodPerYear, future.getLastDeliveryDate());
+    return pointSensi.multipliedBy(1d / future.getConversionFactor().get(indexCTD)).build();
   }
 
 }

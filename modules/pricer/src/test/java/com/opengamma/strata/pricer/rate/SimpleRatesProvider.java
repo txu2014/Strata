@@ -7,7 +7,6 @@ package com.opengamma.strata.pricer.rate;
 
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import org.joda.beans.Bean;
@@ -22,26 +21,30 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyPair;
+import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.index.FxIndex;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.PriceIndex;
+import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.MarketDataName;
-import com.opengamma.strata.pricer.DiscountFactors;
-import com.opengamma.strata.pricer.fx.FxForwardRates;
-import com.opengamma.strata.pricer.fx.FxIndexRates;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
+import com.opengamma.strata.market.sensitivity.PointSensitivities;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.FxForwardRates;
+import com.opengamma.strata.market.view.FxIndexRates;
+import com.opengamma.strata.market.view.IborIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
+import com.opengamma.strata.market.view.PriceIndexValues;
 
 /**
  * A simple rates provider for overnight rates.
  */
-@BeanDefinition(style = "minimal")
+@BeanDefinition
 public class SimpleRatesProvider
     implements RatesProvider, Bean {
 
@@ -95,40 +98,7 @@ public class SimpleRatesProvider
 
   //-------------------------------------------------------------------------
   @Override
-  public ImmutableSet<Currency> getDiscountCurrencies() {
-    if (discountFactors != null) {
-      return ImmutableSet.of(discountFactors.getCurrency());
-    }
-    return ImmutableSet.of();
-  }
-
-  @Override
-  public ImmutableSet<IborIndex> getIborIndices() {
-    if (iborRates != null) {
-      return ImmutableSet.of(iborRates.getIndex());
-    }
-    return ImmutableSet.of();
-  }
-
-  @Override
-  public ImmutableSet<OvernightIndex> getOvernightIndices() {
-    if (overnightRates != null) {
-      return ImmutableSet.of(overnightRates.getIndex());
-    }
-    return ImmutableSet.of();
-  }
-
-  @Override
-  public ImmutableSet<PriceIndex> getPriceIndices() {
-    if (priceIndexValues != null) {
-      return ImmutableSet.of(priceIndexValues.getIndex());
-    }
-    return ImmutableSet.of();
-  }
-
-  //-------------------------------------------------------------------------
-  @Override
-  public <T> T data(MarketDataId<T> key) {
+  public <T> T data(MarketDataKey<T> key) {
     throw new UnsupportedOperationException();
   }
 
@@ -171,17 +141,17 @@ public class SimpleRatesProvider
   }
 
   @Override
-  public <T> Optional<T> findData(MarketDataName<T> name) {
-    return Optional.empty();
-  }
-
-  @Override
-  public LocalDateDoubleTimeSeries timeSeries(Index index) {
+  public CurveCurrencyParameterSensitivities curveParameterSensitivity(PointSensitivities pointSensitivities) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public ImmutableRatesProvider toImmutableRatesProvider() {
+  public MultiCurrencyAmount currencyExposure(PointSensitivities pointSensitivities) {
+    throw new UnsupportedOperationException();
+  }
+  
+  @Override
+  public LocalDateDoubleTimeSeries timeSeries(Index index) {
     throw new UnsupportedOperationException();
   }
 
@@ -232,6 +202,14 @@ public class SimpleRatesProvider
     this.valuationDate = valuationDate;
   }
 
+  /**
+   * Gets the the {@code valuationDate} property.
+   * @return the property, not null
+   */
+  public final Property<LocalDate> valuationDate() {
+    return metaBean().valuationDate().createProperty(this);
+  }
+
   //-----------------------------------------------------------------------
   /**
    * Gets the dayCount.
@@ -247,6 +225,14 @@ public class SimpleRatesProvider
    */
   public void setDayCount(DayCount dayCount) {
     this.dayCount = dayCount;
+  }
+
+  /**
+   * Gets the the {@code dayCount} property.
+   * @return the property, not null
+   */
+  public final Property<DayCount> dayCount() {
+    return metaBean().dayCount().createProperty(this);
   }
 
   //-----------------------------------------------------------------------
@@ -266,6 +252,14 @@ public class SimpleRatesProvider
     this.discountFactors = discountFactors;
   }
 
+  /**
+   * Gets the the {@code discountFactors} property.
+   * @return the property, not null
+   */
+  public final Property<DiscountFactors> discountFactors() {
+    return metaBean().discountFactors().createProperty(this);
+  }
+
   //-----------------------------------------------------------------------
   /**
    * Gets the fxIndexRates.
@@ -281,6 +275,14 @@ public class SimpleRatesProvider
    */
   public void setFxIndexRates(FxIndexRates fxIndexRates) {
     this.fxIndexRates = fxIndexRates;
+  }
+
+  /**
+   * Gets the the {@code fxIndexRates} property.
+   * @return the property, not null
+   */
+  public final Property<FxIndexRates> fxIndexRates() {
+    return metaBean().fxIndexRates().createProperty(this);
   }
 
   //-----------------------------------------------------------------------
@@ -300,6 +302,14 @@ public class SimpleRatesProvider
     this.fxForwardRates = fxForwardRates;
   }
 
+  /**
+   * Gets the the {@code fxForwardRates} property.
+   * @return the property, not null
+   */
+  public final Property<FxForwardRates> fxForwardRates() {
+    return metaBean().fxForwardRates().createProperty(this);
+  }
+
   //-----------------------------------------------------------------------
   /**
    * Gets the iborRates.
@@ -315,6 +325,14 @@ public class SimpleRatesProvider
    */
   public void setIborRates(IborIndexRates iborRates) {
     this.iborRates = iborRates;
+  }
+
+  /**
+   * Gets the the {@code iborRates} property.
+   * @return the property, not null
+   */
+  public final Property<IborIndexRates> iborRates() {
+    return metaBean().iborRates().createProperty(this);
   }
 
   //-----------------------------------------------------------------------
@@ -334,6 +352,14 @@ public class SimpleRatesProvider
     this.overnightRates = overnightRates;
   }
 
+  /**
+   * Gets the the {@code overnightRates} property.
+   * @return the property, not null
+   */
+  public final Property<OvernightIndexRates> overnightRates() {
+    return metaBean().overnightRates().createProperty(this);
+  }
+
   //-----------------------------------------------------------------------
   /**
    * Gets the priceIndexValues.
@@ -349,6 +375,14 @@ public class SimpleRatesProvider
    */
   public void setPriceIndexValues(PriceIndexValues priceIndexValues) {
     this.priceIndexValues = priceIndexValues;
+  }
+
+  /**
+   * Gets the the {@code priceIndexValues} property.
+   * @return the property, not null
+   */
+  public final Property<PriceIndexValues> priceIndexValues() {
+    return metaBean().priceIndexValues().createProperty(this);
   }
 
   //-----------------------------------------------------------------------
@@ -520,6 +554,71 @@ public class SimpleRatesProvider
     @Override
     public Map<String, MetaProperty<?>> metaPropertyMap() {
       return metaPropertyMap$;
+    }
+
+    //-----------------------------------------------------------------------
+    /**
+     * The meta-property for the {@code valuationDate} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<LocalDate> valuationDate() {
+      return valuationDate;
+    }
+
+    /**
+     * The meta-property for the {@code dayCount} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<DayCount> dayCount() {
+      return dayCount;
+    }
+
+    /**
+     * The meta-property for the {@code discountFactors} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<DiscountFactors> discountFactors() {
+      return discountFactors;
+    }
+
+    /**
+     * The meta-property for the {@code fxIndexRates} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<FxIndexRates> fxIndexRates() {
+      return fxIndexRates;
+    }
+
+    /**
+     * The meta-property for the {@code fxForwardRates} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<FxForwardRates> fxForwardRates() {
+      return fxForwardRates;
+    }
+
+    /**
+     * The meta-property for the {@code iborRates} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<IborIndexRates> iborRates() {
+      return iborRates;
+    }
+
+    /**
+     * The meta-property for the {@code overnightRates} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<OvernightIndexRates> overnightRates() {
+      return overnightRates;
+    }
+
+    /**
+     * The meta-property for the {@code priceIndexValues} property.
+     * @return the meta-property, not null
+     */
+    public final MetaProperty<PriceIndexValues> priceIndexValues() {
+      return priceIndexValues;
     }
 
     //-----------------------------------------------------------------------

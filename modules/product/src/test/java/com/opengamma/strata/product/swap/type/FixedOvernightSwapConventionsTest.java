@@ -14,7 +14,8 @@ import java.time.LocalDate;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.BuySell;
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.date.BusinessDayConvention;
 import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.DayCount;
@@ -23,9 +24,7 @@ import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.OvernightIndices;
 import com.opengamma.strata.basics.schedule.Frequency;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.common.PayReceive;
-import com.opengamma.strata.product.swap.ResolvedSwap;
+import com.opengamma.strata.product.swap.ExpandedSwap;
 import com.opengamma.strata.product.swap.SwapTrade;
 
 /**
@@ -37,8 +36,6 @@ import com.opengamma.strata.product.swap.SwapTrade;
 @Test
 public class FixedOvernightSwapConventionsTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
-
   @DataProvider(name = "spotLag")
   static Object[][] data_spot_lag() {
     return new Object[][] {
@@ -49,7 +46,7 @@ public class FixedOvernightSwapConventionsTest {
         {FixedOvernightSwapConventions.GBP_FIXED_TERM_SONIA_OIS, 0},
         {FixedOvernightSwapConventions.GBP_FIXED_1Y_SONIA_OIS, 0},
         {FixedOvernightSwapConventions.JPY_FIXED_TERM_TONAR_OIS, 0},
-        {FixedOvernightSwapConventions.JPY_FIXED_1Y_TONAR_OIS, 2},
+        {FixedOvernightSwapConventions.JPY_FIXED_1Y_TONAR_OIS, 0},
     };
   }
 
@@ -157,9 +154,9 @@ public class FixedOvernightSwapConventionsTest {
   @Test(dataProvider = "stubOn")
   public void test_stub_overnight(FixedOvernightSwapConvention convention, Tenor tenor) {
     LocalDate tradeDate = LocalDate.of(2015, 10, 20);
-    SwapTrade swap = convention.createTrade(tradeDate, tenor, BuySell.BUY, 1, 0.01, REF_DATA);
-    ResolvedSwap swapResolved = swap.getProduct().resolve(REF_DATA);
-    LocalDate endDate = swapResolved.getLeg(PayReceive.PAY).get().getEndDate();
+    SwapTrade swap = convention.toTrade(tradeDate, tenor, BuySell.BUY, 1, 0.01);
+    ExpandedSwap swapExpanded = swap.getProduct().expand();
+    LocalDate endDate = swapExpanded.getLeg(PayReceive.PAY).get().getEndDate();
     assertTrue(endDate.isAfter(tradeDate.plus(tenor).minusMonths(1)));
     assertTrue(endDate.isBefore(tradeDate.plus(tenor).plusMonths(1)));
   }

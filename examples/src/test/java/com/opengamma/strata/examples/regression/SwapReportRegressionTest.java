@@ -5,8 +5,7 @@
  */
 package com.opengamma.strata.examples.regression;
 
-import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_FOLLOWING;
-import static com.opengamma.strata.measure.StandardComponents.marketDataFactory;
+import static com.opengamma.strata.function.StandardComponents.marketDataFactory;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -15,32 +14,33 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
+import com.opengamma.strata.basics.PayReceive;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
+import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.DayCounts;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarIds;
+import com.opengamma.strata.basics.date.HolidayCalendars;
 import com.opengamma.strata.basics.index.IborIndices;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.Results;
-import com.opengamma.strata.calc.marketdata.MarketDataConfig;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.config.ReportingCurrency;
 import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
 import com.opengamma.strata.calc.runner.CalculationTaskRunner;
 import com.opengamma.strata.calc.runner.CalculationTasks;
-import com.opengamma.strata.data.MarketData;
-import com.opengamma.strata.examples.marketdata.ExampleData;
+import com.opengamma.strata.calc.runner.Results;
+import com.opengamma.strata.collect.id.StandardId;
+import com.opengamma.strata.examples.data.ExampleData;
 import com.opengamma.strata.examples.marketdata.ExampleMarketData;
 import com.opengamma.strata.examples.marketdata.ExampleMarketDataBuilder;
-import com.opengamma.strata.measure.Measures;
-import com.opengamma.strata.measure.StandardComponents;
-import com.opengamma.strata.product.Trade;
+import com.opengamma.strata.function.StandardComponents;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.common.PayReceive;
 import com.opengamma.strata.product.swap.FixedRateCalculation;
 import com.opengamma.strata.product.swap.IborRateCalculation;
 import com.opengamma.strata.product.swap.NotionalSchedule;
@@ -59,8 +59,6 @@ import com.opengamma.strata.report.trade.TradeReportTemplate;
 @Test
 public class SwapReportRegressionTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
-
   /**
    * Tests the full set of results against a golden copy.
    */
@@ -71,27 +69,32 @@ public class SwapReportRegressionTest {
         Column.of(Measures.LEG_INITIAL_NOTIONAL),
         Column.of(Measures.PRESENT_VALUE),
         Column.of(Measures.LEG_PRESENT_VALUE),
-        Column.of(Measures.PV01_CALIBRATED_SUM),
+        Column.of(Measures.PV01),
         Column.of(Measures.ACCRUED_INTEREST));
 
     ExampleMarketDataBuilder marketDataBuilder = ExampleMarketData.builder();
 
-    LocalDate valuationDate = LocalDate.of(2009, 7, 31);
-    CalculationRules rules = CalculationRules.of(
-        StandardComponents.calculationFunctions(),
-        Currency.USD,
-        marketDataBuilder.ratesLookup(valuationDate));
+    CalculationRules rules = CalculationRules.builder()
+        .pricingRules(StandardComponents.pricingRules())
+        .marketDataRules(marketDataBuilder.rules())
+        .reportingCurrency(ReportingCurrency.of(Currency.USD))
+        .build();
 
-    MarketData marketData = marketDataBuilder.buildSnapshot(valuationDate);
+    LocalDate valuationDate = LocalDate.of(2009, 7, 31);
+    MarketEnvironment marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
 
     // using the direct executor means there is no need to close/shutdown the runner
     CalculationTasks tasks = CalculationTasks.of(rules, trades, columns);
-    MarketDataRequirements reqs = tasks.requirements(REF_DATA);
-    MarketData calibratedMarketData = marketDataFactory().create(reqs, MarketDataConfig.empty(), marketData, REF_DATA);
+    MarketDataRequirements reqs = tasks.getRequirements();
+    MarketEnvironment enhancedMarketData = marketDataFactory().buildMarketData(reqs, marketSnapshot, MarketDataConfig.empty());
     CalculationTaskRunner runner = CalculationTaskRunner.of(MoreExecutors.newDirectExecutorService());
-    Results results = runner.calculate(tasks, calibratedMarketData, REF_DATA);
+    Results results = runner.calculateSingleScenario(tasks, enhancedMarketData);
 
-    ReportCalculationResults calculationResults = ReportCalculationResults.of(valuationDate, trades, columns, results);
+    ReportCalculationResults calculationResults = ReportCalculationResults.of(
+        valuationDate,
+        trades,
+        columns,
+        results);
 
     TradeReportTemplate reportTemplate = ExampleData.loadTradeReportTemplate("swap-report-regression-test-template");
     TradeReport tradeReport = TradeReport.of(calculationResults, reportTemplate);
@@ -108,12 +111,12 @@ public class SwapReportRegressionTest {
         .startDate(LocalDate.of(2006, 2, 24))
         .endDate(LocalDate.of(2011, 2, 24))
         .frequency(Frequency.P3M)
-        .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, HolidayCalendarIds.USNY))
+        .businessDayAdjustment(BusinessDayAdjustment.of(BusinessDayConventions.MODIFIED_FOLLOWING, HolidayCalendars.USNY))
         .build();
 
     PaymentSchedule payment = PaymentSchedule.builder()
         .paymentFrequency(Frequency.P3M)
-        .paymentDateOffset(DaysAdjustment.ofBusinessDays(2, HolidayCalendarIds.USNY))
+        .paymentDateOffset(DaysAdjustment.ofBusinessDays(2, HolidayCalendars.USNY))
         .build();
 
     SwapLeg payLeg = RateCalculationSwapLeg.builder()
@@ -136,7 +139,7 @@ public class SwapReportRegressionTest {
         .product(Swap.builder()
             .legs(payLeg, receiveLeg)
             .build())
-        .info(TradeInfo.builder()
+        .tradeInfo(TradeInfo.builder()
             .id(StandardId.of("mn", "14248"))
             .counterparty(StandardId.of("mn", "Dealer A"))
             .settlementDate(LocalDate.of(2006, 2, 24))

@@ -42,7 +42,7 @@ public final class CurveParameterSize
   /**
    * The number of parameters.
    */
-  @PropertyDefinition(validate = "ArgChecker.notNegativeOrZero")
+  @PropertyDefinition(validate = "ArgChecker.notNegative")
   private final int parameterCount;
 
   //-------------------------------------------------------------------------
@@ -80,7 +80,7 @@ public final class CurveParameterSize
       CurveName name,
       int parameterCount) {
     JodaBeanUtils.notNull(name, "name");
-    ArgChecker.notNegativeOrZero(parameterCount, "parameterCount");
+    ArgChecker.notNegative(parameterCount, "parameterCount");
     this.name = name;
     this.parameterCount = parameterCount;
   }

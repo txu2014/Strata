@@ -14,8 +14,8 @@ import com.opengamma.strata.basics.schedule.StubConvention;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.collect.array.DoubleMatrix;
-import com.opengamma.strata.math.MathException;
 import com.opengamma.strata.math.impl.FunctionUtils;
+import com.opengamma.strata.math.impl.MathException;
 import com.opengamma.strata.math.impl.linearalgebra.CholeskyDecompositionCommons;
 import com.opengamma.strata.math.impl.linearalgebra.CholeskyDecompositionResult;
 import com.opengamma.strata.math.impl.matrix.MatrixAlgebra;
@@ -26,7 +26,7 @@ import com.opengamma.strata.math.impl.statistics.distribution.ProbabilityDistrib
 import cern.jet.random.engine.MersenneTwister;
 
 /**
- * This tests the time to calibrate the yield and credit curves. By default the tests are disabled.
+ * This tests the time to calibrate the yield and credit curves. By default the tests are disabled.  
  */
 @Test
 public class CalibrationTimingTest extends IsdaBaseTest {

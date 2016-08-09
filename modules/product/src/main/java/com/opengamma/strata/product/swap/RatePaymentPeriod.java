@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.DayCount;
-import com.opengamma.strata.basics.index.FxIndexObservation;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.collect.Messages;
 
@@ -127,14 +126,15 @@ public final class RatePaymentPeriod
   @ImmutableValidator
   private void validate() {
     if (fxReset != null) {
-      Currency notionalCcy = fxReset.getReferenceCurrency();
       if (fxReset.getReferenceCurrency().equals(currency)) {
-        throw new IllegalArgumentException(Messages.format(
-            "Payment currency {} must not equal notional currency {} when FX reset applies", currency, notionalCcy));
+        throw new IllegalArgumentException(
+            Messages.format("Currency {} must not equal FxReset reference currency {}",
+                currency, fxReset.getReferenceCurrency()));
       }
       if (!fxReset.getIndex().getCurrencyPair().contains(currency)) {
-        throw new IllegalArgumentException(Messages.format(
-            "Payment currency {} must be one of those in the FxReset index {}", currency, fxReset.getIndex()));
+        throw new IllegalArgumentException(
+            Messages.format("Currency {} must be one of those in the FxReset index {}",
+                currency, fxReset.getIndex()));
       }
     }
   }
@@ -183,11 +183,6 @@ public final class RatePaymentPeriod
     return CurrencyAmount.of(currency, notional);
   }
 
-  @Override
-  public Optional<FxIndexObservation> getFxResetObservation() {
-    return getFxReset().map(fxr -> fxr.getObservation());
-  }
-
   /**
    * Checks whether compounding applies.
    * <p>
@@ -209,7 +204,7 @@ public final class RatePaymentPeriod
 
   @Override
   public void collectIndices(ImmutableSet.Builder<Index> builder) {
-    accrualPeriods.stream().forEach(accrual -> accrual.getRateComputation().collectIndices(builder));
+    accrualPeriods.stream().forEach(accrual -> accrual.getRateObservation().collectIndices(builder));
     getFxReset().ifPresent(fxReset -> builder.add(fxReset.getIndex()));
   }
 

@@ -16,7 +16,7 @@ import org.testng.annotations.Test;
 public class FailureExceptionTest {
 
   public void test_constructor_failure() {
-    Failure failure = Failure.of(FailureReason.UNSUPPORTED, "Test");
+    Failure failure = Failure.of(FailureReason.INVALID_INPUT, "Test");
     FailureException test = new FailureException(failure);
     assertEquals(test.getFailure(), failure);
   }

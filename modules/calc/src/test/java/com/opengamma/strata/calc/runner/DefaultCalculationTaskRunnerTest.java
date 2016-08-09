@@ -6,7 +6,7 @@
 package com.opengamma.strata.calc.runner;
 
 import static com.opengamma.strata.basics.currency.Currency.USD;
-import static com.opengamma.strata.calc.ReportingCurrency.NATURAL;
+import static com.opengamma.strata.calc.config.ReportingCurrency.NATURAL;
 import static com.opengamma.strata.collect.CollectProjectAssertions.assertThat;
 import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.date;
@@ -22,19 +22,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.opengamma.strata.basics.CalculationTarget;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.Currency;
+import com.opengamma.strata.basics.market.TestObservableKey;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.Measure;
-import com.opengamma.strata.calc.Results;
-import com.opengamma.strata.calc.TestingMeasures;
-import com.opengamma.strata.calc.marketdata.TestId;
-import com.opengamma.strata.calc.marketdata.TestObservableId;
-import com.opengamma.strata.calc.runner.CalculationTaskTest.TestTarget;
+import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.Measures;
+import com.opengamma.strata.calc.marketdata.CalculationEnvironment;
+import com.opengamma.strata.calc.marketdata.CalculationMarketData;
+import com.opengamma.strata.calc.marketdata.FunctionRequirements;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
+import com.opengamma.strata.calc.marketdata.TestKey;
+import com.opengamma.strata.calc.marketdata.mapping.MarketDataMappings;
+import com.opengamma.strata.calc.runner.function.CalculationFunction;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.result.Result;
-import com.opengamma.strata.data.MarketData;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
 
 /**
  * Test {@link CalculationTaskRunner} and {@link DefaultCalculationTaskRunner}.
@@ -42,79 +43,77 @@ import com.opengamma.strata.data.scenario.ScenarioMarketData;
 @Test
 public class DefaultCalculationTaskRunnerTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final TestTarget TARGET = new TestTarget();
   private static final LocalDate VAL_DATE = date(2011, 3, 8);
-  private static final Set<Measure> MEASURES = ImmutableSet.of(TestingMeasures.PRESENT_VALUE);
+  private static final Set<Measure> MEASURES = ImmutableSet.of(Measures.PRESENT_VALUE);
 
   //-------------------------------------------------------------------------
   /**
-   * Test that ScenarioArrays containing a single value are unwrapped.
+   * Test that ScenarioResults containing a single value are unwrapped when calling calculate() with BaseMarketData.
    */
   public void unwrapScenarioResults() {
-    ScenarioArray<String> scenarioResult = ScenarioArray.of("foo");
-    ScenarioResultFunction fn = new ScenarioResultFunction(TestingMeasures.PRESENT_VALUE, scenarioResult);
-    CalculationTaskCell cell = CalculationTaskCell.of(0, 0, TestingMeasures.PRESENT_VALUE, NATURAL);
-    CalculationTask task = CalculationTask.of(TARGET, fn, cell);
-    Column column = Column.of(TestingMeasures.PRESENT_VALUE);
+    ScenarioResult<String> scenarioResult = ScenarioResult.of("foo");
+    ScenarioResultFunction fn = new ScenarioResultFunction(Measures.PRESENT_VALUE, scenarioResult);
+    CalculationTask task = CalculationTask.of(TARGET, Measures.PRESENT_VALUE, 0, 0, fn, MarketDataMappings.empty(), NATURAL);
+    Column column = Column.of(Measures.PRESENT_VALUE);
     CalculationTasks tasks = CalculationTasks.of(ImmutableList.of(task), ImmutableList.of(column));
 
     // using the direct executor means there is no need to close/shutdown the runner
     CalculationTaskRunner test = CalculationTaskRunner.of(MoreExecutors.newDirectExecutorService());
 
-    MarketData marketData = MarketData.empty(VAL_DATE);
-    Results results1 = test.calculate(tasks, marketData, REF_DATA);
+    CalculationEnvironment marketData = MarketEnvironment.empty(VAL_DATE);
+    Results results1 = test.calculateSingleScenario(tasks, marketData);
     Result<?> result1 = results1.get(0, 0);
     // Check the result contains the string directly, not the result wrapping the string
     assertThat(result1).hasValue("foo");
 
-    Results results2 = test.calculateMultiScenario(tasks, ScenarioMarketData.of(1, marketData), REF_DATA);
+    CalculationEnvironment scenarioMarketData = MarketEnvironment.empty(VAL_DATE);
+    Results results2 = test.calculateMultipleScenarios(tasks, scenarioMarketData);
     Result<?> result2 = results2.get(0, 0);
     // Check the result contains the scenario result wrapping the string
     assertThat(result2).hasValue(scenarioResult);
   }
 
   /**
-   * Test that ScenarioArrays containing multiple values are an error.
+   * Test that ScenarioResults containing multiple values are an error.
    */
   public void unwrapMultipleScenarioResults() {
-    ScenarioArray<String> scenarioResult = ScenarioArray.of("foo", "bar");
-    ScenarioResultFunction fn = new ScenarioResultFunction(TestingMeasures.PAR_RATE, scenarioResult);
-    CalculationTaskCell cell = CalculationTaskCell.of(0, 0, TestingMeasures.PAR_RATE, NATURAL);
-    CalculationTask task = CalculationTask.of(TARGET, fn, cell);
-    Column column = Column.of(TestingMeasures.PAR_RATE);
+    ScenarioResult<String> scenarioResult = ScenarioResult.of("foo", "bar");
+    ScenarioResultFunction fn = new ScenarioResultFunction(Measures.PAR_RATE, scenarioResult);
+    CalculationTask task = CalculationTask.of(TARGET, Measures.PAR_RATE, 0, 0, fn, MarketDataMappings.empty(), NATURAL);
+    Column column = Column.of(Measures.PAR_RATE);
     CalculationTasks tasks = CalculationTasks.of(ImmutableList.of(task), ImmutableList.of(column));
 
     // using the direct executor means there is no need to close/shutdown the runner
     CalculationTaskRunner test = CalculationTaskRunner.of(MoreExecutors.newDirectExecutorService());
 
-    MarketData marketData = MarketData.empty(VAL_DATE);
-    assertThrowsIllegalArg(() -> test.calculate(tasks, marketData, REF_DATA));
+    CalculationEnvironment marketData = MarketEnvironment.empty(VAL_DATE);
+    assertThrowsIllegalArg(() -> test.calculateSingleScenario(tasks, marketData));
   }
 
   /**
-   * Test that ScenarioArrays containing a single value are unwrapped when calling calculateAsync().
+   * Test that ScenarioResults containing a single value are unwrapped when calling calculateAsync() with BaseMarketData.
    */
   public void unwrapScenarioResultsAsync() {
-    ScenarioArray<String> scenarioResult = ScenarioArray.of("foo");
-    ScenarioResultFunction fn = new ScenarioResultFunction(TestingMeasures.PRESENT_VALUE, scenarioResult);
-    CalculationTaskCell cell = CalculationTaskCell.of(0, 0, TestingMeasures.PRESENT_VALUE, NATURAL);
-    CalculationTask task = CalculationTask.of(TARGET, fn, cell);
-    Column column = Column.of(TestingMeasures.PRESENT_VALUE);
+    ScenarioResult<String> scenarioResult = ScenarioResult.of("foo");
+    ScenarioResultFunction fn = new ScenarioResultFunction(Measures.PRESENT_VALUE, scenarioResult);
+    CalculationTask task = CalculationTask.of(TARGET, Measures.PRESENT_VALUE, 0, 0, fn, MarketDataMappings.empty(), NATURAL);
+    Column column = Column.of(Measures.PRESENT_VALUE);
     CalculationTasks tasks = CalculationTasks.of(ImmutableList.of(task), ImmutableList.of(column));
 
     // using the direct executor means there is no need to close/shutdown the runner
     CalculationTaskRunner test = CalculationTaskRunner.of(MoreExecutors.newDirectExecutorService());
     Listener listener = new Listener();
 
-    MarketData marketData = MarketData.empty(VAL_DATE);
-    test.calculateAsync(tasks, marketData, REF_DATA, listener);
+    CalculationEnvironment marketData = MarketEnvironment.empty(VAL_DATE);
+    test.calculateSingleScenarioAsync(tasks, marketData, listener);
     CalculationResult calculationResult1 = listener.result;
     Result<?> result1 = calculationResult1.getResult();
     // Check the result contains the string directly, not the result wrapping the string
     assertThat(result1).hasValue("foo");
 
-    test.calculateMultiScenarioAsync(tasks, ScenarioMarketData.of(1, marketData), REF_DATA, listener);
+    CalculationEnvironment scenarioMarketData = MarketEnvironment.empty(VAL_DATE);
+    test.calculateMultipleScenariosAsync(tasks, scenarioMarketData, listener);
     CalculationResult calculationResult2 = listener.result;
     Result<?> result2 = calculationResult2.getResult();
     // Check the result contains the scenario result wrapping the string
@@ -122,12 +121,11 @@ public class DefaultCalculationTaskRunnerTest {
   }
 
   //-------------------------------------------------------------------------
-  public static final class TestFunction implements CalculationFunction<TestTarget> {
+  private static class TestTarget implements CalculationTarget {
+  }
 
-    @Override
-    public Class<TestTarget> targetType() {
-      return TestTarget.class;
-    }
+  //-------------------------------------------------------------------------
+  public static final class TestFunction implements CalculationFunction<TestTarget> {
 
     @Override
     public Set<Measure> supportedMeasures() {
@@ -135,23 +133,18 @@ public class DefaultCalculationTaskRunnerTest {
     }
 
     @Override
-    public Currency naturalCurrency(TestTarget trade, ReferenceData refData) {
+    public Currency naturalCurrency(TestTarget target) {
       return USD;
     }
 
     @Override
-    public FunctionRequirements requirements(
-        TestTarget target,
-        Set<Measure> measures,
-        CalculationParameters parameters,
-        ReferenceData refData) {
-
+    public FunctionRequirements requirements(TestTarget target, Set<Measure> measures) {
       return FunctionRequirements.builder()
-          .valueRequirements(
+          .singleValueRequirements(
               ImmutableSet.of(
-                  TestId.of("1"),
-                  TestObservableId.of("2")))
-          .timeSeriesRequirements(TestObservableId.of("3"))
+                  TestKey.of("1"),
+                  TestObservableKey.of("2")))
+          .timeSeriesRequirements(TestObservableKey.of("3"))
           .build();
     }
 
@@ -159,12 +152,10 @@ public class DefaultCalculationTaskRunnerTest {
     public Map<Measure, Result<?>> calculate(
         TestTarget target,
         Set<Measure> measures,
-        CalculationParameters parameters,
-        ScenarioMarketData marketData,
-        ReferenceData refData) {
+        CalculationMarketData marketData) {
 
-      ScenarioArray<String> array = ScenarioArray.of("bar");
-      return ImmutableMap.of(TestingMeasures.PRESENT_VALUE, Result.success(array));
+      ScenarioResult<String> array = ScenarioResult.of("bar");
+      return ImmutableMap.of(Measures.PRESENT_VALUE, Result.success(array));
     }
   }
 
@@ -172,16 +163,11 @@ public class DefaultCalculationTaskRunnerTest {
   private static final class ScenarioResultFunction implements CalculationFunction<TestTarget> {
 
     private final Measure measure;
-    private final ScenarioArray<String> result;
+    private final ScenarioResult<String> result;
 
-    private ScenarioResultFunction(Measure measure, ScenarioArray<String> result) {
+    private ScenarioResultFunction(Measure measure, ScenarioResult<String> result) {
       this.measure = measure;
       this.result = result;
-    }
-
-    @Override
-    public Class<TestTarget> targetType() {
-      return TestTarget.class;
     }
 
     @Override
@@ -190,17 +176,12 @@ public class DefaultCalculationTaskRunnerTest {
     }
 
     @Override
-    public Currency naturalCurrency(TestTarget trade, ReferenceData refData) {
+    public Currency naturalCurrency(TestTarget target) {
       return USD;
     }
 
     @Override
-    public FunctionRequirements requirements(
-        TestTarget target,
-        Set<Measure> measures,
-        CalculationParameters parameters,
-        ReferenceData refData) {
-
+    public FunctionRequirements requirements(TestTarget target, Set<Measure> measures) {
       return FunctionRequirements.empty();
     }
 
@@ -208,9 +189,7 @@ public class DefaultCalculationTaskRunnerTest {
     public Map<Measure, Result<?>> calculate(
         TestTarget target,
         Set<Measure> measures,
-        CalculationParameters parameters,
-        ScenarioMarketData marketData,
-        ReferenceData refData) {
+        CalculationMarketData marketData) {
 
       return ImmutableMap.of(measure, Result.success(result));
     }
@@ -222,7 +201,7 @@ public class DefaultCalculationTaskRunnerTest {
     private CalculationResult result;
 
     @Override
-    public void resultReceived(CalculationTarget target, CalculationResult result) {
+    public void resultReceived(CalculationResult result) {
       this.result = result;
     }
 

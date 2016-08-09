@@ -12,9 +12,10 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.ObservableId;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
+import com.opengamma.strata.basics.market.MarketDataId;
+import com.opengamma.strata.basics.market.ObservableId;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
+import com.opengamma.strata.calc.marketdata.function.MarketDataFunction;
 
 /**
  * Builds a dependency tree for the items of market used in a set of calculations.
@@ -33,7 +34,7 @@ import com.opengamma.strata.data.scenario.ScenarioMarketData;
 class DependencyTreeBuilder {
 
   /** The market data supplied by the user. */
-  private final ScenarioMarketData suppliedData;
+  private final CalculationEnvironment suppliedData;
 
   /** The functions that create items of market data. */
   private final Map<Class<? extends MarketDataId<?>>, MarketDataFunction<?, ?>> functions;
@@ -54,7 +55,7 @@ class DependencyTreeBuilder {
    * @return a tree builder that builds the dependency tree for the market data required by a set of calculations
    */
   static DependencyTreeBuilder of(
-      ScenarioMarketData suppliedData,
+      CalculationEnvironment suppliedData,
       MarketDataRequirements requirements,
       MarketDataConfig marketDataConfig,
       Map<Class<? extends MarketDataId<?>>, MarketDataFunction<?, ?>> functions) {
@@ -63,7 +64,7 @@ class DependencyTreeBuilder {
   }
 
   private DependencyTreeBuilder(
-      ScenarioMarketData suppliedData,
+      CalculationEnvironment suppliedData,
       MarketDataRequirements requirements,
       MarketDataConfig marketDataConfig,
       Map<Class<? extends MarketDataId<?>>, MarketDataFunction<?, ?>> functions) {
@@ -162,11 +163,11 @@ class DependencyTreeBuilder {
   private static boolean isSupplied(
       MarketDataId<?> id,
       MarketDataNode.DataType dataType,
-      ScenarioMarketData suppliedData) {
+      CalculationEnvironment suppliedData) {
 
     switch (dataType) {
       case TIME_SERIES:
-        return (id instanceof ObservableId) && !suppliedData.getTimeSeries((ObservableId) id).isEmpty();
+        return (id instanceof ObservableId) && suppliedData.containsTimeSeries((ObservableId) id);
       case SINGLE_VALUE:
         return suppliedData.containsValue(id);
       default:

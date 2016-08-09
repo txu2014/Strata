@@ -10,14 +10,12 @@ import java.time.LocalDate;
 import org.joda.convert.FromString;
 import org.joda.convert.ToString;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.ReferenceDataNotFoundException;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.BusinessDayConvention;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
+import com.opengamma.strata.basics.date.HolidayCalendar;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.named.ExtendedEnum;
@@ -112,23 +110,22 @@ public interface IsdaYieldCurveConvention
    * 
    * @return the holiday calendar
    */
-  public abstract HolidayCalendarId getHolidayCalendar();
+  public abstract HolidayCalendar getHolidayCalendar();
 
   //-------------------------------------------------------------------------
   /**
-   * Calculates the spot date from the trade date.
-   * 
-   * @param tradeDate  the trade date
-   * @param refData  the reference data, used to resolve the date
-   * @return the spot date
-   * @throws ReferenceDataNotFoundException if an identifier cannot be resolved in the reference data
+   * Apply the spot days settlement lag and adjust using the conventions
+   *
+   * @param asOfDate  the base date to adjust
+   * @return the adjusted spot date
    */
-  public default LocalDate calculateSpotDateFromTradeDate(LocalDate tradeDate, ReferenceData refData) {
-    DaysAdjustment spotDateOffset = DaysAdjustment.ofBusinessDays(
+  public default LocalDate getSpotDateAsOf(LocalDate asOfDate) {
+    DaysAdjustment adjustment = DaysAdjustment.ofBusinessDays(
         getSpotDays(),
         getHolidayCalendar(),
         BusinessDayAdjustment.of(getBusinessDayConvention(), getHolidayCalendar()));
-    return spotDateOffset.adjust(tradeDate, refData);
+
+    return adjustment.adjust(asOfDate);
   }
 
   @ToString

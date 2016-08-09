@@ -133,7 +133,7 @@ public final class PointSensitivities
    * Multiplies the sensitivities in this instance by the specified factor.
    * <p>
    * The result will consist of the same entries, but with each sensitivity value multiplied.
-   * This instance is immutable and unaffected by this method.
+   * This instance is immutable and unaffected by this method. 
    * 
    * @param factor  the multiplicative factor
    * @return a {@code PointSensitivities} based on this one, with each sensitivity multiplied by the factor
@@ -146,7 +146,7 @@ public final class PointSensitivities
    * Applies an operation to the sensitivities in this instance.
    * <p>
    * The result will consist of the same entries, but with the operator applied to each sensitivity value.
-   * This instance is immutable and unaffected by this method.
+   * This instance is immutable and unaffected by this method. 
    * <p>
    * This is used to apply a mathematical operation to the sensitivity values.
    * For example, the operator could multiply the sensitivities by a constant, or take the inverse.
@@ -178,15 +178,23 @@ public final class PointSensitivities
    * <p>
    * This instance is immutable and unaffected by this method.
    * 
-   * @return a {@code PointSensitivities} based on this one, with the sensitivities normalized
+   * @return a {@code PointSensitivities} based on this one, with the the sensitivities normalized
    */
   public PointSensitivities normalized() {
     if (sensitivities.isEmpty()) {
       return this;
     }
-    List<PointSensitivity> mutable = new ArrayList<>();
-    for (PointSensitivity sensi : sensitivities) {
-      insert(mutable, sensi);
+    List<PointSensitivity> mutable = new ArrayList<>(sensitivities);
+    mutable.sort(PointSensitivity::compareKey);
+    PointSensitivity last = mutable.get(0);
+    for (int i = 1; i < mutable.size(); i++) {
+      PointSensitivity current = mutable.get(i);
+      if (current.compareKey(last) == 0) {
+        mutable.set(i - 1, last.withSensitivity(last.getSensitivity() + current.getSensitivity()));
+        mutable.remove(i);
+        i--;
+      }
+      last = current;
     }
     return new PointSensitivities(mutable);
   }
@@ -243,13 +251,14 @@ public final class PointSensitivities
     for (PointSensitivity sensi : sensitivities) {
       insert(mutable, sensi.convertedTo(resultCurrency, rateProvider));
     }
-    return new PointSensitivities(mutable);
+    return new PointSensitivities(ImmutableList.copyOf(mutable));
   }
 
   // inserts a sensitivity into the mutable list in the right location
   // merges the entry with an existing entry if the key matches
   private static void insert(List<PointSensitivity> mutable, PointSensitivity addition) {
-    int index = Collections.binarySearch(mutable, addition, PointSensitivity::compareKey);
+    int index = Collections.binarySearch(
+        mutable, addition, PointSensitivity::compareKey);
     if (index >= 0) {
       PointSensitivity base = mutable.get(index);
       double combined = base.getSensitivity() + addition.getSensitivity();

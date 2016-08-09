@@ -5,8 +5,6 @@
  */
 package com.opengamma.strata.report.trade;
 
-import static com.opengamma.strata.collect.Guavate.toImmutableList;
-
 import java.io.OutputStream;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,6 +54,12 @@ public final class TradeReport
    */
   @PropertyDefinition(validate = "notNull")
   private final ImmutableList<TradeReportColumn> columns;
+  // TODO Why have column headers and also columns which have headers?
+  /**
+   * The column headers.
+   */
+  @PropertyDefinition(validate = "notNull", overrideGet = true)
+  private final ImmutableList<String> columnHeaders;
   /**
    * The calculation results.
    */
@@ -80,12 +84,6 @@ public final class TradeReport
     return data.rowKeySet().size();
   }
 
-  @Override
-  public ImmutableList<String> getColumnHeaders() {
-    return columns.stream().map(c -> c.getHeader()).collect(toImmutableList());
-  }
-
-  //-------------------------------------------------------------------------
   @Override
   public void writeCsv(OutputStream out) {
     TradeReportFormatter.INSTANCE.writeCsv(this, out);
@@ -122,14 +120,17 @@ public final class TradeReport
       LocalDate valuationDate,
       Instant runInstant,
       List<TradeReportColumn> columns,
+      List<String> columnHeaders,
       Table<Integer, Integer, Result<?>> data) {
     JodaBeanUtils.notNull(valuationDate, "valuationDate");
     JodaBeanUtils.notNull(runInstant, "runInstant");
     JodaBeanUtils.notNull(columns, "columns");
+    JodaBeanUtils.notNull(columnHeaders, "columnHeaders");
     JodaBeanUtils.notNull(data, "data");
     this.valuationDate = valuationDate;
     this.runInstant = runInstant;
     this.columns = ImmutableList.copyOf(columns);
+    this.columnHeaders = ImmutableList.copyOf(columnHeaders);
     this.data = ImmutableTable.copyOf(data);
   }
 
@@ -179,6 +180,16 @@ public final class TradeReport
 
   //-----------------------------------------------------------------------
   /**
+   * Gets the column headers.
+   * @return the value of the property, not null
+   */
+  @Override
+  public ImmutableList<String> getColumnHeaders() {
+    return columnHeaders;
+  }
+
+  //-----------------------------------------------------------------------
+  /**
    * Gets the calculation results.
    * @return the value of the property, not null
    */
@@ -205,6 +216,7 @@ public final class TradeReport
       return JodaBeanUtils.equal(valuationDate, other.valuationDate) &&
           JodaBeanUtils.equal(runInstant, other.runInstant) &&
           JodaBeanUtils.equal(columns, other.columns) &&
+          JodaBeanUtils.equal(columnHeaders, other.columnHeaders) &&
           JodaBeanUtils.equal(data, other.data);
     }
     return false;
@@ -216,17 +228,19 @@ public final class TradeReport
     hash = hash * 31 + JodaBeanUtils.hashCode(valuationDate);
     hash = hash * 31 + JodaBeanUtils.hashCode(runInstant);
     hash = hash * 31 + JodaBeanUtils.hashCode(columns);
+    hash = hash * 31 + JodaBeanUtils.hashCode(columnHeaders);
     hash = hash * 31 + JodaBeanUtils.hashCode(data);
     return hash;
   }
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(160);
+    StringBuilder buf = new StringBuilder(192);
     buf.append("TradeReport{");
     buf.append("valuationDate").append('=').append(valuationDate).append(',').append(' ');
     buf.append("runInstant").append('=').append(runInstant).append(',').append(' ');
     buf.append("columns").append('=').append(columns).append(',').append(' ');
+    buf.append("columnHeaders").append('=').append(columnHeaders).append(',').append(' ');
     buf.append("data").append('=').append(JodaBeanUtils.toString(data));
     buf.append('}');
     return buf.toString();
@@ -259,6 +273,12 @@ public final class TradeReport
     private final MetaProperty<ImmutableList<TradeReportColumn>> columns = DirectMetaProperty.ofImmutable(
         this, "columns", TradeReport.class, (Class) ImmutableList.class);
     /**
+     * The meta-property for the {@code columnHeaders} property.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes" })
+    private final MetaProperty<ImmutableList<String>> columnHeaders = DirectMetaProperty.ofImmutable(
+        this, "columnHeaders", TradeReport.class, (Class) ImmutableList.class);
+    /**
      * The meta-property for the {@code data} property.
      */
     @SuppressWarnings({"unchecked", "rawtypes" })
@@ -272,6 +292,7 @@ public final class TradeReport
         "valuationDate",
         "runInstant",
         "columns",
+        "columnHeaders",
         "data");
 
     /**
@@ -289,6 +310,8 @@ public final class TradeReport
           return runInstant;
         case 949721053:  // columns
           return columns;
+        case 1598220112:  // columnHeaders
+          return columnHeaders;
         case 3076010:  // data
           return data;
       }
@@ -336,6 +359,14 @@ public final class TradeReport
     }
 
     /**
+     * The meta-property for the {@code columnHeaders} property.
+     * @return the meta-property, not null
+     */
+    public MetaProperty<ImmutableList<String>> columnHeaders() {
+      return columnHeaders;
+    }
+
+    /**
      * The meta-property for the {@code data} property.
      * @return the meta-property, not null
      */
@@ -353,6 +384,8 @@ public final class TradeReport
           return ((TradeReport) bean).getRunInstant();
         case 949721053:  // columns
           return ((TradeReport) bean).getColumns();
+        case 1598220112:  // columnHeaders
+          return ((TradeReport) bean).getColumnHeaders();
         case 3076010:  // data
           return ((TradeReport) bean).getData();
       }
@@ -379,6 +412,7 @@ public final class TradeReport
     private LocalDate valuationDate;
     private Instant runInstant;
     private List<TradeReportColumn> columns = ImmutableList.of();
+    private List<String> columnHeaders = ImmutableList.of();
     private Table<Integer, Integer, Result<?>> data = ImmutableTable.of();
 
     /**
@@ -395,6 +429,7 @@ public final class TradeReport
       this.valuationDate = beanToCopy.getValuationDate();
       this.runInstant = beanToCopy.getRunInstant();
       this.columns = beanToCopy.getColumns();
+      this.columnHeaders = beanToCopy.getColumnHeaders();
       this.data = beanToCopy.getData();
     }
 
@@ -408,6 +443,8 @@ public final class TradeReport
           return runInstant;
         case 949721053:  // columns
           return columns;
+        case 1598220112:  // columnHeaders
+          return columnHeaders;
         case 3076010:  // data
           return data;
         default:
@@ -427,6 +464,9 @@ public final class TradeReport
           break;
         case 949721053:  // columns
           this.columns = (List<TradeReportColumn>) newValue;
+          break;
+        case 1598220112:  // columnHeaders
+          this.columnHeaders = (List<String>) newValue;
           break;
         case 3076010:  // data
           this.data = (Table<Integer, Integer, Result<?>>) newValue;
@@ -467,6 +507,7 @@ public final class TradeReport
           valuationDate,
           runInstant,
           columns,
+          columnHeaders,
           data);
     }
 
@@ -515,6 +556,27 @@ public final class TradeReport
     }
 
     /**
+     * Sets the column headers.
+     * @param columnHeaders  the new value, not null
+     * @return this, for chaining, not null
+     */
+    public Builder columnHeaders(List<String> columnHeaders) {
+      JodaBeanUtils.notNull(columnHeaders, "columnHeaders");
+      this.columnHeaders = columnHeaders;
+      return this;
+    }
+
+    /**
+     * Sets the {@code columnHeaders} property in the builder
+     * from an array of objects.
+     * @param columnHeaders  the new value, not null
+     * @return this, for chaining, not null
+     */
+    public Builder columnHeaders(String... columnHeaders) {
+      return columnHeaders(ImmutableList.copyOf(columnHeaders));
+    }
+
+    /**
      * Sets the calculation results.
      * @param data  the new value, not null
      * @return this, for chaining, not null
@@ -528,11 +590,12 @@ public final class TradeReport
     //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(160);
+      StringBuilder buf = new StringBuilder(192);
       buf.append("TradeReport.Builder{");
       buf.append("valuationDate").append('=').append(JodaBeanUtils.toString(valuationDate)).append(',').append(' ');
       buf.append("runInstant").append('=').append(JodaBeanUtils.toString(runInstant)).append(',').append(' ');
       buf.append("columns").append('=').append(JodaBeanUtils.toString(columns)).append(',').append(' ');
+      buf.append("columnHeaders").append('=').append(JodaBeanUtils.toString(columnHeaders)).append(',').append(' ');
       buf.append("data").append('=').append(JodaBeanUtils.toString(data));
       buf.append('}');
       return buf.toString();

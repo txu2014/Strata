@@ -7,7 +7,6 @@ package com.opengamma.strata.basics.date;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.temporal.TemporalAdjuster;
 import java.time.temporal.TemporalAdjusters;
 
@@ -57,11 +56,6 @@ enum StandardDateSequences implements DateSequence {
       int offset = (month % 3 == 0 ? 0 : 3 - month % 3) + (sequenceNumber - 1) * 3;
       return base.plusMonths(offset).with(THIRD_WEDNESDAY);
     }
-
-    @Override
-    public LocalDate dateMatching(YearMonth yearMonth) {
-      return nextOrSame(yearMonth.atDay(1));
-    }
   },
 
   // Third Wednesday
@@ -94,11 +88,6 @@ enum StandardDateSequences implements DateSequence {
         return base.plusMonths(sequenceNumber).with(THIRD_WEDNESDAY);
       }
       return base.plusMonths(sequenceNumber - 1).with(THIRD_WEDNESDAY);
-    }
-
-    @Override
-    public LocalDate dateMatching(YearMonth yearMonth) {
-      return yearMonth.atDay(1).with(THIRD_WEDNESDAY);
     }
   };
 

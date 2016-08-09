@@ -20,18 +20,17 @@ import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.collect.tuple.Pair;
 import com.opengamma.strata.market.curve.Curve;
+import com.opengamma.strata.market.curve.CurveCurrencyParameterSensitivities;
 import com.opengamma.strata.market.curve.InterpolatedNodalCurve;
-import com.opengamma.strata.market.curve.NodalCurve;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivities;
-import com.opengamma.strata.pricer.DiscountFactors;
-import com.opengamma.strata.pricer.SimpleDiscountFactors;
-import com.opengamma.strata.pricer.ZeroRateDiscountFactors;
-import com.opengamma.strata.pricer.bond.BondGroup;
-import com.opengamma.strata.pricer.bond.LegalEntityDiscountingProvider;
-import com.opengamma.strata.pricer.bond.LegalEntityGroup;
+import com.opengamma.strata.market.value.BondGroup;
+import com.opengamma.strata.market.value.LegalEntityGroup;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.SimpleDiscountFactors;
+import com.opengamma.strata.market.view.ZeroRateDiscountFactors;
 import com.opengamma.strata.pricer.datasets.LegalEntityDiscountingProviderDataSets;
 import com.opengamma.strata.pricer.datasets.RatesProviderDataSets;
 import com.opengamma.strata.pricer.rate.ImmutableRatesProvider;
+import com.opengamma.strata.pricer.rate.LegalEntityDiscountingProvider;
 
 /**
  * Tests {@link RatesFiniteDifferenceSensitivityCalculator}.
@@ -45,7 +44,7 @@ public class RatesFiniteDifferenceSensitivityCalculatorTest {
 
   @Test
   public void sensitivity_single_curve() {
-    CurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(RatesProviderDataSets.SINGLE_USD, this::fn);
+    CurveCurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(RatesProviderDataSets.SINGLE_USD, this::fn);
     DoubleArray times = RatesProviderDataSets.TIMES_1;
     assertEquals(sensiComputed.size(), 1);
     DoubleArray s = sensiComputed.getSensitivities().get(0).getSensitivity();
@@ -57,12 +56,11 @@ public class RatesFiniteDifferenceSensitivityCalculatorTest {
 
   @Test
   public void sensitivity_multi_curve() {
-    CurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(RatesProviderDataSets.MULTI_CPI_USD, this::fn);
+    CurveCurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(RatesProviderDataSets.MULTI_USD, this::fn);
     DoubleArray times1 = RatesProviderDataSets.TIMES_1;
     DoubleArray times2 = RatesProviderDataSets.TIMES_2;
     DoubleArray times3 = RatesProviderDataSets.TIMES_3;
-    DoubleArray times4 = RatesProviderDataSets.TIMES_4;
-    assertEquals(sensiComputed.size(), 4);
+    assertEquals(sensiComputed.size(), 3);
     DoubleArray s1 = sensiComputed.getSensitivity(RatesProviderDataSets.USD_DSC_NAME, USD).getSensitivity();
     assertEquals(s1.size(), times1.size());
     for (int i = 0; i < times1.size(); i++) {
@@ -77,11 +75,6 @@ public class RatesFiniteDifferenceSensitivityCalculatorTest {
     assertEquals(s3.size(), times3.size());
     for (int i = 0; i < times3.size(); i++) {
       assertEquals(times3.get(i), s3.get(i), TOLERANCE_DELTA);
-    }
-    DoubleArray s4 = sensiComputed.getSensitivity(RatesProviderDataSets.USD_CPI_NAME, USD).getSensitivity();
-    assertEquals(s4.size(), times4.size());
-    for (int i = 0; i < times4.size(); i++) {
-      assertEquals(times4.get(i), s4.get(i), TOLERANCE_DELTA);
     }
   }
 
@@ -104,7 +97,7 @@ public class RatesFiniteDifferenceSensitivityCalculatorTest {
   }
 
   // compute the sum of the product of times and rates
-  private double sumProduct(NodalCurve curveInt) {
+  private double sumProduct(InterpolatedNodalCurve curveInt) {
     double result = 0.0;
     DoubleArray x = curveInt.getXValues();
     DoubleArray y = curveInt.getYValues();
@@ -124,7 +117,7 @@ public class RatesFiniteDifferenceSensitivityCalculatorTest {
   //-------------------------------------------------------------------------
   @Test
   public void sensitivity_legalEntity_Zero() {
-    CurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(
+    CurveCurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(
         LegalEntityDiscountingProviderDataSets.ISSUER_REPO_ZERO, this::fn);
     DoubleArray timeIssuer = LegalEntityDiscountingProviderDataSets.ISSUER_TIME_USD;
     DoubleArray timesRepo = LegalEntityDiscountingProviderDataSets.REPO_TIME_USD;
@@ -145,7 +138,7 @@ public class RatesFiniteDifferenceSensitivityCalculatorTest {
 
   @Test
   public void sensitivity_legalEntity_Simple() {
-    CurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(
+    CurveCurrencyParameterSensitivities sensiComputed = FD_CALCULATOR.sensitivity(
         LegalEntityDiscountingProviderDataSets.ISSUER_REPO_SIMPLE, this::fn);
     DoubleArray timeIssuer = LegalEntityDiscountingProviderDataSets.ISSUER_TIME_USD;
     DoubleArray timesRepo = LegalEntityDiscountingProviderDataSets.REPO_TIME_USD;

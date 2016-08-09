@@ -10,14 +10,12 @@ import java.time.LocalDate;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.currency.MultiCurrencyAmount;
-import com.opengamma.strata.basics.currency.Payment;
-import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.market.explain.ExplainKey;
 import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
-import com.opengamma.strata.pricer.DiscountingPaymentPricer;
+import com.opengamma.strata.market.view.DiscountFactors;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.pricer.swap.SwapPaymentEventPricer;
+import com.opengamma.strata.pricer.swap.PaymentEventPricer;
 import com.opengamma.strata.product.swap.NotionalExchange;
 
 /**
@@ -26,43 +24,39 @@ import com.opengamma.strata.product.swap.NotionalExchange;
  * The notional exchange is priced by discounting the value of the exchange.
  */
 public class DiscountingNotionalExchangePricer
-    implements SwapPaymentEventPricer<NotionalExchange> {
+    implements PaymentEventPricer<NotionalExchange> {
 
   /**
    * Default implementation.
    */
-  public static final DiscountingNotionalExchangePricer DEFAULT = new DiscountingNotionalExchangePricer(
-      DiscountingPaymentPricer.DEFAULT);
-
-  /**
-   * Pricer for {@link Payment}.
-   */
-  private final DiscountingPaymentPricer paymentPricer;
+  public static final DiscountingNotionalExchangePricer DEFAULT = new DiscountingNotionalExchangePricer();
 
   /**
    * Creates an instance.
-   * 
-   * @param paymentPricer  the pricer for {@link Payment}
    */
-  public DiscountingNotionalExchangePricer(DiscountingPaymentPricer paymentPricer) {
-    this.paymentPricer = ArgChecker.notNull(paymentPricer, "paymentPricer");
+  public DiscountingNotionalExchangePricer() {
   }
 
   //-------------------------------------------------------------------------
   @Override
   public double presentValue(NotionalExchange event, RatesProvider provider) {
-    return paymentPricer.presentValueAmount(event.getPayment(), provider);
+    // forecastValue * discountFactor
+    double df = provider.discountFactor(event.getCurrency(), event.getPaymentDate());
+    return forecastValue(event, provider) * df;
   }
 
   @Override
   public PointSensitivityBuilder presentValueSensitivity(NotionalExchange event, RatesProvider provider) {
-    return paymentPricer.presentValueSensitivity(event.getPayment(), provider);
+    DiscountFactors discountFactors = provider.discountFactors(event.getCurrency());
+    return discountFactors.zeroRatePointSensitivity(event.getPaymentDate())
+        .multipliedBy(event.getPaymentAmount().getAmount());
   }
 
   //-------------------------------------------------------------------------
   @Override
   public double forecastValue(NotionalExchange event, RatesProvider provider) {
-    return paymentPricer.forecastValueAmount(event.getPayment(), provider);
+    // paymentAmount
+    return event.getPaymentAmount().getAmount();
   }
 
   @Override
@@ -93,12 +87,15 @@ public class DiscountingNotionalExchangePricer
   //-------------------------------------------------------------------------
   @Override
   public MultiCurrencyAmount currencyExposure(NotionalExchange event, RatesProvider provider) {
-    return paymentPricer.currencyExposure(event.getPayment(), provider);
+    return MultiCurrencyAmount.of(CurrencyAmount.of(event.getCurrency(), presentValue(event, provider)));
   }
 
   @Override
   public double currentCash(NotionalExchange event, RatesProvider provider) {
-    return paymentPricer.currentCash(event.getPayment(), provider).getAmount();
+    if (provider.getValuationDate().isEqual(event.getPaymentDate())) {
+      return forecastValue(event, provider);
+    }
+    return 0d;
   }
 
 }

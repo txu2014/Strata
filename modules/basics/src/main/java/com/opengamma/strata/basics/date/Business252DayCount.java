@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.named.NamedLookup;
 
 /**
@@ -63,7 +64,7 @@ final class Business252DayCount implements NamedLookup<DayCount> {
 
   private static DayCount createByName(String name) {
     if (name.startsWith("Bus/252 ")) {
-      HolidayCalendar cal = HolidayCalendars.of(name.substring(8));  // load from standard calendars
+      HolidayCalendar cal = HolidayCalendar.of(name.substring(8));
       return new Bus252(name, cal);
     }
     return null;  // name not a Bus/252 calendar
@@ -87,18 +88,13 @@ final class Business252DayCount implements NamedLookup<DayCount> {
 
     @Override
     public double yearFraction(LocalDate firstDate, LocalDate secondDate, ScheduleInfo scheduleInfo) {
+      ArgChecker.notNull(firstDate, "firstDate");
+      ArgChecker.notNull(secondDate, "secondDate");
+      ArgChecker.notNull(scheduleInfo, "scheduleInfo");
       if (secondDate.isBefore(firstDate)) {
         throw new IllegalArgumentException("Dates must be in time-line order");
       }
       return calendar.daysBetween(firstDate, secondDate) / 252d;
-    }
-
-    @Override
-    public int days(LocalDate firstDate, LocalDate secondDate) {
-      if (secondDate.isBefore(firstDate)) {
-        throw new IllegalArgumentException("Dates must be in time-line order");
-      }
-      return calendar.daysBetween(firstDate, secondDate);
     }
 
     //-------------------------------------------------------------------------

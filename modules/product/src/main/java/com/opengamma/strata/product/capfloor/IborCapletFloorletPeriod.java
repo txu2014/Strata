@@ -9,7 +9,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 
 import java.io.Serializable;
 import java.time.LocalDate;
-import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.OptionalDouble;
@@ -18,6 +17,7 @@ import java.util.Set;
 import org.joda.beans.Bean;
 import org.joda.beans.BeanDefinition;
 import org.joda.beans.ImmutableBean;
+import org.joda.beans.ImmutableConstructor;
 import org.joda.beans.ImmutablePreBuild;
 import org.joda.beans.JodaBeanUtils;
 import org.joda.beans.MetaProperty;
@@ -28,35 +28,31 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.opengamma.strata.basics.PutCall;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.common.PutCall;
-import com.opengamma.strata.product.rate.IborRateComputation;
+import com.opengamma.strata.product.rate.IborRateObservation;
 
 /**
  * A period over which an Ibor caplet/floorlet payoff is paid.
  * <p>
  * This represents a single payment period within an Ibor cap/floor leg.
  * This class specifies the data necessary to calculate the value of the period.
- * The payment period contains the unique accrual period.
- * The value of the period is based on the observed value of {@code IborRateComputation}.
+ * The payment period contains the unique accrual period. 
+ * The value of the period is based on the observed value of {@code IborRateObservation}.
  * <p>
  * The pay-offs are, for an Ibor index on the fixingDate of 'I' and an year fraction 'a'<br>
  * Ibor caplet: a * (I-K)^+ ; K=caplet<br>
  * Ibor floorlet: a * (K-I)^+ ; K=floorlet
  * <p>
- * The payment is a caplet or floorlet.
- * If {@code caplet} ({@code floorlet}) is not null, the payment is a caplet (floorlet).
+ * The payment is a caplet or floorlet. 
+ * If {@code caplet} ({@code floorlet}) is not null, the payment is a caplet (floorlet). 
  * Thus one of the two fields must be null.
  * <p>
- * If start date and end date of the period, and payment date are not specified, a standard caplet/floorlet is created
- * based on the data and convention in {@code rateComputation},  i.e., the Ibor is fixed in advance and paid in arrears.
- * <p>
- * An {@code IborCapletFloorletPeriod} is bound to data that changes over time, such as holiday calendars.
- * If the data changes, such as the addition of a new holiday, the resolved form will not be updated.
- * Care must be taken when placing the resolved form in a cache or persistence layer.
+ * If start date and end date of the period, and payment date are not specified, a standard caplet/floorlet is created 
+ * based on the data and convention in {@code rateObservation},  i.e., the Ibor is fixed in advance and paid in arrears.
  */
 @BeanDefinition
 public final class IborCapletFloorletPeriod
@@ -129,7 +125,7 @@ public final class IborCapletFloorletPeriod
   @PropertyDefinition(validate = "notNull")
   private final LocalDate paymentDate;
   /**
-   * The optional caplet strike.
+   * The optional caplet strike. 
    * <p>
    * This defines the strike value of a caplet.
    * <p>
@@ -138,7 +134,7 @@ public final class IborCapletFloorletPeriod
   @PropertyDefinition(get = "optional")
   private final Double caplet;
   /**
-   * The optional floorlet strike.
+   * The optional floorlet strike. 
    * <p>
    * This defines the strike value of a floorlet.
    * <p>
@@ -153,28 +149,55 @@ public final class IborCapletFloorletPeriod
    * For example, it might be a well known market index such as 'GBP-LIBOR-3M'.
    */
   @PropertyDefinition(validate = "notNull")
-  private final IborRateComputation iborRate;
+  private final IborRateObservation rateObservation;
 
   //-------------------------------------------------------------------------
   @ImmutablePreBuild
   private static void preBuild(Builder builder) {
-    if (builder.iborRate != null) {
-      IborIndex index = builder.iborRate.getIndex();
+    if (builder.rateObservation != null) {
+      IborIndex index = builder.rateObservation.getIndex();
       if (builder.currency == null) {
         builder.currency = index.getCurrency();
       }
+      if (builder.startDate == null) {
+        builder.startDate = index.calculateEffectiveFromFixing(builder.rateObservation.getFixingDate());
+      }
+      if (builder.endDate == null) {
+        builder.endDate = index.calculateMaturityFromEffective(builder.startDate);
+        builder.yearFraction = index.getDayCount().relativeYearFraction(builder.startDate, builder.endDate);
+      }
+      if (builder.paymentDate == null) {
+        builder.paymentDate = builder.endDate;
+      }
     }
-    if (builder.paymentDate == null) {
-      builder.paymentDate = builder.endDate;
-    }
-    if (builder.unadjustedStartDate == null) {
-      builder.unadjustedStartDate = builder.startDate;
-    }
-    if (builder.unadjustedEndDate == null) {
-      builder.unadjustedEndDate = builder.endDate;
-    }
-    ArgChecker.isFalse(builder.caplet != null && builder.floorlet != null, "Only caplet or floorlet must be set, not both");
-    ArgChecker.isFalse(builder.caplet == null && builder.floorlet == null, "Either caplet or floorlet must be set");
+  }
+
+  @ImmutableConstructor
+  private IborCapletFloorletPeriod(
+      Currency currency,
+      double notional,
+      LocalDate startDate,
+      LocalDate endDate,
+      LocalDate unadjustedStartDate,
+      LocalDate unadjustedEndDate,
+      double yearFraction,
+      LocalDate paymentDate,
+      Double caplet,
+      Double floorlet,
+      IborRateObservation rateObservation) {
+    this.rateObservation = ArgChecker.notNull(rateObservation, "rateObservation");
+    this.currency = currency;
+    this.notional = notional;
+    this.startDate = startDate;
+    this.endDate = endDate;
+    this.unadjustedStartDate = firstNonNull(unadjustedStartDate, startDate);
+    this.unadjustedEndDate = firstNonNull(unadjustedEndDate, endDate);
+    this.yearFraction = yearFraction;
+    this.paymentDate = paymentDate;
+    this.caplet = caplet;
+    this.floorlet = floorlet;
+    ArgChecker.isTrue(this.getCaplet().isPresent() != this.getFloorlet().isPresent(),
+        "one of caplet and floorlet should be empty");
   }
 
   //-------------------------------------------------------------------------
@@ -184,38 +207,20 @@ public final class IborCapletFloorletPeriod
    * @return the ibor index
    */
   public IborIndex getIndex() {
-    return iborRate.getIndex();
+    return rateObservation.getIndex();
   }
 
   /**
    * Gets the fixing date of the index.
    * 
-   * @return the fixing date
+   * @return the fixing date. 
    */
   public LocalDate getFixingDate() {
-    return iborRate.getFixingDate();
+    return rateObservation.getFixingDate();
   }
 
   /**
-   * Gets the fixing date-time of the index.
-   * 
-   * @return the fixing date-time
-   */
-  public ZonedDateTime getFixingDateTime() {
-    return iborRate.getIndex().calculateFixingDateTime(iborRate.getFixingDate());
-  }
-
-  /**
-   * Gets the strike value.
-   * 
-   * @return the strike
-   */
-  public double getStrike() {
-    return firstNonNull(caplet, floorlet);
-  }
-
-  /**
-   * Gets put or call.
+   * Gets put or call. 
    * <p>
    * CALL is returned for a caplet, whereas PUT is returned for a floorlet.
    * 
@@ -250,39 +255,6 @@ public final class IborCapletFloorletPeriod
    */
   public static IborCapletFloorletPeriod.Builder builder() {
     return new IborCapletFloorletPeriod.Builder();
-  }
-
-  private IborCapletFloorletPeriod(
-      Currency currency,
-      double notional,
-      LocalDate startDate,
-      LocalDate endDate,
-      LocalDate unadjustedStartDate,
-      LocalDate unadjustedEndDate,
-      double yearFraction,
-      LocalDate paymentDate,
-      Double caplet,
-      Double floorlet,
-      IborRateComputation iborRate) {
-    JodaBeanUtils.notNull(currency, "currency");
-    JodaBeanUtils.notNull(startDate, "startDate");
-    JodaBeanUtils.notNull(endDate, "endDate");
-    JodaBeanUtils.notNull(unadjustedStartDate, "unadjustedStartDate");
-    JodaBeanUtils.notNull(unadjustedEndDate, "unadjustedEndDate");
-    ArgChecker.notNegative(yearFraction, "yearFraction");
-    JodaBeanUtils.notNull(paymentDate, "paymentDate");
-    JodaBeanUtils.notNull(iborRate, "iborRate");
-    this.currency = currency;
-    this.notional = notional;
-    this.startDate = startDate;
-    this.endDate = endDate;
-    this.unadjustedStartDate = unadjustedStartDate;
-    this.unadjustedEndDate = unadjustedEndDate;
-    this.yearFraction = yearFraction;
-    this.paymentDate = paymentDate;
-    this.caplet = caplet;
-    this.floorlet = floorlet;
-    this.iborRate = iborRate;
   }
 
   @Override
@@ -432,8 +404,8 @@ public final class IborCapletFloorletPeriod
    * For example, it might be a well known market index such as 'GBP-LIBOR-3M'.
    * @return the value of the property, not null
    */
-  public IborRateComputation getIborRate() {
-    return iborRate;
+  public IborRateObservation getRateObservation() {
+    return rateObservation;
   }
 
   //-----------------------------------------------------------------------
@@ -462,7 +434,7 @@ public final class IborCapletFloorletPeriod
           JodaBeanUtils.equal(paymentDate, other.paymentDate) &&
           JodaBeanUtils.equal(caplet, other.caplet) &&
           JodaBeanUtils.equal(floorlet, other.floorlet) &&
-          JodaBeanUtils.equal(iborRate, other.iborRate);
+          JodaBeanUtils.equal(rateObservation, other.rateObservation);
     }
     return false;
   }
@@ -480,7 +452,7 @@ public final class IborCapletFloorletPeriod
     hash = hash * 31 + JodaBeanUtils.hashCode(paymentDate);
     hash = hash * 31 + JodaBeanUtils.hashCode(caplet);
     hash = hash * 31 + JodaBeanUtils.hashCode(floorlet);
-    hash = hash * 31 + JodaBeanUtils.hashCode(iborRate);
+    hash = hash * 31 + JodaBeanUtils.hashCode(rateObservation);
     return hash;
   }
 
@@ -498,7 +470,7 @@ public final class IborCapletFloorletPeriod
     buf.append("paymentDate").append('=').append(paymentDate).append(',').append(' ');
     buf.append("caplet").append('=').append(caplet).append(',').append(' ');
     buf.append("floorlet").append('=').append(floorlet).append(',').append(' ');
-    buf.append("iborRate").append('=').append(JodaBeanUtils.toString(iborRate));
+    buf.append("rateObservation").append('=').append(JodaBeanUtils.toString(rateObservation));
     buf.append('}');
     return buf.toString();
   }
@@ -564,10 +536,10 @@ public final class IborCapletFloorletPeriod
     private final MetaProperty<Double> floorlet = DirectMetaProperty.ofImmutable(
         this, "floorlet", IborCapletFloorletPeriod.class, Double.class);
     /**
-     * The meta-property for the {@code iborRate} property.
+     * The meta-property for the {@code rateObservation} property.
      */
-    private final MetaProperty<IborRateComputation> iborRate = DirectMetaProperty.ofImmutable(
-        this, "iborRate", IborCapletFloorletPeriod.class, IborRateComputation.class);
+    private final MetaProperty<IborRateObservation> rateObservation = DirectMetaProperty.ofImmutable(
+        this, "rateObservation", IborCapletFloorletPeriod.class, IborRateObservation.class);
     /**
      * The meta-properties.
      */
@@ -583,7 +555,7 @@ public final class IborCapletFloorletPeriod
         "paymentDate",
         "caplet",
         "floorlet",
-        "iborRate");
+        "rateObservation");
 
     /**
      * Restricted constructor.
@@ -614,8 +586,8 @@ public final class IborCapletFloorletPeriod
           return caplet;
         case 2022994575:  // floorlet
           return floorlet;
-        case -1621804100:  // iborRate
-          return iborRate;
+        case 535324460:  // rateObservation
+          return rateObservation;
       }
       return super.metaPropertyGet(propertyName);
     }
@@ -717,11 +689,11 @@ public final class IborCapletFloorletPeriod
     }
 
     /**
-     * The meta-property for the {@code iborRate} property.
+     * The meta-property for the {@code rateObservation} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<IborRateComputation> iborRate() {
-      return iborRate;
+    public MetaProperty<IborRateObservation> rateObservation() {
+      return rateObservation;
     }
 
     //-----------------------------------------------------------------------
@@ -748,8 +720,8 @@ public final class IborCapletFloorletPeriod
           return ((IborCapletFloorletPeriod) bean).caplet;
         case 2022994575:  // floorlet
           return ((IborCapletFloorletPeriod) bean).floorlet;
-        case -1621804100:  // iborRate
-          return ((IborCapletFloorletPeriod) bean).getIborRate();
+        case 535324460:  // rateObservation
+          return ((IborCapletFloorletPeriod) bean).getRateObservation();
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -781,7 +753,7 @@ public final class IborCapletFloorletPeriod
     private LocalDate paymentDate;
     private Double caplet;
     private Double floorlet;
-    private IborRateComputation iborRate;
+    private IborRateObservation rateObservation;
 
     /**
      * Restricted constructor.
@@ -804,7 +776,7 @@ public final class IborCapletFloorletPeriod
       this.paymentDate = beanToCopy.getPaymentDate();
       this.caplet = beanToCopy.caplet;
       this.floorlet = beanToCopy.floorlet;
-      this.iborRate = beanToCopy.getIborRate();
+      this.rateObservation = beanToCopy.getRateObservation();
     }
 
     //-----------------------------------------------------------------------
@@ -831,8 +803,8 @@ public final class IborCapletFloorletPeriod
           return caplet;
         case 2022994575:  // floorlet
           return floorlet;
-        case -1621804100:  // iborRate
-          return iborRate;
+        case 535324460:  // rateObservation
+          return rateObservation;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
       }
@@ -871,8 +843,8 @@ public final class IborCapletFloorletPeriod
         case 2022994575:  // floorlet
           this.floorlet = (Double) newValue;
           break;
-        case -1621804100:  // iborRate
-          this.iborRate = (IborRateComputation) newValue;
+        case 535324460:  // rateObservation
+          this.rateObservation = (IborRateObservation) newValue;
           break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
@@ -918,7 +890,7 @@ public final class IborCapletFloorletPeriod
           paymentDate,
           caplet,
           floorlet,
-          iborRate);
+          rateObservation);
     }
 
     //-----------------------------------------------------------------------
@@ -1068,12 +1040,12 @@ public final class IborCapletFloorletPeriod
      * <p>
      * The value of the period is based on this Ibor rate.
      * For example, it might be a well known market index such as 'GBP-LIBOR-3M'.
-     * @param iborRate  the new value, not null
+     * @param rateObservation  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder iborRate(IborRateComputation iborRate) {
-      JodaBeanUtils.notNull(iborRate, "iborRate");
-      this.iborRate = iborRate;
+    public Builder rateObservation(IborRateObservation rateObservation) {
+      JodaBeanUtils.notNull(rateObservation, "rateObservation");
+      this.rateObservation = rateObservation;
       return this;
     }
 
@@ -1092,7 +1064,7 @@ public final class IborCapletFloorletPeriod
       buf.append("paymentDate").append('=').append(JodaBeanUtils.toString(paymentDate)).append(',').append(' ');
       buf.append("caplet").append('=').append(JodaBeanUtils.toString(caplet)).append(',').append(' ');
       buf.append("floorlet").append('=').append(JodaBeanUtils.toString(floorlet)).append(',').append(' ');
-      buf.append("iborRate").append('=').append(JodaBeanUtils.toString(iborRate));
+      buf.append("rateObservation").append('=').append(JodaBeanUtils.toString(rateObservation));
       buf.append('}');
       return buf.toString();
     }

@@ -41,7 +41,7 @@ import com.opengamma.strata.collect.ArgChecker;
  * </pre>
  */
 public final class Tenor
-    implements Comparable<Tenor>, TemporalAmount, Serializable {
+    implements TemporalAmount, Serializable {
 
   /**
    * Serialization version.
@@ -217,6 +217,7 @@ public final class Tenor
    * @throws IllegalArgumentException if the period is negative or zero
    */
   public static Tenor of(Period period) {
+    ArgChecker.notNull(period, "period");
     int days = period.getDays();
     long months = period.toTotalMonths();
     if (months == 0 && days != 0) {
@@ -289,6 +290,7 @@ public final class Tenor
    */
   @FromString
   public static Tenor parse(String toParse) {
+    ArgChecker.notNull(toParse, "toParse");
     String prefixed = toParse.startsWith("P") ? toParse : "P" + toParse;
     try {
       return Tenor.of(Period.parse(prefixed));
@@ -452,47 +454,6 @@ public final class Tenor
   }
 
   //-------------------------------------------------------------------------
-  /**
-   * Compares this tenor to another tenor.
-   * <p>
-   * Comparing tenors is a hard problem in general, but for commonly used tenors the outcome is as expected.
-   * If the two tenors are both based on days, then comparison is easy.
-   * If the two tenors are both based on months/years, then comparison is easy.
-   * Otherwise, months are converted to days to form an estimated length in days which is compared.
-   * The conversion from months to days divides by 12 and then multiplies by 365.25.
-   * <p>
-   * The resulting order places:
-   * <ul>
-   * <li>a 1 month tenor between 30 and 31 days
-   * <li>a 2 month tenor between 60 and 61 days
-   * <li>a 3 month tenor between 91 and 92 days
-   * <li>a 6 month tenor between 182 and 183 days
-   * <li>a 1 year tenor between 365 and 366 days
-   * </ul>
-   * 
-   * @param other  the other tenor
-   * @return negative if this is less than the other, zero if equal and positive if greater
-   */
-  @Override
-  public int compareTo(Tenor other) {
-    int thisDays = this.getPeriod().getDays();
-    long thisMonths = this.getPeriod().toTotalMonths();
-    int otherDays = other.getPeriod().getDays();
-    long otherMonths = other.getPeriod().toTotalMonths();
-    // both day-only
-    if (thisMonths == 0 && otherMonths == 0) {
-      return Integer.compare(thisDays, otherDays);
-    }
-    // both month-only
-    if (thisDays == 0 && otherDays == 0) {
-      return Long.compare(thisMonths, otherMonths);
-    }
-    // complex
-    double thisMonthsInDays = (thisMonths / 12d) * 365.25d;
-    double otherMonthsInDays = (otherMonths / 12d) * 365.25d;
-    return Double.compare(thisDays + thisMonthsInDays, otherDays + otherMonthsInDays);
-  }
-
   /**
    * Checks if this tenor equals another tenor.
    * <p>

@@ -16,7 +16,6 @@ import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
 import static com.opengamma.strata.collect.TestHelper.date;
-import static com.opengamma.strata.market.curve.CurveNodeClashAction.DROP_THIS;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
@@ -27,16 +26,16 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
-import com.opengamma.strata.data.ImmutableMarketData;
-import com.opengamma.strata.data.MarketData;
-import com.opengamma.strata.data.ObservableId;
+import com.opengamma.strata.basics.Trade;
+import com.opengamma.strata.basics.market.ImmutableMarketData;
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.basics.market.ObservableKey;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.market.ValueType;
-import com.opengamma.strata.market.curve.interpolator.CurveExtrapolators;
-import com.opengamma.strata.market.curve.interpolator.CurveInterpolators;
-import com.opengamma.strata.market.observable.QuoteId;
-import com.opengamma.strata.product.Trade;
+import com.opengamma.strata.market.curve.node.DummyFraCurveNode;
+import com.opengamma.strata.market.interpolator.CurveExtrapolators;
+import com.opengamma.strata.market.interpolator.CurveInterpolators;
+import com.opengamma.strata.market.key.QuoteKey;
 
 /**
  * Test {@link CurveGroupDefinition}.
@@ -44,12 +43,10 @@ import com.opengamma.strata.product.Trade;
 @Test
 public class CurveGroupDefinitionTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
-  private static final ObservableId GBP_LIBOR_1M_ID = QuoteId.of(StandardId.of("OG", "Ticker1"));
-  private static final ObservableId GBP_LIBOR_3M_ID = QuoteId.of(StandardId.of("OG", "Ticker3"));
+  private static final ObservableKey GBP_LIBOR_1M_ID = QuoteKey.of(StandardId.of("OG", "Ticker1"));
+  private static final ObservableKey GBP_LIBOR_3M_ID = QuoteKey.of(StandardId.of("OG", "Ticker3"));
   private static final DummyFraCurveNode NODE1 = DummyFraCurveNode.of(Period.ofMonths(1), GBP_LIBOR_1M, GBP_LIBOR_1M_ID);
   private static final DummyFraCurveNode NODE2 = DummyFraCurveNode.of(Period.ofMonths(3), GBP_LIBOR_3M, GBP_LIBOR_3M_ID);
-  private static final CurveNodeDateOrder DROP_THIS_2D = CurveNodeDateOrder.of(2, DROP_THIS);
   private static final CurveName CURVE_NAME1 = CurveName.of("Test");
   private static final CurveName CURVE_NAME2 = CurveName.of("Test2");
   private static final InterpolatedNodalCurveDefinition CURVE_DEFN1 = InterpolatedNodalCurveDefinition.builder()
@@ -149,61 +146,21 @@ public class CurveGroupDefinitionTest {
   }
 
   //-------------------------------------------------------------------------
-  public void test_filtered() {
-    DummyFraCurveNode node1 = DummyFraCurveNode.of(Period.ofDays(5), GBP_LIBOR_1M, GBP_LIBOR_1M_ID);
-    DummyFraCurveNode node2 = DummyFraCurveNode.of(Period.ofDays(10), GBP_LIBOR_1M, GBP_LIBOR_1M_ID);
-    DummyFraCurveNode node3 = DummyFraCurveNode.of(Period.ofDays(11), GBP_LIBOR_1M, GBP_LIBOR_1M_ID, DROP_THIS_2D);
-    ImmutableList<DummyFraCurveNode> nodes = ImmutableList.of(node1, node2, node3);
-    LocalDate valuationDate = date(2015, 6, 30);
-
-    InterpolatedNodalCurveDefinition curveDefn = InterpolatedNodalCurveDefinition.builder()
-        .name(CURVE_NAME1)
-        .xValueType(ValueType.YEAR_FRACTION)
-        .yValueType(ValueType.ZERO_RATE)
-        .dayCount(ACT_365F)
-        .nodes(nodes)
-        .interpolator(CurveInterpolators.LINEAR)
-        .extrapolatorLeft(CurveExtrapolators.FLAT)
-        .extrapolatorRight(CurveExtrapolators.FLAT)
-        .build();
-    CurveGroupDefinition test = CurveGroupDefinition.builder()
-        .name(CurveGroupName.of("Test"))
-        .addCurve(curveDefn, GBP, GBP_LIBOR_1M, GBP_LIBOR_3M)
-        .build();
-    CurveGroupDefinition expected = CurveGroupDefinition.builder()
-        .name(CurveGroupName.of("Test"))
-        .addCurve(curveDefn.filtered(valuationDate, REF_DATA), GBP, GBP_LIBOR_1M, GBP_LIBOR_3M)
-        .build();
-
-    assertEquals(test.filtered(valuationDate, REF_DATA), expected);
-  }
-
-  //-------------------------------------------------------------------------
-  public void test_metadata() {
-    CurveGroupDefinition test = CurveGroupDefinition.builder()
-        .name(CurveGroupName.of("Test"))
-        .addCurve(CURVE_DEFN1, GBP, GBP_LIBOR_1M, GBP_LIBOR_3M)
-        .build();
-
-    LocalDate valuationDate = date(2015, 6, 30);
-    CurveMetadata meta = CURVE_DEFN1.metadata(valuationDate, REF_DATA);
-    assertEquals(test.metadata(valuationDate, REF_DATA), ImmutableList.of(meta));
-  }
-
-  //-------------------------------------------------------------------------
   public void test_tradesInitialGuesses() {
     CurveGroupDefinition test = CurveGroupDefinition.builder()
         .name(CurveGroupName.of("Test"))
         .addCurve(CURVE_DEFN1, GBP, GBP_LIBOR_1M, GBP_LIBOR_3M)
         .build();
 
-    MarketData marketData = ImmutableMarketData.of(
-        date(2015, 6, 30), ImmutableMap.of(GBP_LIBOR_1M_ID, 0.5d, GBP_LIBOR_3M_ID, 1.5d));
-    Trade trade1 = NODE1.trade(1d, marketData, REF_DATA);
-    Trade trade2 = NODE2.trade(1d, marketData, REF_DATA);
+    LocalDate valuationDate = date(2015, 6, 30);
+    MarketData marketData = ImmutableMarketData.builder(valuationDate)
+        .addValues(ImmutableMap.of(GBP_LIBOR_1M_ID, 0.5d, GBP_LIBOR_3M_ID, 1.5d))
+        .build();
+    Trade trade1 = NODE1.trade(valuationDate, marketData);
+    Trade trade2 = NODE2.trade(valuationDate, marketData);
     assertEquals(test.getTotalParameterCount(), 2);
-    assertEquals(test.resolvedTrades(marketData, REF_DATA), ImmutableList.of(trade1, trade2));
-    assertEquals(test.initialGuesses(marketData), ImmutableList.of(0.5d, 1.5d));
+    assertEquals(test.trades(valuationDate, marketData), ImmutableList.of(trade1, trade2));
+    assertEquals(test.initialGuesses(valuationDate, marketData), ImmutableList.of(0.5d, 1.5d));
   }
 
   //-------------------------------------------------------------------------

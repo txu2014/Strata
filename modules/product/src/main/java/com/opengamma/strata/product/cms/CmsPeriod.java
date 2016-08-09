@@ -27,33 +27,32 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.swap.ResolvedSwap;
+import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.SwapIndex;
+import com.opengamma.strata.product.swap.type.FixedIborSwapConvention;
+import com.opengamma.strata.product.swap.type.IborRateSwapLegConvention;
 
 /**
  * A period over which a CMS coupon or CMS caplet/floorlet payoff is paid.
  * <p>
  * This represents a single payment period within a CMS leg.
  * This class specifies the data necessary to calculate the value of the period.
- * The payment period contains the unique accrual period.
+ * The payment period contains the unique accrual period. 
  * The value of the period is based on the observed value of {@code SwapIndex}.
  * <p>
- * The payment is a CMS coupon, CMS caplet or CMS floorlet.
+ * The payment is a CMS coupon, CMS caplet or CMS floorlet. 
  * The pay-offs are, for a swap index on the fixingDate of 'S' and an year fraction 'a'<br>
  * CMS Coupon: a * S<br>
  * CMS Caplet: a * (S-K)^+ ; K=caplet<br>
  * CMS Floorlet: a * (K-S)^+ ; K=floorlet
  * <p>
- * If {@code caplet} ({@code floorlet}) is not null, the payment is a caplet (floorlet).
+ * If {@code caplet} ({@code floorlet}) is not null, the payment is a caplet (floorlet). 
  * If both of {@code caplet} and {@code floorlet} are null, this class represents a CMS coupon payment.
  * Thus at least one of the fields must be null.
- * <p>
- * A {@code CmsPeriod} is bound to data that changes over time, such as holiday calendars.
- * If the data changes, such as the addition of a new holiday, the resolved form will not be updated.
- * Care must be taken when placing the resolved form in a cache or persistence layer.
  */
 @BeanDefinition
 public final class CmsPeriod
@@ -133,7 +132,7 @@ public final class CmsPeriod
   @PropertyDefinition(validate = "notNull")
   private final LocalDate fixingDate;
   /**
-   * The optional caplet strike.
+   * The optional caplet strike. 
    * <p>
    * This defines the strike value of a caplet.
    * <p>
@@ -142,7 +141,7 @@ public final class CmsPeriod
   @PropertyDefinition(get = "optional")
   private final Double caplet;
   /**
-   * The optional floorlet strike.
+   * The optional floorlet strike. 
    * <p>
    * This defines the strike value of a floorlet.
    * <p>
@@ -150,25 +149,23 @@ public final class CmsPeriod
    */
   @PropertyDefinition(get = "optional")
   private final Double floorlet;
-  /**
-   * The day count of the period.
-   */
+
   @PropertyDefinition(validate = "notNull")
   private final DayCount dayCount;
+
   /**
    * The swap index.
    * <p>
-   * The swap rate to be paid is the observed value of this index.
+   * The swap rate to be paid is the observed value of this index. 
    */
   @PropertyDefinition(validate = "notNull")
   private final SwapIndex index;
   /**
-   * The underlying swap.
+   * The underlying swap. 
    * <p>
-   * The interest rate swap for which the swap rate is referred.
+   * The interest rate swap for which the swap rate is referred. 
    */
-  @PropertyDefinition(validate = "notNull")
-  private final ResolvedSwap underlyingSwap;
+  private final Swap underlyingSwap;  // not a property, derived and cached from input data
 
   //-------------------------------------------------------------------------
   @ImmutableConstructor
@@ -185,23 +182,22 @@ public final class CmsPeriod
       Double caplet,
       Double floorlet,
       DayCount dayCount,
-      SwapIndex index,
-      ResolvedSwap underlyingSwap) {
-
+      SwapIndex index) {
     this.index = ArgChecker.notNull(index, "index");
-    this.currency = ArgChecker.notNull(currency, "currency");
+    IborRateSwapLegConvention floatingLeg = index.getTemplate().getConvention().getFloatingLeg();
+    this.currency = currency != null ? currency : floatingLeg.getCurrency();
     this.notional = notional;
     this.startDate = ArgChecker.notNull(startDate, "startDate");
     this.endDate = ArgChecker.notNull(endDate, "endDate");
     this.unadjustedStartDate = firstNonNull(unadjustedStartDate, startDate);
     this.unadjustedEndDate = firstNonNull(unadjustedEndDate, endDate);
     this.yearFraction = ArgChecker.notNegative(yearFraction, "yearFraction");
-    this.paymentDate = ArgChecker.notNull(paymentDate, "paymentDate");
-    this.fixingDate = ArgChecker.notNull(fixingDate, "fixingDate");
+    this.paymentDate = paymentDate != null ? paymentDate : floatingLeg.getPaymentDateOffset().adjust(endDate);
+    this.fixingDate = fixingDate != null ? fixingDate : floatingLeg.getFixingDateOffset().adjust(startDate);
     this.caplet = caplet;
     this.floorlet = floorlet;
     this.dayCount = ArgChecker.notNull(dayCount, "dayCount");
-    this.underlyingSwap = ArgChecker.notNull(underlyingSwap, "underlyingSwap");
+    this.underlyingSwap = createUnderlyingSwap();
     ArgChecker.inOrderNotEqual(this.startDate, this.endDate, "startDate", "endDate");
     ArgChecker.inOrderNotEqual(
         this.unadjustedStartDate, this.unadjustedEndDate, "unadjustedStartDate", "unadjustedEndDate");
@@ -209,9 +205,25 @@ public final class CmsPeriod
         "At least one of cap and floor should be null");
   }
 
+  private Swap createUnderlyingSwap() {
+    FixedIborSwapConvention conv = index.getTemplate().getConvention();
+    LocalDate effectiveDate = conv.calculateSpotDateFromTradeDate(fixingDate);
+    LocalDate maturityDate = effectiveDate.plus(index.getTemplate().getTenor());
+    return conv.toTrade(effectiveDate, effectiveDate, maturityDate, BuySell.BUY, 1d, 1d).getProduct();
+  }
+
   //-------------------------------------------------------------------------
   /**
-   * Obtains the type of the CMS period.
+   * Obtains the underlying swap.
+   * 
+   * @return the underlying swap
+   */
+  public Swap getUnderlyingSwap() {
+    return underlyingSwap;
+  }
+
+  /**
+   * Obtains the type of the CMS period. 
    * <p>
    * The period type is caplet, floorlet or coupon.
    * 
@@ -228,7 +240,7 @@ public final class CmsPeriod
   }
 
   /**
-   * Obtains the strike value.
+   * Obtains the strike value. 
    * <p>
    * If the CMS period type is coupon, 0 is returned.
    * 
@@ -243,17 +255,6 @@ public final class CmsPeriod
       return floorlet;
     }
     return 0d;
-  }
-
-  /**
-   * Return the CMS coupon equivalent to the period.
-   * <p>
-   * For cap or floor the result is the coupon with the same dates and index but with no cap or floor strike.
-   * 
-   * @return  the CMS coupon
-   */
-  public CmsPeriod toCouponEquivalent() {
-    return this.toBuilder().floorlet(null).caplet(null).build();
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -435,7 +436,7 @@ public final class CmsPeriod
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the day count of the period.
+   * Gets the dayCount.
    * @return the value of the property, not null
    */
   public DayCount getDayCount() {
@@ -451,17 +452,6 @@ public final class CmsPeriod
    */
   public SwapIndex getIndex() {
     return index;
-  }
-
-  //-----------------------------------------------------------------------
-  /**
-   * Gets the underlying swap.
-   * <p>
-   * The interest rate swap for which the swap rate is referred.
-   * @return the value of the property, not null
-   */
-  public ResolvedSwap getUnderlyingSwap() {
-    return underlyingSwap;
   }
 
   //-----------------------------------------------------------------------
@@ -492,8 +482,7 @@ public final class CmsPeriod
           JodaBeanUtils.equal(caplet, other.caplet) &&
           JodaBeanUtils.equal(floorlet, other.floorlet) &&
           JodaBeanUtils.equal(dayCount, other.dayCount) &&
-          JodaBeanUtils.equal(index, other.index) &&
-          JodaBeanUtils.equal(underlyingSwap, other.underlyingSwap);
+          JodaBeanUtils.equal(index, other.index);
     }
     return false;
   }
@@ -514,13 +503,12 @@ public final class CmsPeriod
     hash = hash * 31 + JodaBeanUtils.hashCode(floorlet);
     hash = hash * 31 + JodaBeanUtils.hashCode(dayCount);
     hash = hash * 31 + JodaBeanUtils.hashCode(index);
-    hash = hash * 31 + JodaBeanUtils.hashCode(underlyingSwap);
     return hash;
   }
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(480);
+    StringBuilder buf = new StringBuilder(448);
     buf.append("CmsPeriod{");
     buf.append("currency").append('=').append(currency).append(',').append(' ');
     buf.append("notional").append('=').append(notional).append(',').append(' ');
@@ -534,8 +522,7 @@ public final class CmsPeriod
     buf.append("caplet").append('=').append(caplet).append(',').append(' ');
     buf.append("floorlet").append('=').append(floorlet).append(',').append(' ');
     buf.append("dayCount").append('=').append(dayCount).append(',').append(' ');
-    buf.append("index").append('=').append(index).append(',').append(' ');
-    buf.append("underlyingSwap").append('=').append(JodaBeanUtils.toString(underlyingSwap));
+    buf.append("index").append('=').append(JodaBeanUtils.toString(index));
     buf.append('}');
     return buf.toString();
   }
@@ -616,11 +603,6 @@ public final class CmsPeriod
     private final MetaProperty<SwapIndex> index = DirectMetaProperty.ofImmutable(
         this, "index", CmsPeriod.class, SwapIndex.class);
     /**
-     * The meta-property for the {@code underlyingSwap} property.
-     */
-    private final MetaProperty<ResolvedSwap> underlyingSwap = DirectMetaProperty.ofImmutable(
-        this, "underlyingSwap", CmsPeriod.class, ResolvedSwap.class);
-    /**
      * The meta-properties.
      */
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
@@ -637,8 +619,7 @@ public final class CmsPeriod
         "caplet",
         "floorlet",
         "dayCount",
-        "index",
-        "underlyingSwap");
+        "index");
 
     /**
      * Restricted constructor.
@@ -675,8 +656,6 @@ public final class CmsPeriod
           return dayCount;
         case 100346066:  // index
           return index;
-        case 1497421456:  // underlyingSwap
-          return underlyingSwap;
       }
       return super.metaPropertyGet(propertyName);
     }
@@ -801,14 +780,6 @@ public final class CmsPeriod
       return index;
     }
 
-    /**
-     * The meta-property for the {@code underlyingSwap} property.
-     * @return the meta-property, not null
-     */
-    public MetaProperty<ResolvedSwap> underlyingSwap() {
-      return underlyingSwap;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     protected Object propertyGet(Bean bean, String propertyName, boolean quiet) {
@@ -839,8 +810,6 @@ public final class CmsPeriod
           return ((CmsPeriod) bean).getDayCount();
         case 100346066:  // index
           return ((CmsPeriod) bean).getIndex();
-        case 1497421456:  // underlyingSwap
-          return ((CmsPeriod) bean).getUnderlyingSwap();
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -875,7 +844,6 @@ public final class CmsPeriod
     private Double floorlet;
     private DayCount dayCount;
     private SwapIndex index;
-    private ResolvedSwap underlyingSwap;
 
     /**
      * Restricted constructor.
@@ -901,7 +869,6 @@ public final class CmsPeriod
       this.floorlet = beanToCopy.floorlet;
       this.dayCount = beanToCopy.getDayCount();
       this.index = beanToCopy.getIndex();
-      this.underlyingSwap = beanToCopy.getUnderlyingSwap();
     }
 
     //-----------------------------------------------------------------------
@@ -934,8 +901,6 @@ public final class CmsPeriod
           return dayCount;
         case 100346066:  // index
           return index;
-        case 1497421456:  // underlyingSwap
-          return underlyingSwap;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
       }
@@ -983,9 +948,6 @@ public final class CmsPeriod
         case 100346066:  // index
           this.index = (SwapIndex) newValue;
           break;
-        case 1497421456:  // underlyingSwap
-          this.underlyingSwap = (ResolvedSwap) newValue;
-          break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
       }
@@ -1031,8 +993,7 @@ public final class CmsPeriod
           caplet,
           floorlet,
           dayCount,
-          index,
-          underlyingSwap);
+          index);
     }
 
     //-----------------------------------------------------------------------
@@ -1191,7 +1152,7 @@ public final class CmsPeriod
     }
 
     /**
-     * Sets the day count of the period.
+     * Sets the dayCount.
      * @param dayCount  the new value, not null
      * @return this, for chaining, not null
      */
@@ -1214,23 +1175,10 @@ public final class CmsPeriod
       return this;
     }
 
-    /**
-     * Sets the underlying swap.
-     * <p>
-     * The interest rate swap for which the swap rate is referred.
-     * @param underlyingSwap  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder underlyingSwap(ResolvedSwap underlyingSwap) {
-      JodaBeanUtils.notNull(underlyingSwap, "underlyingSwap");
-      this.underlyingSwap = underlyingSwap;
-      return this;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(480);
+      StringBuilder buf = new StringBuilder(448);
       buf.append("CmsPeriod.Builder{");
       buf.append("currency").append('=').append(JodaBeanUtils.toString(currency)).append(',').append(' ');
       buf.append("notional").append('=').append(JodaBeanUtils.toString(notional)).append(',').append(' ');
@@ -1244,8 +1192,7 @@ public final class CmsPeriod
       buf.append("caplet").append('=').append(JodaBeanUtils.toString(caplet)).append(',').append(' ');
       buf.append("floorlet").append('=').append(JodaBeanUtils.toString(floorlet)).append(',').append(' ');
       buf.append("dayCount").append('=').append(JodaBeanUtils.toString(dayCount)).append(',').append(' ');
-      buf.append("index").append('=').append(JodaBeanUtils.toString(index)).append(',').append(' ');
-      buf.append("underlyingSwap").append('=').append(JodaBeanUtils.toString(underlyingSwap));
+      buf.append("index").append('=').append(JodaBeanUtils.toString(index));
       buf.append('}');
       return buf.toString();
     }

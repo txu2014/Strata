@@ -5,12 +5,9 @@
  */
 package com.opengamma.strata.pricer.rate;
 
-import static com.opengamma.strata.collect.Guavate.toImmutableSet;
-
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -31,7 +28,6 @@ import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyPair;
 import com.opengamma.strata.basics.currency.FxMatrix;
@@ -41,17 +37,20 @@ import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.basics.index.OvernightIndex;
 import com.opengamma.strata.basics.index.PriceIndex;
-import com.opengamma.strata.collect.ArgChecker;
+import com.opengamma.strata.basics.market.MarketDataKey;
 import com.opengamma.strata.collect.timeseries.LocalDateDoubleTimeSeries;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.MarketDataName;
 import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.pricer.DiscountFactors;
-import com.opengamma.strata.pricer.fx.DiscountFxForwardRates;
-import com.opengamma.strata.pricer.fx.ForwardFxIndexRates;
-import com.opengamma.strata.pricer.fx.FxForwardRates;
-import com.opengamma.strata.pricer.fx.FxIndexRates;
+import com.opengamma.strata.market.view.DiscountFactors;
+import com.opengamma.strata.market.view.DiscountFxForwardRates;
+import com.opengamma.strata.market.view.DiscountFxIndexRates;
+import com.opengamma.strata.market.view.DiscountOvernightIndexRates;
+import com.opengamma.strata.market.view.FxForwardRates;
+import com.opengamma.strata.market.view.FxIndexRates;
+import com.opengamma.strata.market.view.IborIndexRates;
+import com.opengamma.strata.market.view.OvernightIndexRates;
+import com.opengamma.strata.market.view.PriceIndexValues;
+
 
 /**
  * The default immutable rates provider, used to calculate analytic measures.
@@ -61,7 +60,8 @@ import com.opengamma.strata.pricer.fx.FxIndexRates;
  */
 @BeanDefinition(builderScope = "private", constructorScope = "package")
 public final class ImmutableRatesProvider
-    implements RatesProvider, ImmutableBean, Serializable {
+    extends AbstractRatesProvider
+    implements ImmutableBean, Serializable {
 
   /** Serialization version. */
   private static final long serialVersionUID = 1L;
@@ -76,7 +76,7 @@ public final class ImmutableRatesProvider
    * The provider of foreign exchange rates.
    * Conversions where both currencies are the same always succeed.
    */
-  @PropertyDefinition(validate = "notNull")
+  @PropertyDefinition(validate = "notNull", get = "private")
   private final FxRateProvider fxRateProvider;
   /**
    * The discount curves, defaulted to an empty map.
@@ -87,42 +87,26 @@ public final class ImmutableRatesProvider
   /**
    * The forward curves, defaulted to an empty map.
    * The curve data, predicting the future, associated with each index.
-   * This is used for Ibor, Overnight and Price indices.
    */
   @PropertyDefinition(validate = "notNull")
   private final ImmutableMap<Index, Curve> indexCurves;
   /**
+   * The price index values, defaulted to an empty map.
+   * The curve data, predicting the future, associated with each index.
+   */
+  @PropertyDefinition(validate = "notNull")
+  private final ImmutableMap<PriceIndex, PriceIndexValues> priceIndexValues;
+  /**
    * The time-series, defaulted to an empty map.
    * The historic data associated with each index.
    */
-  @PropertyDefinition(validate = "notNull")
+  @PropertyDefinition(validate = "notNull", get = "private")
   private final ImmutableMap<Index, LocalDateDoubleTimeSeries> timeSeries;
 
   //-------------------------------------------------------------------------
   @ImmutableDefaults
   private static void applyDefaults(Builder builder) {
     builder.fxRateProvider = FxMatrix.empty();
-  }
-
-  //-------------------------------------------------------------------------
-  /**
-   * Combines a number of rates providers.
-   * <p>
-   * If the two providers have curves or time series for the same currency or index, 
-   * an {@link IllegalAccessException} is thrown.
-   * The FxRateProviders is not populated with the given provider; no attempt is done on merging the embedded FX providers.
-   * 
-   * @param fx  the FX provider for the resulting rate provider
-   * @param providers  the rates providers to be merged
-   * @return the combined rates provider
-   */
-  public static ImmutableRatesProvider combined(FxRateProvider fx, ImmutableRatesProvider... providers) {
-    ArgChecker.isTrue(providers.length > 0, "at least one provider requested");
-    ImmutableRatesProvider merged = ImmutableRatesProvider.builder(providers[0].getValuationDate()).build();
-    for (ImmutableRatesProvider provider : providers) {
-      merged = merged.combinedWith(provider, fx);
-    }
-    return merged;
   }
 
   //-------------------------------------------------------------------------
@@ -142,59 +126,43 @@ public final class ImmutableRatesProvider
    * @return the builder
    */
   public ImmutableRatesProviderBuilder toBuilder() {
+    return toBuilder(valuationDate);
+  }
+
+  /**
+   * Converts this instance to a builder allowing changes to be made.
+   * <p>
+   * This overload allows the valuation date to be altered.
+   * 
+   * @param valuationDate  the new valuation date
+   * @return the builder
+   */
+  public ImmutableRatesProviderBuilder toBuilder(LocalDate valuationDate) {
     return new ImmutableRatesProviderBuilder(valuationDate)
         .fxRateProvider(fxRateProvider)
         .discountCurves(discountCurves)
         .indexCurves(indexCurves)
+        .priceIndexValues(priceIndexValues)
         .timeSeries(timeSeries);
   }
 
   //-------------------------------------------------------------------------
-  @Override
-  public ImmutableSet<Currency> getDiscountCurrencies() {
-    return discountCurves.keySet();
-  }
-
-  @Override
-  public ImmutableSet<IborIndex> getIborIndices() {
-    return indexCurves.keySet().stream()
-        .filter(IborIndex.class::isInstance)
-        .map(IborIndex.class::cast)
-        .collect(toImmutableSet());
-  }
-
-  @Override
-  public ImmutableSet<OvernightIndex> getOvernightIndices() {
-    return indexCurves.keySet().stream()
-        .filter(OvernightIndex.class::isInstance)
-        .map(OvernightIndex.class::cast)
-        .collect(toImmutableSet());
-  }
-
-  @Override
-  public ImmutableSet<PriceIndex> getPriceIndices() {
-    return indexCurves.keySet().stream()
-        .filter(PriceIndex.class::isInstance)
-        .map(PriceIndex.class::cast)
-        .collect(toImmutableSet());
+  /**
+   * Finds the curve with the specified name.
+   * 
+   * @param name  the curve name
+   * @return the curve
+   */
+  public Optional<Curve> findCurve(CurveName name) {
+    return Stream.concat(discountCurves.values().stream(), indexCurves.values().stream())
+        .filter(c -> c.getName().equals(name))
+        .findFirst();
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public <T> Optional<T> findData(MarketDataName<T> name) {
-    if (name instanceof CurveName) {
-      return Stream.concat(discountCurves.values().stream(), indexCurves.values().stream())
-          .filter(c -> c.getName().equals(name))
-          .map(v -> name.getMarketDataType().cast(v))
-          .findFirst();
-    }
-    return Optional.empty();
-  }
-
-  //-------------------------------------------------------------------------
-  @Override
-  public <T> T data(MarketDataId<T> id) {
-    throw new IllegalArgumentException("Unknown identifier: " + id.toString());
+  public <T> T data(MarketDataKey<T> key) {
+    throw new IllegalArgumentException("Unknown key: " + key.toString());
   }
 
   //-------------------------------------------------------------------------
@@ -233,7 +201,7 @@ public final class ImmutableRatesProvider
   public FxIndexRates fxIndexRates(FxIndex index) {
     LocalDateDoubleTimeSeries fixings = timeSeries(index);
     FxForwardRates fxForwardRates = fxForwardRates(index.getCurrencyPair());
-    return ForwardFxIndexRates.of(index, fxForwardRates, fixings);
+    return DiscountFxIndexRates.of(index, fxForwardRates, fixings);
   }
 
   //-------------------------------------------------------------------------
@@ -256,62 +224,17 @@ public final class ImmutableRatesProvider
   public OvernightIndexRates overnightIndexRates(OvernightIndex index) {
     LocalDateDoubleTimeSeries fixings = timeSeries(index);
     Curve curve = indexCurve(index);
-    return OvernightIndexRates.of(index, valuationDate, curve, fixings);
+    DiscountFactors dfc = DiscountFactors.of(index.getCurrency(), getValuationDate(), curve);
+    return DiscountOvernightIndexRates.of(index, dfc, fixings);
   }
 
   @Override
   public PriceIndexValues priceIndexValues(PriceIndex index) {
-    LocalDateDoubleTimeSeries fixings = timeSeries(index);
-    Curve curve = indexCurve(index);
-    return PriceIndexValues.of(index, valuationDate, curve, fixings);
-  }
-
-  //-------------------------------------------------------------------------
-  /**
-   * Combines this provider with another.
-   * <p> 
-   * If the two providers have curves or time series for the same currency or index,
-   * an {@link IllegalAccessException} is thrown. No attempt is made to combine the
-   * FX providers, instead one is supplied.
-   * 
-   * @param other  the other rates provider
-   * @param fxProvider  the FX rate provider to use
-   * @return the combined provider
-   */
-  public ImmutableRatesProvider combinedWith(ImmutableRatesProvider other, FxRateProvider fxProvider) {
-    ImmutableRatesProviderBuilder merged = other.toBuilder();
-    // discount
-    ImmutableMap<Currency, Curve> dscMap1 = discountCurves;
-    ImmutableMap<Currency, Curve> dscMap2 = other.discountCurves;
-    for (Entry<Currency, Curve> entry : dscMap1.entrySet()) {
-      ArgChecker.isTrue(!dscMap2.containsKey(entry.getKey()),
-          "conflict on discount curve, currency '{}' appears twice in the providers", entry.getKey());
-      merged.discountCurve(entry.getKey(), entry.getValue());
+    PriceIndexValues values = priceIndexValues.get(index);
+    if (values == null) {
+      throw new IllegalArgumentException("Unable to find index: " + index);
     }
-    // forward
-    ImmutableMap<Index, Curve> indexMap1 = indexCurves;
-    ImmutableMap<Index, Curve> indexMap2 = other.indexCurves;
-    for (Entry<Index, Curve> entry : indexMap1.entrySet()) {
-      ArgChecker.isTrue(!indexMap2.containsKey(entry.getKey()),
-          "conflict on index curve, index '{}' appears twice in the providers", entry.getKey());
-      merged.indexCurve(entry.getKey(), entry.getValue());
-    }
-    // time series
-    Map<Index, LocalDateDoubleTimeSeries> tsMap1 = timeSeries;
-    Map<Index, LocalDateDoubleTimeSeries> tsMap2 = other.timeSeries;
-    for (Entry<Index, LocalDateDoubleTimeSeries> entry : tsMap1.entrySet()) {
-      ArgChecker.isTrue(!tsMap2.containsKey(entry.getKey()),
-          "conflict on time series, index '{}' appears twice in the providers", entry.getKey());
-      merged.timeSeries(entry.getKey(), entry.getValue());
-    }
-    merged.fxRateProvider(fxProvider);
-    return merged.build();
-  }
-
-  //-------------------------------------------------------------------------
-  @Override
-  public ImmutableRatesProvider toImmutableRatesProvider() {
-    return this;
+    return values;
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -334,6 +257,7 @@ public final class ImmutableRatesProvider
    * @param fxRateProvider  the value of the property, not null
    * @param discountCurves  the value of the property, not null
    * @param indexCurves  the value of the property, not null
+   * @param priceIndexValues  the value of the property, not null
    * @param timeSeries  the value of the property, not null
    */
   ImmutableRatesProvider(
@@ -341,16 +265,19 @@ public final class ImmutableRatesProvider
       FxRateProvider fxRateProvider,
       Map<Currency, Curve> discountCurves,
       Map<Index, Curve> indexCurves,
+      Map<PriceIndex, PriceIndexValues> priceIndexValues,
       Map<Index, LocalDateDoubleTimeSeries> timeSeries) {
     JodaBeanUtils.notNull(valuationDate, "valuationDate");
     JodaBeanUtils.notNull(fxRateProvider, "fxRateProvider");
     JodaBeanUtils.notNull(discountCurves, "discountCurves");
     JodaBeanUtils.notNull(indexCurves, "indexCurves");
+    JodaBeanUtils.notNull(priceIndexValues, "priceIndexValues");
     JodaBeanUtils.notNull(timeSeries, "timeSeries");
     this.valuationDate = valuationDate;
     this.fxRateProvider = fxRateProvider;
     this.discountCurves = ImmutableMap.copyOf(discountCurves);
     this.indexCurves = ImmutableMap.copyOf(indexCurves);
+    this.priceIndexValues = ImmutableMap.copyOf(priceIndexValues);
     this.timeSeries = ImmutableMap.copyOf(timeSeries);
   }
 
@@ -386,7 +313,7 @@ public final class ImmutableRatesProvider
    * Conversions where both currencies are the same always succeed.
    * @return the value of the property, not null
    */
-  public FxRateProvider getFxRateProvider() {
+  private FxRateProvider getFxRateProvider() {
     return fxRateProvider;
   }
 
@@ -404,7 +331,6 @@ public final class ImmutableRatesProvider
   /**
    * Gets the forward curves, defaulted to an empty map.
    * The curve data, predicting the future, associated with each index.
-   * This is used for Ibor, Overnight and Price indices.
    * @return the value of the property, not null
    */
   public ImmutableMap<Index, Curve> getIndexCurves() {
@@ -413,11 +339,21 @@ public final class ImmutableRatesProvider
 
   //-----------------------------------------------------------------------
   /**
+   * Gets the price index values, defaulted to an empty map.
+   * The curve data, predicting the future, associated with each index.
+   * @return the value of the property, not null
+   */
+  public ImmutableMap<PriceIndex, PriceIndexValues> getPriceIndexValues() {
+    return priceIndexValues;
+  }
+
+  //-----------------------------------------------------------------------
+  /**
    * Gets the time-series, defaulted to an empty map.
    * The historic data associated with each index.
    * @return the value of the property, not null
    */
-  public ImmutableMap<Index, LocalDateDoubleTimeSeries> getTimeSeries() {
+  private ImmutableMap<Index, LocalDateDoubleTimeSeries> getTimeSeries() {
     return timeSeries;
   }
 
@@ -433,6 +369,7 @@ public final class ImmutableRatesProvider
           JodaBeanUtils.equal(fxRateProvider, other.fxRateProvider) &&
           JodaBeanUtils.equal(discountCurves, other.discountCurves) &&
           JodaBeanUtils.equal(indexCurves, other.indexCurves) &&
+          JodaBeanUtils.equal(priceIndexValues, other.priceIndexValues) &&
           JodaBeanUtils.equal(timeSeries, other.timeSeries);
     }
     return false;
@@ -445,18 +382,20 @@ public final class ImmutableRatesProvider
     hash = hash * 31 + JodaBeanUtils.hashCode(fxRateProvider);
     hash = hash * 31 + JodaBeanUtils.hashCode(discountCurves);
     hash = hash * 31 + JodaBeanUtils.hashCode(indexCurves);
+    hash = hash * 31 + JodaBeanUtils.hashCode(priceIndexValues);
     hash = hash * 31 + JodaBeanUtils.hashCode(timeSeries);
     return hash;
   }
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(192);
+    StringBuilder buf = new StringBuilder(224);
     buf.append("ImmutableRatesProvider{");
     buf.append("valuationDate").append('=').append(valuationDate).append(',').append(' ');
     buf.append("fxRateProvider").append('=').append(fxRateProvider).append(',').append(' ');
     buf.append("discountCurves").append('=').append(discountCurves).append(',').append(' ');
     buf.append("indexCurves").append('=').append(indexCurves).append(',').append(' ');
+    buf.append("priceIndexValues").append('=').append(priceIndexValues).append(',').append(' ');
     buf.append("timeSeries").append('=').append(JodaBeanUtils.toString(timeSeries));
     buf.append('}');
     return buf.toString();
@@ -495,6 +434,12 @@ public final class ImmutableRatesProvider
     private final MetaProperty<ImmutableMap<Index, Curve>> indexCurves = DirectMetaProperty.ofImmutable(
         this, "indexCurves", ImmutableRatesProvider.class, (Class) ImmutableMap.class);
     /**
+     * The meta-property for the {@code priceIndexValues} property.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes" })
+    private final MetaProperty<ImmutableMap<PriceIndex, PriceIndexValues>> priceIndexValues = DirectMetaProperty.ofImmutable(
+        this, "priceIndexValues", ImmutableRatesProvider.class, (Class) ImmutableMap.class);
+    /**
      * The meta-property for the {@code timeSeries} property.
      */
     @SuppressWarnings({"unchecked", "rawtypes" })
@@ -509,6 +454,7 @@ public final class ImmutableRatesProvider
         "fxRateProvider",
         "discountCurves",
         "indexCurves",
+        "priceIndexValues",
         "timeSeries");
 
     /**
@@ -528,6 +474,8 @@ public final class ImmutableRatesProvider
           return discountCurves;
         case 886361302:  // indexCurves
           return indexCurves;
+        case 1422773131:  // priceIndexValues
+          return priceIndexValues;
         case 779431844:  // timeSeries
           return timeSeries;
       }
@@ -583,6 +531,14 @@ public final class ImmutableRatesProvider
     }
 
     /**
+     * The meta-property for the {@code priceIndexValues} property.
+     * @return the meta-property, not null
+     */
+    public MetaProperty<ImmutableMap<PriceIndex, PriceIndexValues>> priceIndexValues() {
+      return priceIndexValues;
+    }
+
+    /**
      * The meta-property for the {@code timeSeries} property.
      * @return the meta-property, not null
      */
@@ -602,6 +558,8 @@ public final class ImmutableRatesProvider
           return ((ImmutableRatesProvider) bean).getDiscountCurves();
         case 886361302:  // indexCurves
           return ((ImmutableRatesProvider) bean).getIndexCurves();
+        case 1422773131:  // priceIndexValues
+          return ((ImmutableRatesProvider) bean).getPriceIndexValues();
         case 779431844:  // timeSeries
           return ((ImmutableRatesProvider) bean).getTimeSeries();
       }
@@ -629,6 +587,7 @@ public final class ImmutableRatesProvider
     private FxRateProvider fxRateProvider;
     private Map<Currency, Curve> discountCurves = ImmutableMap.of();
     private Map<Index, Curve> indexCurves = ImmutableMap.of();
+    private Map<PriceIndex, PriceIndexValues> priceIndexValues = ImmutableMap.of();
     private Map<Index, LocalDateDoubleTimeSeries> timeSeries = ImmutableMap.of();
 
     /**
@@ -650,6 +609,8 @@ public final class ImmutableRatesProvider
           return discountCurves;
         case 886361302:  // indexCurves
           return indexCurves;
+        case 1422773131:  // priceIndexValues
+          return priceIndexValues;
         case 779431844:  // timeSeries
           return timeSeries;
         default:
@@ -672,6 +633,9 @@ public final class ImmutableRatesProvider
           break;
         case 886361302:  // indexCurves
           this.indexCurves = (Map<Index, Curve>) newValue;
+          break;
+        case 1422773131:  // priceIndexValues
+          this.priceIndexValues = (Map<PriceIndex, PriceIndexValues>) newValue;
           break;
         case 779431844:  // timeSeries
           this.timeSeries = (Map<Index, LocalDateDoubleTimeSeries>) newValue;
@@ -713,18 +677,20 @@ public final class ImmutableRatesProvider
           fxRateProvider,
           discountCurves,
           indexCurves,
+          priceIndexValues,
           timeSeries);
     }
 
     //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(192);
+      StringBuilder buf = new StringBuilder(224);
       buf.append("ImmutableRatesProvider.Builder{");
       buf.append("valuationDate").append('=').append(JodaBeanUtils.toString(valuationDate)).append(',').append(' ');
       buf.append("fxRateProvider").append('=').append(JodaBeanUtils.toString(fxRateProvider)).append(',').append(' ');
       buf.append("discountCurves").append('=').append(JodaBeanUtils.toString(discountCurves)).append(',').append(' ');
       buf.append("indexCurves").append('=').append(JodaBeanUtils.toString(indexCurves)).append(',').append(' ');
+      buf.append("priceIndexValues").append('=').append(JodaBeanUtils.toString(priceIndexValues)).append(',').append(' ');
       buf.append("timeSeries").append('=').append(JodaBeanUtils.toString(timeSeries));
       buf.append('}');
       return buf.toString();

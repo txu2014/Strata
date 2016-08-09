@@ -26,27 +26,19 @@ import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.data.MarketData;
-import com.opengamma.strata.data.ObservableId;
+import com.opengamma.strata.basics.BuySell;
+import com.opengamma.strata.basics.market.MarketData;
+import com.opengamma.strata.basics.market.ObservableKey;
 import com.opengamma.strata.market.ValueType;
 import com.opengamma.strata.market.curve.CurveNode;
-import com.opengamma.strata.market.curve.CurveNodeDate;
-import com.opengamma.strata.market.curve.CurveNodeDateOrder;
-import com.opengamma.strata.market.param.DatedParameterMetadata;
-import com.opengamma.strata.market.param.LabelDateParameterMetadata;
-import com.opengamma.strata.market.param.TenorDateParameterMetadata;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.swap.ResolvedSwapTrade;
+import com.opengamma.strata.market.curve.DatedCurveParameterMetadata;
+import com.opengamma.strata.market.curve.meta.SimpleCurveNodeMetadata;
+import com.opengamma.strata.market.curve.meta.TenorCurveNodeMetadata;
 import com.opengamma.strata.product.swap.SwapTrade;
 import com.opengamma.strata.product.swap.type.FixedOvernightSwapTemplate;
 
 /**
  * A curve node whose instrument is a Fixed-Overnight interest rate swap.
- * <p>
- * The trade produced by the node will be a receiver (SELL) for a positive quantity
- * and a payer (BUY) for a negative quantity.
- * This convention is line with other nodes where a positive quantity is similar to long a bond or deposit.
  */
 @BeanDefinition
 public final class FixedOvernightSwapCurveNode
@@ -58,10 +50,10 @@ public final class FixedOvernightSwapCurveNode
   @PropertyDefinition(validate = "notNull")
   private final FixedOvernightSwapTemplate template;
   /**
-   * The identifier of the market data value that provides the rate.
+   * The key identifying the market data value which provides the rate.
    */
   @PropertyDefinition(validate = "notNull")
-  private final ObservableId rateId;
+  private final ObservableKey rateKey;
   /**
    * The additional spread added to the rate.
    */
@@ -79,12 +71,6 @@ public final class FixedOvernightSwapCurveNode
    */
   @PropertyDefinition
   private final CurveNodeDate date;
-  /**
-   * The date order rules, used to ensure that the dates in the curve are in order.
-   * If not specified, this will default to {@link CurveNodeDateOrder#DEFAULT}.
-   */
-  @PropertyDefinition(validate = "notNull", overrideGet = true)
-  private final CurveNodeDateOrder dateOrder;
 
   //-------------------------------------------------------------------------
   /**
@@ -94,11 +80,11 @@ public final class FixedOvernightSwapCurveNode
    * A suitable default label will be created.
    *
    * @param template  the template used for building the instrument for the node
-   * @param rateId  the identifier of the market rate used when building the instrument for the node
+   * @param rateKey  the key identifying the market rate used when building the instrument for the node
    * @return a node whose instrument is built from the template using a market rate
    */
-  public static FixedOvernightSwapCurveNode of(FixedOvernightSwapTemplate template, ObservableId rateId) {
-    return of(template, rateId, 0d);
+  public static FixedOvernightSwapCurveNode of(FixedOvernightSwapTemplate template, ObservableKey rateKey) {
+    return of(template, rateKey, 0d);
   }
 
   /**
@@ -108,18 +94,18 @@ public final class FixedOvernightSwapCurveNode
    * A suitable default label will be created.
    *
    * @param template  the template defining the node instrument
-   * @param rateId  the identifier of the market data providing the rate for the node instrument
+   * @param rateKey  the key identifying the market data providing the rate for the node instrument
    * @param additionalSpread  the additional spread amount added to the rate
    * @return a node whose instrument is built from the template using a market rate
    */
   public static FixedOvernightSwapCurveNode of(
       FixedOvernightSwapTemplate template,
-      ObservableId rateId,
+      ObservableKey rateKey,
       double additionalSpread) {
 
     return builder()
         .template(template)
-        .rateId(rateId)
+        .rateKey(rateKey)
         .additionalSpread(additionalSpread)
         .build();
   }
@@ -129,25 +115,23 @@ public final class FixedOvernightSwapCurveNode
    * specified instrument template, rate key, spread and label.
    *
    * @param template  the template defining the node instrument
-   * @param rateId  the identifier of the market data providing the rate for the node instrument
+   * @param rateKey  the key identifying the market data providing the rate for the node instrument
    * @param additionalSpread  the additional spread amount added to the rate
    * @param label  the label to use for the node
    * @return a node whose instrument is built from the template using a market rate
    */
   public static FixedOvernightSwapCurveNode of(
       FixedOvernightSwapTemplate template,
-      ObservableId rateId,
+      ObservableKey rateKey,
       double additionalSpread,
       String label) {
 
-    return new FixedOvernightSwapCurveNode(
-        template, rateId, additionalSpread, label, CurveNodeDate.END, CurveNodeDateOrder.DEFAULT);
+    return new FixedOvernightSwapCurveNode(template, rateKey, additionalSpread, label, CurveNodeDate.END);
   }
 
   @ImmutableDefaults
   private static void applyDefaults(Builder builder) {
     builder.date = CurveNodeDate.END;
-    builder.dateOrder = CurveNodeDateOrder.DEFAULT;
   }
 
   @ImmutablePreBuild
@@ -159,30 +143,25 @@ public final class FixedOvernightSwapCurveNode
 
   //-------------------------------------------------------------------------
   @Override
-  public Set<ObservableId> requirements() {
-    return ImmutableSet.of(rateId);
+  public Set<ObservableKey> requirements() {
+    return ImmutableSet.of(rateKey);
   }
 
   @Override
-  public LocalDate date(LocalDate valuationDate, ReferenceData refData) {
-    return date.calculate(
-        () -> calculateEnd(valuationDate, refData),
+  public DatedCurveParameterMetadata metadata(LocalDate valuationDate) {
+    LocalDate nodeDate = date.calculate(
+        () -> calculateEnd(valuationDate),
         () -> calculateLastFixingDate(valuationDate));
-  }
-
-  @Override
-  public DatedParameterMetadata metadata(LocalDate valuationDate, ReferenceData refData) {
-    LocalDate nodeDate = date(valuationDate, refData);
     if (date.isFixed()) {
-      return LabelDateParameterMetadata.of(nodeDate, label);
+      return SimpleCurveNodeMetadata.of(nodeDate, label);
     }
-    return TenorDateParameterMetadata.of(nodeDate, template.getTenor(), label);
+    return TenorCurveNodeMetadata.of(nodeDate, template.getTenor(), label);
   }
 
   // calculate the end date
-  private LocalDate calculateEnd(LocalDate valuationDate, ReferenceData refData) {
-    SwapTrade trade = template.createTrade(valuationDate, BuySell.BUY, 1, 1, refData);
-    return trade.getProduct().getEndDate().adjusted(refData);
+  private LocalDate calculateEnd(LocalDate valuationDate) {
+    SwapTrade trade = template.toTrade(valuationDate, BuySell.BUY, 1, 1);
+    return trade.getProduct().getEndDate();
   }
 
   // calculate the last fixing date
@@ -191,25 +170,19 @@ public final class FixedOvernightSwapCurveNode
   }
 
   @Override
-  public SwapTrade trade(double quantity, MarketData marketData, ReferenceData refData) {
-    double fixedRate = marketData.getValue(rateId) + additionalSpread;
-    BuySell buySell = quantity > 0 ? BuySell.SELL : BuySell.BUY;
-    return template.createTrade(marketData.getValuationDate(), buySell, Math.abs(quantity), fixedRate, refData);
+  public SwapTrade trade(LocalDate valuationDate, MarketData marketData) {
+    double fixedRate = marketData.getValue(rateKey) + additionalSpread;
+    return template.toTrade(valuationDate, BuySell.BUY, 1, fixedRate);
   }
 
   @Override
-  public ResolvedSwapTrade resolvedTrade(double quantity, MarketData marketData, ReferenceData refData) {
-    return trade(quantity, marketData, refData).resolve(refData);
-  }
-
-  @Override
-  public double initialGuess(MarketData marketData, ValueType valueType) {
+  public double initialGuess(LocalDate valuationDate, MarketData marketData, ValueType valueType) {
     if (ValueType.ZERO_RATE.equals(valueType) || ValueType.FORWARD_RATE.equals(valueType)) {
-      return marketData.getValue(rateId);
+      return marketData.getValue(rateKey);
     }
     if (ValueType.DISCOUNT_FACTOR.equals(valueType)) {
       double approximateMaturity = template.getPeriodToStart().plus(template.getTenor()).toTotalMonths() / 12.0d;
-      return Math.exp(-approximateMaturity * marketData.getValue(rateId));
+      return Math.exp(-approximateMaturity * marketData.getValue(rateKey));
     }
     return 0d;
   }
@@ -222,7 +195,7 @@ public final class FixedOvernightSwapCurveNode
    * @return the node based on this node with the specified date
    */
   public FixedOvernightSwapCurveNode withDate(CurveNodeDate date) {
-    return new FixedOvernightSwapCurveNode(template, rateId, additionalSpread, label, date, dateOrder);
+    return new FixedOvernightSwapCurveNode(template, rateKey, additionalSpread, label, date);
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -254,21 +227,18 @@ public final class FixedOvernightSwapCurveNode
 
   private FixedOvernightSwapCurveNode(
       FixedOvernightSwapTemplate template,
-      ObservableId rateId,
+      ObservableKey rateKey,
       double additionalSpread,
       String label,
-      CurveNodeDate date,
-      CurveNodeDateOrder dateOrder) {
+      CurveNodeDate date) {
     JodaBeanUtils.notNull(template, "template");
-    JodaBeanUtils.notNull(rateId, "rateId");
+    JodaBeanUtils.notNull(rateKey, "rateKey");
     JodaBeanUtils.notEmpty(label, "label");
-    JodaBeanUtils.notNull(dateOrder, "dateOrder");
     this.template = template;
-    this.rateId = rateId;
+    this.rateKey = rateKey;
     this.additionalSpread = additionalSpread;
     this.label = label;
     this.date = date;
-    this.dateOrder = dateOrder;
   }
 
   @Override
@@ -297,11 +267,11 @@ public final class FixedOvernightSwapCurveNode
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the identifier of the market data value that provides the rate.
+   * Gets the key identifying the market data value which provides the rate.
    * @return the value of the property, not null
    */
-  public ObservableId getRateId() {
-    return rateId;
+  public ObservableKey getRateKey() {
+    return rateKey;
   }
 
   //-----------------------------------------------------------------------
@@ -336,17 +306,6 @@ public final class FixedOvernightSwapCurveNode
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the date order rules, used to ensure that the dates in the curve are in order.
-   * If not specified, this will default to {@link CurveNodeDateOrder#DEFAULT}.
-   * @return the value of the property, not null
-   */
-  @Override
-  public CurveNodeDateOrder getDateOrder() {
-    return dateOrder;
-  }
-
-  //-----------------------------------------------------------------------
-  /**
    * Returns a builder that allows this bean to be mutated.
    * @return the mutable builder, not null
    */
@@ -362,11 +321,10 @@ public final class FixedOvernightSwapCurveNode
     if (obj != null && obj.getClass() == this.getClass()) {
       FixedOvernightSwapCurveNode other = (FixedOvernightSwapCurveNode) obj;
       return JodaBeanUtils.equal(template, other.template) &&
-          JodaBeanUtils.equal(rateId, other.rateId) &&
+          JodaBeanUtils.equal(rateKey, other.rateKey) &&
           JodaBeanUtils.equal(additionalSpread, other.additionalSpread) &&
           JodaBeanUtils.equal(label, other.label) &&
-          JodaBeanUtils.equal(date, other.date) &&
-          JodaBeanUtils.equal(dateOrder, other.dateOrder);
+          JodaBeanUtils.equal(date, other.date);
     }
     return false;
   }
@@ -375,24 +333,22 @@ public final class FixedOvernightSwapCurveNode
   public int hashCode() {
     int hash = getClass().hashCode();
     hash = hash * 31 + JodaBeanUtils.hashCode(template);
-    hash = hash * 31 + JodaBeanUtils.hashCode(rateId);
+    hash = hash * 31 + JodaBeanUtils.hashCode(rateKey);
     hash = hash * 31 + JodaBeanUtils.hashCode(additionalSpread);
     hash = hash * 31 + JodaBeanUtils.hashCode(label);
     hash = hash * 31 + JodaBeanUtils.hashCode(date);
-    hash = hash * 31 + JodaBeanUtils.hashCode(dateOrder);
     return hash;
   }
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(224);
+    StringBuilder buf = new StringBuilder(192);
     buf.append("FixedOvernightSwapCurveNode{");
     buf.append("template").append('=').append(template).append(',').append(' ');
-    buf.append("rateId").append('=').append(rateId).append(',').append(' ');
+    buf.append("rateKey").append('=').append(rateKey).append(',').append(' ');
     buf.append("additionalSpread").append('=').append(additionalSpread).append(',').append(' ');
     buf.append("label").append('=').append(label).append(',').append(' ');
-    buf.append("date").append('=').append(date).append(',').append(' ');
-    buf.append("dateOrder").append('=').append(JodaBeanUtils.toString(dateOrder));
+    buf.append("date").append('=').append(JodaBeanUtils.toString(date));
     buf.append('}');
     return buf.toString();
   }
@@ -413,10 +369,10 @@ public final class FixedOvernightSwapCurveNode
     private final MetaProperty<FixedOvernightSwapTemplate> template = DirectMetaProperty.ofImmutable(
         this, "template", FixedOvernightSwapCurveNode.class, FixedOvernightSwapTemplate.class);
     /**
-     * The meta-property for the {@code rateId} property.
+     * The meta-property for the {@code rateKey} property.
      */
-    private final MetaProperty<ObservableId> rateId = DirectMetaProperty.ofImmutable(
-        this, "rateId", FixedOvernightSwapCurveNode.class, ObservableId.class);
+    private final MetaProperty<ObservableKey> rateKey = DirectMetaProperty.ofImmutable(
+        this, "rateKey", FixedOvernightSwapCurveNode.class, ObservableKey.class);
     /**
      * The meta-property for the {@code additionalSpread} property.
      */
@@ -433,21 +389,15 @@ public final class FixedOvernightSwapCurveNode
     private final MetaProperty<CurveNodeDate> date = DirectMetaProperty.ofImmutable(
         this, "date", FixedOvernightSwapCurveNode.class, CurveNodeDate.class);
     /**
-     * The meta-property for the {@code dateOrder} property.
-     */
-    private final MetaProperty<CurveNodeDateOrder> dateOrder = DirectMetaProperty.ofImmutable(
-        this, "dateOrder", FixedOvernightSwapCurveNode.class, CurveNodeDateOrder.class);
-    /**
      * The meta-properties.
      */
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
         "template",
-        "rateId",
+        "rateKey",
         "additionalSpread",
         "label",
-        "date",
-        "dateOrder");
+        "date");
 
     /**
      * Restricted constructor.
@@ -460,16 +410,14 @@ public final class FixedOvernightSwapCurveNode
       switch (propertyName.hashCode()) {
         case -1321546630:  // template
           return template;
-        case -938107365:  // rateId
-          return rateId;
+        case 983444831:  // rateKey
+          return rateKey;
         case 291232890:  // additionalSpread
           return additionalSpread;
         case 102727412:  // label
           return label;
         case 3076014:  // date
           return date;
-        case -263699392:  // dateOrder
-          return dateOrder;
       }
       return super.metaPropertyGet(propertyName);
     }
@@ -499,11 +447,11 @@ public final class FixedOvernightSwapCurveNode
     }
 
     /**
-     * The meta-property for the {@code rateId} property.
+     * The meta-property for the {@code rateKey} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<ObservableId> rateId() {
-      return rateId;
+    public MetaProperty<ObservableKey> rateKey() {
+      return rateKey;
     }
 
     /**
@@ -530,30 +478,20 @@ public final class FixedOvernightSwapCurveNode
       return date;
     }
 
-    /**
-     * The meta-property for the {@code dateOrder} property.
-     * @return the meta-property, not null
-     */
-    public MetaProperty<CurveNodeDateOrder> dateOrder() {
-      return dateOrder;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     protected Object propertyGet(Bean bean, String propertyName, boolean quiet) {
       switch (propertyName.hashCode()) {
         case -1321546630:  // template
           return ((FixedOvernightSwapCurveNode) bean).getTemplate();
-        case -938107365:  // rateId
-          return ((FixedOvernightSwapCurveNode) bean).getRateId();
+        case 983444831:  // rateKey
+          return ((FixedOvernightSwapCurveNode) bean).getRateKey();
         case 291232890:  // additionalSpread
           return ((FixedOvernightSwapCurveNode) bean).getAdditionalSpread();
         case 102727412:  // label
           return ((FixedOvernightSwapCurveNode) bean).getLabel();
         case 3076014:  // date
           return ((FixedOvernightSwapCurveNode) bean).getDate();
-        case -263699392:  // dateOrder
-          return ((FixedOvernightSwapCurveNode) bean).getDateOrder();
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -576,11 +514,10 @@ public final class FixedOvernightSwapCurveNode
   public static final class Builder extends DirectFieldsBeanBuilder<FixedOvernightSwapCurveNode> {
 
     private FixedOvernightSwapTemplate template;
-    private ObservableId rateId;
+    private ObservableKey rateKey;
     private double additionalSpread;
     private String label;
     private CurveNodeDate date;
-    private CurveNodeDateOrder dateOrder;
 
     /**
      * Restricted constructor.
@@ -595,11 +532,10 @@ public final class FixedOvernightSwapCurveNode
      */
     private Builder(FixedOvernightSwapCurveNode beanToCopy) {
       this.template = beanToCopy.getTemplate();
-      this.rateId = beanToCopy.getRateId();
+      this.rateKey = beanToCopy.getRateKey();
       this.additionalSpread = beanToCopy.getAdditionalSpread();
       this.label = beanToCopy.getLabel();
       this.date = beanToCopy.getDate();
-      this.dateOrder = beanToCopy.getDateOrder();
     }
 
     //-----------------------------------------------------------------------
@@ -608,16 +544,14 @@ public final class FixedOvernightSwapCurveNode
       switch (propertyName.hashCode()) {
         case -1321546630:  // template
           return template;
-        case -938107365:  // rateId
-          return rateId;
+        case 983444831:  // rateKey
+          return rateKey;
         case 291232890:  // additionalSpread
           return additionalSpread;
         case 102727412:  // label
           return label;
         case 3076014:  // date
           return date;
-        case -263699392:  // dateOrder
-          return dateOrder;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
       }
@@ -629,8 +563,8 @@ public final class FixedOvernightSwapCurveNode
         case -1321546630:  // template
           this.template = (FixedOvernightSwapTemplate) newValue;
           break;
-        case -938107365:  // rateId
-          this.rateId = (ObservableId) newValue;
+        case 983444831:  // rateKey
+          this.rateKey = (ObservableKey) newValue;
           break;
         case 291232890:  // additionalSpread
           this.additionalSpread = (Double) newValue;
@@ -640,9 +574,6 @@ public final class FixedOvernightSwapCurveNode
           break;
         case 3076014:  // date
           this.date = (CurveNodeDate) newValue;
-          break;
-        case -263699392:  // dateOrder
-          this.dateOrder = (CurveNodeDateOrder) newValue;
           break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
@@ -679,11 +610,10 @@ public final class FixedOvernightSwapCurveNode
       preBuild(this);
       return new FixedOvernightSwapCurveNode(
           template,
-          rateId,
+          rateKey,
           additionalSpread,
           label,
-          date,
-          dateOrder);
+          date);
     }
 
     //-----------------------------------------------------------------------
@@ -699,13 +629,13 @@ public final class FixedOvernightSwapCurveNode
     }
 
     /**
-     * Sets the identifier of the market data value that provides the rate.
-     * @param rateId  the new value, not null
+     * Sets the key identifying the market data value which provides the rate.
+     * @param rateKey  the new value, not null
      * @return this, for chaining, not null
      */
-    public Builder rateId(ObservableId rateId) {
-      JodaBeanUtils.notNull(rateId, "rateId");
-      this.rateId = rateId;
+    public Builder rateKey(ObservableKey rateKey) {
+      JodaBeanUtils.notNull(rateKey, "rateKey");
+      this.rateKey = rateKey;
       return this;
     }
 
@@ -742,29 +672,16 @@ public final class FixedOvernightSwapCurveNode
       return this;
     }
 
-    /**
-     * Sets the date order rules, used to ensure that the dates in the curve are in order.
-     * If not specified, this will default to {@link CurveNodeDateOrder#DEFAULT}.
-     * @param dateOrder  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder dateOrder(CurveNodeDateOrder dateOrder) {
-      JodaBeanUtils.notNull(dateOrder, "dateOrder");
-      this.dateOrder = dateOrder;
-      return this;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(224);
+      StringBuilder buf = new StringBuilder(192);
       buf.append("FixedOvernightSwapCurveNode.Builder{");
       buf.append("template").append('=').append(JodaBeanUtils.toString(template)).append(',').append(' ');
-      buf.append("rateId").append('=').append(JodaBeanUtils.toString(rateId)).append(',').append(' ');
+      buf.append("rateKey").append('=').append(JodaBeanUtils.toString(rateKey)).append(',').append(' ');
       buf.append("additionalSpread").append('=').append(JodaBeanUtils.toString(additionalSpread)).append(',').append(' ');
       buf.append("label").append('=').append(JodaBeanUtils.toString(label)).append(',').append(' ');
-      buf.append("date").append('=').append(JodaBeanUtils.toString(date)).append(',').append(' ');
-      buf.append("dateOrder").append('=').append(JodaBeanUtils.toString(dateOrder));
+      buf.append("date").append('=').append(JodaBeanUtils.toString(date));
       buf.append('}');
       return buf.toString();
     }

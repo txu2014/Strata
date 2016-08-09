@@ -31,21 +31,17 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.Resolvable;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
-import com.opengamma.strata.basics.date.DateAdjuster;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.Product;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.rate.IborInterpolatedRateComputation;
-import com.opengamma.strata.product.rate.IborRateComputation;
-import com.opengamma.strata.product.rate.RateComputation;
+import com.opengamma.strata.product.rate.IborInterpolatedRateObservation;
+import com.opengamma.strata.product.rate.IborRateObservation;
+import com.opengamma.strata.product.rate.RateObservation;
 
 /**
  * A forward rate agreement (FRA).
@@ -66,7 +62,7 @@ import com.opengamma.strata.product.rate.RateComputation;
  */
 @BeanDefinition
 public final class Fra
-    implements Product, Resolvable<ResolvedFra>, ImmutableBean, Serializable {
+    implements FraProduct, ImmutableBean, Serializable {
 
   /**
    * Whether the FRA is buy or sell.
@@ -230,31 +226,39 @@ public final class Fra
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this FRA.
+   * <p>
+   * Expanding a FRA causes the dates to be adjusted according to the relevant
+   * holiday calendar. Other one-off calculations may also be performed.
+   * 
+   * @return the equivalent expanded FRA
+   * @throws RuntimeException if unable to expand due to an invalid definition
+   */
   @Override
-  public ResolvedFra resolve(ReferenceData refData) {
-    DateAdjuster bda = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).resolve(refData);
-    LocalDate start = bda.adjust(startDate);
-    LocalDate end = bda.adjust(endDate);
-    return ResolvedFra.builder()
-        .paymentDate(getPaymentDate().adjusted(refData))
+  public ExpandedFra expand() {
+    LocalDate start = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).adjust(startDate);
+    LocalDate end = getBusinessDayAdjustment().orElse(BusinessDayAdjustment.NONE).adjust(endDate);
+    return ExpandedFra.builder()
+        .paymentDate(getPaymentDate().adjusted())
         .startDate(start)
         .endDate(end)
         .yearFraction(dayCount.yearFraction(start, end))
         .fixedRate(fixedRate)
-        .floatingRate(createRateComputation(refData))
+        .floatingRate(createRateObservation())
         .currency(currency)
         .notional(buySell.normalize(notional))
         .discounting(discounting)
         .build();
   }
 
-  // creates an Ibor or IborInterpolated computation
-  private RateComputation createRateComputation(ReferenceData refData) {
-    LocalDate fixingDate = fixingDateOffset.adjust(startDate, refData);
+  // creates an Ibor or IborInterpolated observation
+  private RateObservation createRateObservation() {
+    LocalDate fixingDate = fixingDateOffset.adjust(startDate);
     if (indexInterpolated != null) {
-      return IborInterpolatedRateComputation.of(index, indexInterpolated, fixingDate, refData);
+      return IborInterpolatedRateObservation.of(index, indexInterpolated, fixingDate);
     } else {
-      return IborRateComputation.of(index, fixingDate, refData);
+      return IborRateObservation.of(index, fixingDate);
     }
   }
 

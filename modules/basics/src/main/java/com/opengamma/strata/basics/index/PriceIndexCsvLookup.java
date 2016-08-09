@@ -16,7 +16,6 @@ import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.location.Country;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.collect.io.CsvFile;
-import com.opengamma.strata.collect.io.CsvRow;
 import com.opengamma.strata.collect.io.ResourceConfig;
 import com.opengamma.strata.collect.io.ResourceLocator;
 import com.opengamma.strata.collect.named.NamedLookup;
@@ -44,7 +43,6 @@ final class PriceIndexCsvLookup
   private static final String NAME_FIELD = "Name";
   private static final String CURRENCY_FIELD = "Currency";
   private static final String COUNTRY_FIELD = "Country";
-  private static final String ACTIVE_FIELD = "Active";
   private static final String PUBLICATION_FREQUENCY_FIELD = "Publication Frequency";
 
   /**
@@ -70,8 +68,8 @@ final class PriceIndexCsvLookup
     for (ResourceLocator resource : resources) {
       try {
         CsvFile csv = CsvFile.of(resource.getCharSource(), true);
-        for (CsvRow row : csv.rows()) {
-          PriceIndex parsed = parsePriceIndex(row);
+        for (int i = 0; i < csv.rowCount(); i++) {
+          PriceIndex parsed = parsePriceIndex(csv, i);
           map.put(parsed.getName(), parsed);
         }
       } catch (RuntimeException ex) {
@@ -82,18 +80,16 @@ final class PriceIndexCsvLookup
     return ImmutableMap.copyOf(map);
   }
 
-  private static PriceIndex parsePriceIndex(CsvRow row) {
-    String name = row.getField(NAME_FIELD);
-    Currency currency = Currency.parse(row.getField(CURRENCY_FIELD));
-    Country region = Country.of(row.getField(COUNTRY_FIELD));
-    boolean active = Boolean.parseBoolean(row.getField(ACTIVE_FIELD));
-    Frequency frequency = Frequency.parse(row.getField(PUBLICATION_FREQUENCY_FIELD));
+  private static PriceIndex parsePriceIndex(CsvFile csv, int row) {
+    String name = csv.field(row, NAME_FIELD);
+    Currency currency = Currency.parse(csv.field(row, CURRENCY_FIELD));
+    Country region = Country.of(csv.field(row, COUNTRY_FIELD));
+    Frequency frequency = Frequency.parse(csv.field(row, PUBLICATION_FREQUENCY_FIELD));
     // build result
     return ImmutablePriceIndex.builder()
         .name(name)
         .currency(currency)
         .region(region)
-        .active(active)
         .publicationFrequency(frequency)
         .build();
   }

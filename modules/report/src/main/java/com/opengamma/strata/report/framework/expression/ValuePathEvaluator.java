@@ -13,12 +13,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.index.IborIndex;
-import com.opengamma.strata.calc.Measure;
-import com.opengamma.strata.calc.runner.CalculationFunctions;
+import com.opengamma.strata.calc.config.Measure;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
 import com.opengamma.strata.product.fra.Fra;
@@ -45,11 +43,9 @@ public class ValuePathEvaluator {
   private static final ImmutableList<TokenEvaluator<?>> EVALUATORS = ImmutableList.of(
       new CurrencyAmountTokenEvaluator(),
       new MapTokenEvaluator(),
-      new CurrencyParameterSensitivitiesTokenEvaluator(),
-      new CurrencyParameterSensitivityTokenEvaluator(),
-      new PositionTokenEvaluator(),
+      new CurveCurrencyParameterSensitivitiesTokenEvaluator(),
+      new CurveCurrencyParameterSensitivityTokenEvaluator(),
       new TradeTokenEvaluator(),
-      new SecurityTokenEvaluator(),
       new BeanTokenEvaluator(),
       new IterableTokenEvaluator());
 
@@ -87,25 +83,18 @@ public class ValuePathEvaluator {
 
     if (tokens.size() < 1) {
       return Collections.nCopies(
-          results.getTargets().size(),
-          Result.failure(FailureReason.INVALID, "Column expressions must not be empty"));
+          results.getTrades().size(),
+          Result.failure(FailureReason.INVALID_INPUT, "Column expressions must not be empty"));
     }
-    CalculationFunctions functions = results.getCalculationFunctions();
     int rowCount = results.getCalculationResults().getRowCount();
     return IntStream.range(0, rowCount)
-        .mapToObj(rowIndex -> evaluate(functions, tokens, RootEvaluator.INSTANCE, new ResultsRow(results, rowIndex)))
+        .mapToObj(rowIndex -> evaluate(tokens, RootEvaluator.INSTANCE, new ResultsRow(results, rowIndex)))
         .collect(toImmutableList());
   }
 
   // Tokens always has at least one token
-  private static <T> Result<?> evaluate(
-      CalculationFunctions functions,
-      List<String> tokens,
-      TokenEvaluator<T> evaluator,
-      T target) {
-
-    List<String> remaining = tokens.subList(1, tokens.size());
-    EvaluationResult evaluationResult = evaluator.evaluate(target, functions, tokens.get(0), remaining);
+  private static <T> Result<?> evaluate(List<String> tokens, TokenEvaluator<T> evaluator, T target) {
+    EvaluationResult evaluationResult = evaluator.evaluate(target, tokens.get(0), tokens.subList(1, tokens.size()));
 
     if (evaluationResult.isComplete()) {
       return evaluationResult.getResult();
@@ -114,15 +103,14 @@ public class ValuePathEvaluator {
     Optional<TokenEvaluator<Object>> nextEvaluator = getEvaluator(value.getClass());
 
     return nextEvaluator.isPresent() ?
-        evaluate(functions, evaluationResult.getRemainingTokens(), nextEvaluator.get(), value) :
-        noEvaluatorResult(remaining, value);
+        evaluate(evaluationResult.getRemainingTokens(), nextEvaluator.get(), value) :
+        noEvaluatorResult(value);
   }
 
-  private static Result<?> noEvaluatorResult(List<String> remaining, Object value) {
+  private static Result<?> noEvaluatorResult(Object value) {
     return Result.failure(
-        FailureReason.INVALID,
-        "Expression '{}' cannot be invoked on type {}",
-        Joiner.on('.').join(remaining),
+        FailureReason.INVALID_INPUT,
+        "No evaluator available for objects of type {}",
         value.getClass().getName());
   }
 

@@ -28,14 +28,11 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.Resolvable;
+import com.opengamma.strata.basics.LongShort;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.Product;
-import com.opengamma.strata.product.common.LongShort;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.SwapLegType;
 
@@ -48,7 +45,7 @@ import com.opengamma.strata.product.swap.SwapLegType;
  */
 @BeanDefinition
 public final class Swaption
-    implements Product, Resolvable<ResolvedSwaption>, ImmutableBean, Serializable {
+    implements SwaptionProduct, ImmutableBean, Serializable {
 
   /**
    * Whether the option is long or short.
@@ -59,14 +56,14 @@ public final class Swaption
   @PropertyDefinition(validate = "notNull")
   private final LongShort longShort;
   /**
-   * Settlement method.
+   * Settlement method.  
    * <p>
    * The settlement of the option is specified by {@link SwaptionSettlement}.
    */
   @PropertyDefinition(validate = "notNull")
   private final SwaptionSettlement swaptionSettlement;
   /**
-   * The expiry date of the option.
+   * The expiry date of the option.  
    * <p>
    * The option is European, and can only be exercised on the expiry date.
    * <p>
@@ -76,14 +73,14 @@ public final class Swaption
   @PropertyDefinition(validate = "notNull")
   private final AdjustableDate expiryDate;
   /**
-   * The expiry time of the option.
+   * The expiry time of the option.  
    * <p>
    * The expiry time is related to the expiry date and time-zone.
    */
   @PropertyDefinition(validate = "notNull")
   private final LocalTime expiryTime;
   /**
-   * The time-zone of the expiry time.
+   * The time-zone of the expiry time.  
    * <p>
    * The expiry time-zone is related to the expiry date and time.
    */
@@ -93,7 +90,7 @@ public final class Swaption
    * The underlying swap.
    * <p>
    * At expiry, if the option is exercised, this swap will be entered into.
-   * The swap description is the swap as viewed by the party long the option.
+   * The swap description is the swap as viewed by the party long the option. 
    */
   @PropertyDefinition(validate = "notNull")
   private final Swap underlying;
@@ -101,8 +98,7 @@ public final class Swaption
   //-------------------------------------------------------------------------
   @ImmutableValidator
   private void validate() {
-    ArgChecker.inOrderOrEqual(
-        expiryDate.getUnadjusted(), underlying.getStartDate().getUnadjusted(), "expiryDate", "underlying.startDate.unadjusted");
+    ArgChecker.inOrderOrEqual(expiryDate.getUnadjusted(), underlying.getStartDate(), "expiryDate", "startDate");
     ArgChecker.isTrue(!underlying.isCrossCurrency(), "Underlying swap must not be cross-currency");
     ArgChecker.isTrue(underlying.getLegs(SwapLegType.FIXED).size() == 1, "Underlying swap must have one fixed leg");
     ArgChecker.isTrue(underlying.getLegs(SwapLegType.IBOR).size() == 1, "Underlying swap must have one Ibor leg");
@@ -120,7 +116,7 @@ public final class Swaption
    * 
    * @return the expiry date and time
    */
-  public ZonedDateTime getExpiry() {
+  public ZonedDateTime getExpiryDateTime() {
     return expiryDate.getUnadjusted().atTime(expiryTime).atZone(expiryZone);
   }
 
@@ -150,13 +146,22 @@ public final class Swaption
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands underlying swap.
+   * <p>
+   * The underlying is expanded and the other fields remain the same. 
+   * 
+   * @return swaption with underlying expanded
+   */
   @Override
-  public ResolvedSwaption resolve(ReferenceData refData) {
-    return ResolvedSwaption.builder()
-        .expiry(expiryDate.adjusted(refData).atTime(expiryTime).atZone(expiryZone))
+  public ExpandedSwaption expand() {
+    return ExpandedSwaption.builder()
+        .expiryDate(expiryDate.adjusted())
+        .expiryTime(expiryTime)
+        .expiryZone(expiryZone)
         .longShort(longShort)
         .swaptionSettlement(swaptionSettlement)
-        .underlying(underlying.resolve(refData))
+        .underlying(underlying.expand())
         .build();
   }
 

@@ -51,11 +51,17 @@ public class TradeReportRunner
         .map(Column::of)
         .collect(toImmutableList());
 
-    return ReportRequirements.of(measureRequirements);
+    return ReportRequirements.builder()
+        .tradeMeasureRequirements(measureRequirements)
+        .build();
   }
 
   @Override
   public TradeReport runReport(ReportCalculationResults results, TradeReportTemplate reportTemplate) {
+    List<String> columnHeaders = reportTemplate.getColumns().stream()
+        .map(TradeReportColumn::getHeader)
+        .collect(toImmutableList());
+
     ImmutableTable.Builder<Integer, Integer, Result<?>> resultTable = ImmutableTable.builder();
 
     for (int reportColumnIdx = 0; reportColumnIdx < reportTemplate.getColumns().size(); reportColumnIdx++) {
@@ -65,8 +71,8 @@ public class TradeReportRunner
       if (reportColumn.getValue().isPresent()) {
         columnResults = ValuePathEvaluator.evaluate(reportColumn.getValue().get(), results);
       } else {
-        columnResults = IntStream.range(0, results.getTargets().size())
-            .mapToObj(i -> Result.failure(FailureReason.INVALID, "No value specified in report template"))
+        columnResults = IntStream.range(0, results.getTrades().size())
+            .mapToObj(i -> Result.failure(FailureReason.INVALID_INPUT, "No value specified in report template"))
             .collect(toImmutableList());
       }
       int rowCount = results.getCalculationResults().getRowCount();
@@ -80,6 +86,7 @@ public class TradeReportRunner
         .runInstant(Instant.now())
         .valuationDate(results.getValuationDate())
         .columns(reportTemplate.getColumns())
+        .columnHeaders(columnHeaders)
         .data(resultTable.build())
         .build();
   }

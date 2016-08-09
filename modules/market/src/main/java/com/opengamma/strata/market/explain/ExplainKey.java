@@ -10,13 +10,13 @@ import java.util.List;
 
 import org.joda.convert.FromString;
 
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.index.Index;
-import com.opengamma.strata.collect.TypedString;
-import com.opengamma.strata.product.common.PayReceive;
-import com.opengamma.strata.product.rate.IborInterpolatedRateComputation;
+import com.opengamma.strata.collect.type.TypedString;
+import com.opengamma.strata.product.rate.IborInterpolatedRateObservation;
 import com.opengamma.strata.product.swap.CompoundingMethod;
 
 /**
@@ -138,13 +138,9 @@ public final class ExplainKey<T>
    */
   public static final ExplainKey<Double> ACCRUAL_YEAR_FRACTION = of("AccrualYearFraction");
   /**
-   * The number of accrual days between the start and end dates.
+   * The number of days between the start and end dates.
    */
   public static final ExplainKey<Integer> ACCRUAL_DAYS = of("AccrualDays");
-  /**
-   * The actual number of days between the start and end dates.
-   */
-  public static final ExplainKey<Integer> DAYS = of("Days");
 
   /**
    * The discount factor, typically derived from a curve.
@@ -176,7 +172,7 @@ public final class ExplainKey<T>
   /**
    * The combined rate, including weighting.
    * This rate differs from the observed rate if there is more than one fixing involved.
-   * For example, {@link IborInterpolatedRateComputation} has two observed rates
+   * For example, {@link IborInterpolatedRateObservation} has two observed rates
    * which are combined to create this rate.
    */
   public static final ExplainKey<Double> COMBINED_RATE = of("CombinedRate");
@@ -201,18 +197,6 @@ public final class ExplainKey<T>
    * The method of compounding.
    */
   public static final ExplainKey<CompoundingMethod> COMPOUNDING = of("CompoundingMethod");
-  /**
-   * The strike value.
-   */
-  public static final ExplainKey<Double> STRIKE_VALUE = of("StrikeValue");
-  /**
-   * The convexity adjusted rate.
-   */
-  public static final ExplainKey<Double> CONVEXITY_ADJUSTED_RATE = of("ConvexityAdjustedRate");
-  /**
-   * The forward rate.
-   */
-  public static final ExplainKey<Double> FORWARD_RATE = of("ForwardRate");
 
   //-------------------------------------------------------------------------
   /**

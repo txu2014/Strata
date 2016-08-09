@@ -24,6 +24,7 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 
 /**
@@ -132,6 +133,15 @@ public final class Payment
     return value.getAmount();
   }
 
+  /**
+   * Gets a flag indicating whether the value is to be paid or received.
+   * 
+   * @return the pay receive flag
+   */
+  public PayReceive getPayReceive() {
+    return PayReceive.ofSignedAmount(value.getAmount());
+  }
+
   //-------------------------------------------------------------------------
   /**
    * Adjusts the payment date using the rules of the specified adjuster.
@@ -153,7 +163,7 @@ public final class Payment
    * <p>
    * This takes this payment and negates it.
    * <p>
-   * This instance is immutable and unaffected by this method.
+   * This instance is immutable and unaffected by this method. 
    * 
    * @return a payment based on this with the value negated
    */

@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.io.CsvFile;
-import com.opengamma.strata.collect.io.CsvRow;
 
 /**
  * Simple class to read in a csv file with ISDA inputs load them into a test harness
@@ -30,9 +29,9 @@ import com.opengamma.strata.collect.io.CsvRow;
 public class IsdaModelDatasetsSheetReader extends IsdaModelDatasets {
 
   private static final String SHEET_LOCATION = "isda_comparison_sheets/";
-  private final List<ISDA_Results> results = new ArrayList<>(100); // ~100 rows nominally
-  private CsvFile csvFile;
-  private String[] headers;
+  private final List<ISDA_Results> _results = new ArrayList<>(100); // ~100 rows nominally
+  private CsvFile _csvFile;
+  private String[] _headers;
 
   // header fields we expect in the file (lowercased when loaded)
   private static final String TODAY_HEADER = "today";
@@ -85,15 +84,15 @@ public class IsdaModelDatasetsSheetReader extends IsdaModelDatasets {
     if (resource == null) {
       throw new IllegalArgumentException(sheetFilePath + ": does not exist");
     }
-    csvFile = CsvFile.of(Resources.asCharSource(resource, StandardCharsets.UTF_8), true);
+    _csvFile = CsvFile.of(Resources.asCharSource(resource, StandardCharsets.UTF_8), true);
 
     // Set columns
-    headers = readHeaderRow();
+    _headers = readHeaderRow();
 
-    for (CsvRow row : csvFile.rows()) {
-      ISDA_Results temp = getResult(parseRow(row));
+    for (ImmutableList<String> line : _csvFile.rows()) {
+      ISDA_Results temp = getResult(parseRow(line));
       temp.recoveryRate = recoveryRate;
-      results.add(temp);
+      _results.add(temp);
     }
   }
 
@@ -148,12 +147,12 @@ public class IsdaModelDatasetsSheetReader extends IsdaModelDatasets {
   }
 
   public ISDA_Results[] getResults() {
-    return results.toArray(new ISDA_Results[results.size()]);
+    return _results.toArray(new ISDA_Results[_results.size()]);
   }
 
   private String[] readHeaderRow() {
     // Read in the header row
-    ImmutableList<String> rawRow = csvFile.headers();
+    ImmutableList<String> rawRow = _csvFile.headers();
     final List<LocalDate> parSpreadDates = new ArrayList<>();
 
     // Normalise read-in headers (to lower case) and set as columns
@@ -181,14 +180,14 @@ public class IsdaModelDatasetsSheetReader extends IsdaModelDatasets {
   }
 
   // map row onto expected columns
-  private Map<String, String> parseRow(CsvRow rawRow) {
+  public Map<String, String> parseRow(ImmutableList<String> rawRow) {
     Map<String, String> result = new HashMap<>();
-    for (int i = 0; i < headers.length; i++) {
-      if (i >= rawRow.fieldCount()) {
+    for (int i = 0; i < _headers.length; i++) {
+      if (i >= rawRow.size()) {
         break;
       }
-      if (rawRow.field(i) != null && rawRow.field(i).trim().length() > 0) {
-        result.put(headers[i], rawRow.field(i));
+      if (rawRow.get(i) != null && rawRow.get(i).trim().length() > 0) {
+        result.put(_headers[i], rawRow.get(i));
       }
     }
     return result;

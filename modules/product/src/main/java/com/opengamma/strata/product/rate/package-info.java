@@ -7,7 +7,7 @@
 /**
  * Entity objects describing the rate-based financial instruments.
  * <p>
- * This package defines an abstraction, {@link com.opengamma.strata.product.rate.RateComputation RateComputation},
+ * This package defines an abstraction, {@link com.opengamma.strata.product.rate.RateObservation RateObservation},
  * that provides common ways to observe a rate, including interpolation, averaging and compounding.
  */
 package com.opengamma.strata.product.rate;

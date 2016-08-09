@@ -5,17 +5,17 @@
  */
 package com.opengamma.strata.product.capfloor;
 
+import static com.opengamma.strata.basics.PayReceive.PAY;
+import static com.opengamma.strata.basics.PayReceive.RECEIVE;
 import static com.opengamma.strata.basics.currency.Currency.EUR;
 import static com.opengamma.strata.basics.currency.Currency.GBP;
-import static com.opengamma.strata.basics.date.HolidayCalendarIds.EUTA;
+import static com.opengamma.strata.basics.date.HolidayCalendars.EUTA;
 import static com.opengamma.strata.basics.index.IborIndices.EUR_EURIBOR_3M;
 import static com.opengamma.strata.basics.index.IborIndices.GBP_LIBOR_6M;
 import static com.opengamma.strata.collect.TestHelper.assertSerialization;
 import static com.opengamma.strata.collect.TestHelper.assertThrowsIllegalArg;
 import static com.opengamma.strata.collect.TestHelper.coverBeanEquals;
 import static com.opengamma.strata.collect.TestHelper.coverImmutableBean;
-import static com.opengamma.strata.product.common.PayReceive.PAY;
-import static com.opengamma.strata.product.common.PayReceive.RECEIVE;
 import static org.testng.Assert.assertEquals;
 
 import java.time.LocalDate;
@@ -24,8 +24,6 @@ import java.util.List;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.BusinessDayConventions;
 import com.opengamma.strata.basics.date.DaysAdjustment;
@@ -35,7 +33,7 @@ import com.opengamma.strata.basics.schedule.StubConvention;
 import com.opengamma.strata.basics.value.ValueAdjustment;
 import com.opengamma.strata.basics.value.ValueSchedule;
 import com.opengamma.strata.basics.value.ValueStep;
-import com.opengamma.strata.product.rate.IborRateComputation;
+import com.opengamma.strata.product.rate.IborRateObservation;
 import com.opengamma.strata.product.swap.FixingRelativeTo;
 import com.opengamma.strata.product.swap.IborRateCalculation;
 
@@ -45,7 +43,6 @@ import com.opengamma.strata.product.swap.IborRateCalculation;
 @Test
 public class IborCapFloorLegTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final LocalDate START = LocalDate.of(2011, 3, 17);
   private static final LocalDate END = LocalDate.of(2012, 3, 17);
   private static final IborRateCalculation RATE_CALCULATION = IborRateCalculation.of(EUR_EURIBOR_3M);
@@ -95,9 +92,8 @@ public class IborCapFloorLegTest {
     assertEquals(test.getPaymentDateOffset(), PAYMENT_OFFSET);
     assertEquals(test.getPaymentSchedule(), SCHEDULE);
     assertEquals(test.getPayReceive(), PAY);
-    assertEquals(test.getStartDate(), AdjustableDate.of(START, BUSS_ADJ));
-    assertEquals(test.getEndDate(), AdjustableDate.of(END, BUSS_ADJ));
-    assertEquals(test.getIndex(), EUR_EURIBOR_3M);
+    assertEquals(test.getStartDate(), BUSS_ADJ.adjust(START));
+    assertEquals(test.getEndDate(), BUSS_ADJ.adjust(END));
   }
 
   public void test_builder_min() {
@@ -116,8 +112,8 @@ public class IborCapFloorLegTest {
     assertEquals(test.getPaymentDateOffset(), DaysAdjustment.NONE);
     assertEquals(test.getPaymentSchedule(), SCHEDULE);
     assertEquals(test.getPayReceive(), RECEIVE);
-    assertEquals(test.getStartDate(), AdjustableDate.of(START, BUSS_ADJ));
-    assertEquals(test.getEndDate(), AdjustableDate.of(END, BUSS_ADJ));
+    assertEquals(test.getStartDate(), BUSS_ADJ.adjust(START));
+    assertEquals(test.getEndDate(), BUSS_ADJ.adjust(END));
   }
 
   public void test_builder_fail() {
@@ -160,7 +156,7 @@ public class IborCapFloorLegTest {
         .build());
   }
 
-  public void test_resolve_cap() {
+  public void test_expand_cap() {
     IborRateCalculation rateCalc = IborRateCalculation.builder()
         .index(EUR_EURIBOR_3M)
         .fixingRelativeTo(FixingRelativeTo.PERIOD_END)
@@ -178,8 +174,8 @@ public class IborCapFloorLegTest {
         new LocalDate[] {START, START.plusMonths(3), START.plusMonths(6), START.plusMonths(9), START.plusMonths(12)};
     IborCapletFloorletPeriod[] periods = new IborCapletFloorletPeriod[4];
     for (int i = 0; i < 4; ++i) {
-      LocalDate start = BUSS_ADJ.adjust(unadjustedDates[i], REF_DATA);
-      LocalDate end = BUSS_ADJ.adjust(unadjustedDates[i + 1], REF_DATA);
+      LocalDate start = BUSS_ADJ.adjust(unadjustedDates[i]);
+      LocalDate end = BUSS_ADJ.adjust(unadjustedDates[i + 1]);
       double yearFraction = EUR_EURIBOR_3M.getDayCount().relativeYearFraction(start, end);
       periods[i] = IborCapletFloorletPeriod.builder()
           .caplet(CAP.getInitialValue())
@@ -188,21 +184,22 @@ public class IborCapFloorLegTest {
           .endDate(end)
           .unadjustedStartDate(unadjustedDates[i])
           .unadjustedEndDate(unadjustedDates[i + 1])
-          .paymentDate(PAYMENT_OFFSET.adjust(end, REF_DATA))
+          .paymentDate(PAYMENT_OFFSET.adjust(end))
           .notional(NOTIONALS[i])
-          .iborRate(IborRateComputation.of(EUR_EURIBOR_3M, rateCalc.getFixingDateOffset().adjust(end, REF_DATA), REF_DATA))
+          .rateObservation(
+              IborRateObservation.of(EUR_EURIBOR_3M, rateCalc.getFixingDateOffset().adjust(end)))
           .yearFraction(yearFraction)
           .build();
     }
-    ResolvedIborCapFloorLeg expected = ResolvedIborCapFloorLeg.builder()
+    ExpandedIborCapFloorLeg expected = ExpandedIborCapFloorLeg.builder()
         .capletFloorletPeriods(periods)
         .payReceive(RECEIVE)
         .build();
-    ResolvedIborCapFloorLeg computed = base.resolve(REF_DATA);
+    ExpandedIborCapFloorLeg computed = base.expand();
     assertEquals(computed, expected);
   }
 
-  public void test_resolve_floor() {
+  public void test_expand_floor() {
     IborCapFloorLeg base = IborCapFloorLeg.builder()
         .calculation(RATE_CALCULATION)
         .floorSchedule(FLOOR)
@@ -216,10 +213,9 @@ public class IborCapFloorLegTest {
         new LocalDate[] {START, START.plusMonths(3), START.plusMonths(6), START.plusMonths(9), START.plusMonths(12)};
     IborCapletFloorletPeriod[] periods = new IborCapletFloorletPeriod[4];
     for (int i = 0; i < 4; ++i) {
-      LocalDate start = BUSS_ADJ.adjust(unadjustedDates[i], REF_DATA);
-      LocalDate end = BUSS_ADJ.adjust(unadjustedDates[i + 1], REF_DATA);
+      LocalDate start = BUSS_ADJ.adjust(unadjustedDates[i]);
+      LocalDate end = BUSS_ADJ.adjust(unadjustedDates[i + 1]);
       double yearFraction = EUR_EURIBOR_3M.getDayCount().relativeYearFraction(start, end);
-      LocalDate fixingDate = RATE_CALCULATION.getFixingDateOffset().adjust(start, REF_DATA);
       periods[i] = IborCapletFloorletPeriod.builder()
           .floorlet(STRIKES[i])
           .currency(GBP)
@@ -227,17 +223,18 @@ public class IborCapFloorLegTest {
           .endDate(end)
           .unadjustedStartDate(unadjustedDates[i])
           .unadjustedEndDate(unadjustedDates[i + 1])
-          .paymentDate(PAYMENT_OFFSET.adjust(end, REF_DATA))
+          .paymentDate(PAYMENT_OFFSET.adjust(end))
           .notional(-NOTIONALS[i])
-          .iborRate(IborRateComputation.of(EUR_EURIBOR_3M, fixingDate, REF_DATA))
+          .rateObservation(
+              IborRateObservation.of(EUR_EURIBOR_3M, RATE_CALCULATION.getFixingDateOffset().adjust(start)))
           .yearFraction(yearFraction)
           .build();
     }
-    ResolvedIborCapFloorLeg expected = ResolvedIborCapFloorLeg.builder()
+    ExpandedIborCapFloorLeg expected = ExpandedIborCapFloorLeg.builder()
         .capletFloorletPeriods(periods)
         .payReceive(PAY)
         .build();
-    ResolvedIborCapFloorLeg computed = base.resolve(REF_DATA);
+    ExpandedIborCapFloorLeg computed = base.expand();
     assertEquals(computed, expected);
   }
 

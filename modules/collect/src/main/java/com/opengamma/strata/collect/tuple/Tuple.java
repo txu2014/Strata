@@ -5,7 +5,7 @@
  */
 package com.opengamma.strata.collect.tuple;
 
-import java.util.List;
+import com.google.common.collect.ImmutableList;
 
 /**
  * Base interface for all tuple types.
@@ -33,6 +33,6 @@ public interface Tuple {
    * 
    * @return the elements as a list
    */
-  public abstract List<Object> elements();
+  public abstract ImmutableList<Object> elements();
 
 }

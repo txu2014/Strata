@@ -5,7 +5,7 @@
  */
 package com.opengamma.strata.math.impl.statistics.distribution;
 
-import com.opengamma.strata.math.MathException;
+import com.opengamma.strata.math.impl.MathException;
 
 /**
  * Computes the n-term Chebychev series at point 'x'

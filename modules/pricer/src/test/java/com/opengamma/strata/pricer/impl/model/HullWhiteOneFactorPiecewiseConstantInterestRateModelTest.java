@@ -15,7 +15,6 @@ import java.time.LocalDate;
 
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.date.DayCounts;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.basics.index.IborIndices;
@@ -25,7 +24,7 @@ import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.collect.array.DoubleMatrix;
 import com.opengamma.strata.collect.tuple.Pair;
 import com.opengamma.strata.pricer.impl.rate.model.HullWhiteOneFactorPiecewiseConstantInterestRateModel;
-import com.opengamma.strata.pricer.model.HullWhiteOneFactorPiecewiseConstantParameters;
+import com.opengamma.strata.pricer.impl.rate.model.HullWhiteOneFactorPiecewiseConstantParameters;
 
 /**
  * Test {@link HullWhiteOneFactorPiecewiseConstantInterestRateModel}.
@@ -33,7 +32,6 @@ import com.opengamma.strata.pricer.model.HullWhiteOneFactorPiecewiseConstantPara
 @Test
 public class HullWhiteOneFactorPiecewiseConstantInterestRateModelTest {
 
-  private static final ReferenceData REF_DATA = ReferenceData.standard();
   private static final double MEAN_REVERSION = 0.01;
   private static final DoubleArray VOLATILITY = DoubleArray.of(0.01, 0.011, 0.012, 0.013, 0.014);
   private static final DoubleArray VOLATILITY_TIME = DoubleArray.of(0.5, 1.0, 2.0, 5.0);
@@ -70,10 +68,10 @@ public class HullWhiteOneFactorPiecewiseConstantInterestRateModelTest {
    */
   public void setter() {
     double volReplaced = 0.02;
-    HullWhiteOneFactorPiecewiseConstantParameters param1 = MODEL_PARAMETERS.withLastVolatility(volReplaced);
+    HullWhiteOneFactorPiecewiseConstantParameters param1 = MODEL_PARAMETERS.setLastVolatility(volReplaced);
     assertEquals(volReplaced, param1.getVolatility().get(param1.getVolatility().size() - 1));
     HullWhiteOneFactorPiecewiseConstantParameters param2 =
-        MODEL_PARAMETERS.withLastVolatility(VOLATILITY.get(VOLATILITY.size() - 1));
+        MODEL_PARAMETERS.setLastVolatility(VOLATILITY.get(VOLATILITY.size() - 1));
     for (int loopperiod = 0; loopperiod < param2.getVolatility().size(); loopperiod++) {
       assertEquals(VOLATILITY.get(loopperiod), param2.getVolatility().get(loopperiod));
     }
@@ -97,12 +95,12 @@ public class HullWhiteOneFactorPiecewiseConstantInterestRateModelTest {
    */
   public void futureConvexityFactor() {
     LocalDate SPOT_DATE = LocalDate.of(2012, 9, 19);
-    LocalDate LAST_TRADING_DATE = EURIBOR3M.calculateFixingFromEffective(SPOT_DATE, REF_DATA);
+    LocalDate LAST_TRADING_DATE = EURIBOR3M.calculateFixingFromEffective(SPOT_DATE);
     LocalDate REFERENCE_DATE = LocalDate.of(2010, 8, 18);
     double tradeLastTime = DayCounts.ACT_ACT_ISDA.relativeYearFraction(REFERENCE_DATE, LAST_TRADING_DATE);
     double fixStartTime = DayCounts.ACT_ACT_ISDA.relativeYearFraction(REFERENCE_DATE, SPOT_DATE);
     double fixEndTime = DayCounts.ACT_ACT_ISDA.relativeYearFraction(
-        REFERENCE_DATE, EURIBOR3M.calculateMaturityFromEffective(SPOT_DATE, REF_DATA));
+        REFERENCE_DATE, EURIBOR3M.calculateMaturityFromEffective(SPOT_DATE));
     double factor = MODEL.futuresConvexityFactor(MODEL_PARAMETERS, tradeLastTime, fixStartTime, fixEndTime);
     double expectedFactor = 1.000079130767980;
     assertEquals(expectedFactor, factor, TOLERANCE_RATE);
@@ -389,8 +387,8 @@ public class HullWhiteOneFactorPiecewiseConstantInterestRateModelTest {
   }
 
   //-------------------------------------------------------------------------
-  // Here methods used for Bermudan swaption pricing and Monte-Carlo are test weakly by regression to 2.x.
-  // Proper tests should be added when these pricing methodologies are available.
+  // Here methods used for Bermudan swaption pricing and Monte-Carlo are test weakly by regression to 2.x. 
+  // Proper tests should be added when these pricing methodologies are available. 
   public void test_beta() {
     double[] theta = new double[] {0.0, 0.9930234298974474, 1.5013698630136987, 1.9917808219178081, 2.5013698630136987,
       2.9972602739726026, 3.5013698630136987, 3.9972602739726026, 4.501220151208923, 4.998487910771765,
@@ -472,7 +470,7 @@ public class HullWhiteOneFactorPiecewiseConstantInterestRateModelTest {
   }
 
   /**
-   * Test the payment delay convexity adjustment factor. Analysis of the size.
+   * Test the payment delay convexity adjustment factor. Analysis of the size. 
    * In normal test, should have (enabled=false)
    */
   @Test(enabled = false)

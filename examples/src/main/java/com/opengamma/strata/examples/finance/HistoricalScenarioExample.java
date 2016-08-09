@@ -7,7 +7,7 @@ package com.opengamma.strata.examples.finance;
 
 import static com.opengamma.strata.basics.date.BusinessDayConventions.MODIFIED_FOLLOWING;
 import static com.opengamma.strata.collect.Guavate.toImmutableList;
-import static com.opengamma.strata.measure.StandardComponents.marketDataFactory;
+import static com.opengamma.strata.function.StandardComponents.marketDataFactory;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -20,44 +20,42 @@ import java.util.Map;
 import java.util.SortedMap;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
+import com.google.common.collect.ImmutableMap;
+import com.opengamma.strata.basics.PayReceive;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarIds;
+import com.opengamma.strata.basics.date.HolidayCalendars;
 import com.opengamma.strata.basics.index.IborIndices;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.PeriodicSchedule;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.CalculationRunner;
 import com.opengamma.strata.calc.Column;
-import com.opengamma.strata.calc.Results;
-import com.opengamma.strata.calc.marketdata.MarketDataConfig;
-import com.opengamma.strata.calc.marketdata.MarketDataFilter;
+import com.opengamma.strata.calc.config.Measures;
 import com.opengamma.strata.calc.marketdata.MarketDataRequirements;
-import com.opengamma.strata.calc.marketdata.PerturbationMapping;
-import com.opengamma.strata.calc.marketdata.ScenarioDefinition;
-import com.opengamma.strata.calc.runner.CalculationFunctions;
+import com.opengamma.strata.calc.marketdata.MarketEnvironment;
+import com.opengamma.strata.calc.marketdata.config.MarketDataConfig;
+import com.opengamma.strata.calc.marketdata.scenario.PerturbationMapping;
+import com.opengamma.strata.calc.marketdata.scenario.ScenarioDefinition;
+import com.opengamma.strata.calc.runner.Results;
+import com.opengamma.strata.calc.runner.function.result.ScenarioResult;
 import com.opengamma.strata.collect.Messages;
-import com.opengamma.strata.data.MarketData;
-import com.opengamma.strata.data.scenario.ScenarioArray;
-import com.opengamma.strata.data.scenario.ScenarioMarketData;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.examples.marketdata.ExampleMarketDataBuilder;
+import com.opengamma.strata.function.StandardComponents;
+import com.opengamma.strata.function.marketdata.curve.CurvePointShifts;
+import com.opengamma.strata.function.marketdata.curve.CurvePointShiftsBuilder;
+import com.opengamma.strata.function.marketdata.scenario.curve.AnyDiscountCurveFilter;
+import com.opengamma.strata.function.marketdata.scenario.curve.IndexCurveFilter;
 import com.opengamma.strata.market.ShiftType;
 import com.opengamma.strata.market.curve.Curve;
 import com.opengamma.strata.market.curve.CurveGroup;
-import com.opengamma.strata.market.curve.CurveName;
-import com.opengamma.strata.market.curve.CurvePointShifts;
-import com.opengamma.strata.market.curve.CurvePointShiftsBuilder;
-import com.opengamma.strata.market.param.ParameterMetadata;
-import com.opengamma.strata.measure.Measures;
-import com.opengamma.strata.measure.StandardComponents;
-import com.opengamma.strata.product.Trade;
-import com.opengamma.strata.product.TradeAttributeType;
+import com.opengamma.strata.market.curve.CurveParameterMetadata;
+import com.opengamma.strata.market.curve.NodalCurve;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.common.PayReceive;
 import com.opengamma.strata.product.swap.IborRateCalculation;
 import com.opengamma.strata.product.swap.NotionalSchedule;
 import com.opengamma.strata.product.swap.PaymentSchedule;
@@ -108,8 +106,10 @@ public class HistoricalScenarioExample {
     ExampleMarketDataBuilder marketDataBuilder = ExampleMarketDataBuilder.ofResource(MARKET_DATA_RESOURCE_ROOT);
 
     // the complete set of rules for calculating measures
-    CalculationFunctions functions = StandardComponents.calculationFunctions();
-    CalculationRules rules = CalculationRules.of(functions, marketDataBuilder.ratesLookup(LocalDate.of(2015, 4, 23)));
+    CalculationRules rules = CalculationRules.builder()
+        .pricingRules(StandardComponents.pricingRules())
+        .marketDataRules(marketDataBuilder.rules())
+        .build();
 
     // load the historical calibrated curves from which we will build our scenarios
     // these curves are provided in the example data environment
@@ -125,19 +125,16 @@ public class HistoricalScenarioExample {
     // build a market data snapshot for the valuation date
     // this is the base snapshot which will be perturbed by the scenarios
     LocalDate valuationDate = LocalDate.of(2015, 4, 23);
-    MarketData marketData = marketDataBuilder.buildSnapshot(valuationDate);
-
-    // the reference data, such as holidays and securities
-    ReferenceData refData = ReferenceData.standard();
+    MarketEnvironment marketSnapshot = marketDataBuilder.buildSnapshot(valuationDate);
 
     // calculate the results
-    MarketDataRequirements reqs = MarketDataRequirements.of(rules, trades, columns, refData);
-    ScenarioMarketData scenarioMarketData =
-        marketDataFactory().createMultiScenario(reqs, MarketDataConfig.empty(), marketData, refData, historicalScenarios);
-    Results results = runner.calculateMultiScenario(rules, trades, columns, scenarioMarketData, refData);
+    MarketDataRequirements reqs = MarketDataRequirements.of(rules, trades, columns);
+    MarketEnvironment enhancedMarketData = marketDataFactory()
+        .buildMarketData(reqs, marketSnapshot, MarketDataConfig.empty(), historicalScenarios);
+    Results results = runner.calculateMultipleScenarios(rules, trades, columns, enhancedMarketData);
 
     // the results contain the one measure requested (Present Value) for each scenario
-    ScenarioArray<?> scenarioValuations = (ScenarioArray<?>) results.get(0, 0).getValue();
+    ScenarioResult<?> scenarioValuations = (ScenarioResult<?>) results.get(0, 0).getValue();
     outputPnl(scenarioDates, scenarioValuations);
   }
 
@@ -146,36 +143,39 @@ public class HistoricalScenarioExample {
       List<LocalDate> scenarioDates) {
 
     // extract the curves to perturb
-    List<Curve> usdDiscountCurves = scenarioDates.stream()
+    List<NodalCurve> usdDiscountCurves = scenarioDates.stream()
         .map(date -> historicalCurves.get(date))
         .map(group -> group.findDiscountCurve(Currency.USD).get())
+        .map(NodalCurve.class::cast)
         .collect(toImmutableList());
 
-    List<Curve> libor3mCurves = scenarioDates.stream()
+    List<NodalCurve> libor3mCurves = scenarioDates.stream()
         .map(date -> historicalCurves.get(date))
         .map(group -> group.findForwardCurve(IborIndices.USD_LIBOR_3M).get())
+        .map(NodalCurve.class::cast)
         .collect(toImmutableList());
 
-    List<Curve> libor6mCurves = scenarioDates.stream()
+    List<NodalCurve> libor6mCurves = scenarioDates.stream()
         .map(date -> historicalCurves.get(date))
         .map(group -> group.findForwardCurve(IborIndices.USD_LIBOR_6M).get())
+        .map(NodalCurve.class::cast)
         .collect(toImmutableList());
 
     // create mappings which will cause the point shift perturbations generated above
     // to be applied to the correct curves
     PerturbationMapping<Curve> discountCurveMappings = PerturbationMapping.of(
         Curve.class,
-        MarketDataFilter.ofName(CurveName.of("USD-Disc")),
+        AnyDiscountCurveFilter.INSTANCE,
         buildShifts(usdDiscountCurves));
 
     PerturbationMapping<Curve> libor3mMappings = PerturbationMapping.of(
         Curve.class,
-        MarketDataFilter.ofName(CurveName.of("USD-3ML")),
+        IndexCurveFilter.of(IborIndices.USD_LIBOR_3M),
         buildShifts(libor3mCurves));
 
     PerturbationMapping<Curve> libor6mMappings = PerturbationMapping.of(
         Curve.class,
-        MarketDataFilter.ofName(CurveName.of("USD-6ML")),
+        IndexCurveFilter.of(IborIndices.USD_LIBOR_6M),
         buildShifts(libor6mCurves));
 
     // create a scenario definition from these mappings
@@ -185,21 +185,21 @@ public class HistoricalScenarioExample {
         libor6mMappings);
   }
 
-  private static CurvePointShifts buildShifts(List<Curve> historicalCurves) {
+  private static CurvePointShifts buildShifts(List<NodalCurve> historicalCurves) {
     CurvePointShiftsBuilder builder = CurvePointShifts.builder(ShiftType.ABSOLUTE);
 
     for (int scenarioIndex = 1; scenarioIndex < historicalCurves.size(); scenarioIndex++) {
-      Curve previousCurve = historicalCurves.get(scenarioIndex - 1);
-      Curve curve = historicalCurves.get(scenarioIndex);
+      NodalCurve previousCurve = historicalCurves.get(scenarioIndex - 1);
+      NodalCurve curve = historicalCurves.get(scenarioIndex);
 
       // obtain the curve node metadata - this is used to identify a node to apply a perturbation to
-      List<ParameterMetadata> curveNodeMetadata = curve.getMetadata().getParameterMetadata().get();
+      List<CurveParameterMetadata> curveNodeMetadata = curve.getMetadata().getParameterMetadata().get();
 
       // build up the shifts to apply to each node
       // these are calculated as the actual change in the zero rate at that node between the two scenario dates
       for (int curveNodeIdx = 0; curveNodeIdx < curve.getParameterCount(); curveNodeIdx++) {
-        double zeroRate = curve.getParameter(curveNodeIdx);
-        double previousZeroRate = previousCurve.getParameter(curveNodeIdx);
+        double zeroRate = curve.getYValues().get(curveNodeIdx);
+        double previousZeroRate = previousCurve.getYValues().get(curveNodeIdx);
         double shift = (zeroRate - previousZeroRate);
         builder.addShift(scenarioIndex, curveNodeMetadata.get(curveNodeIdx).getIdentifier(), shift);
       }
@@ -207,13 +207,13 @@ public class HistoricalScenarioExample {
     return builder.build();
   }
 
-  private static void outputPnl(List<LocalDate> scenarioDates, ScenarioArray<?> scenarioValuations) {
+  private static void outputPnl(List<LocalDate> scenarioDates, ScenarioResult<?> scenarioValuations) {
     NumberFormat numberFormat = new DecimalFormat("0.00", new DecimalFormatSymbols(Locale.ENGLISH));
     double basePv = ((CurrencyAmount) scenarioValuations.get(0)).getAmount();
     System.out.println("Base PV (USD): " + numberFormat.format(basePv));
     System.out.println();
     System.out.println("P&L series (USD):");
-    for (int i = 1; i < scenarioValuations.getScenarioCount(); i++) {
+    for (int i = 1; i < scenarioValuations.size(); i++) {
       double scenarioPv = ((CurrencyAmount) scenarioValuations.get(i)).getAmount();
       double pnl = scenarioPv - basePv;
       LocalDate scenarioDate = scenarioDates.get(i);
@@ -232,7 +232,7 @@ public class HistoricalScenarioExample {
             .startDate(LocalDate.of(2015, 9, 11))
             .endDate(LocalDate.of(2021, 9, 11))
             .frequency(Frequency.P3M)
-            .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, HolidayCalendarIds.USNY))
+            .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, HolidayCalendars.USNY))
             .build())
         .paymentSchedule(PaymentSchedule.builder()
             .paymentFrequency(Frequency.P3M)
@@ -248,7 +248,7 @@ public class HistoricalScenarioExample {
             .startDate(LocalDate.of(2015, 9, 11))
             .endDate(LocalDate.of(2021, 9, 11))
             .frequency(Frequency.P6M)
-            .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, HolidayCalendarIds.USNY))
+            .businessDayAdjustment(BusinessDayAdjustment.of(MODIFIED_FOLLOWING, HolidayCalendars.USNY))
             .build())
         .paymentSchedule(PaymentSchedule.builder()
             .paymentFrequency(Frequency.P6M)
@@ -260,9 +260,9 @@ public class HistoricalScenarioExample {
 
     return SwapTrade.builder()
         .product(Swap.of(payLeg, receiveLeg))
-        .info(TradeInfo.builder()
+        .tradeInfo(TradeInfo.builder()
             .id(StandardId.of("example", "1"))
-            .addAttribute(TradeAttributeType.DESCRIPTION, "Libor 3m vs Libor 6m")
+            .attributes(ImmutableMap.of("description", "Libor 3m vs Libor 6m"))
             .counterparty(StandardId.of("example", "A"))
             .settlementDate(LocalDate.of(2015, 9, 11))
             .build())

@@ -11,7 +11,7 @@ import java.time.Period;
 import org.joda.convert.FromString;
 import org.joda.convert.ToString;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DayCount;
@@ -23,7 +23,6 @@ import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.named.ExtendedEnum;
 import com.opengamma.strata.collect.named.Named;
 import com.opengamma.strata.product.TradeConvention;
-import com.opengamma.strata.product.common.BuySell;
 import com.opengamma.strata.product.credit.CdsDatesLogic;
 import com.opengamma.strata.product.credit.CdsTrade;
 import com.opengamma.strata.product.credit.IndexReferenceInformation;
@@ -208,25 +207,23 @@ public interface CdsConvention
    * Gets the adjusted start date.
    * 
    * @param valuationDate  the valuation date
-   * @param refData  the reference data to use
    * @return adjusted start date
    */
-  public default LocalDate calculateAdjustedStartDate(LocalDate valuationDate, ReferenceData refData) {
+  public default LocalDate calculateAdjustedStartDate(LocalDate valuationDate) {
     return getBusinessDayAdjustment().adjust(
-        calculateUnadjustedAccrualStartDate(valuationDate), refData);
+        calculateUnadjustedAccrualStartDate(valuationDate));
   }
 
   /**
    * Gets the adjusted settlement date.
    * 
    * @param valuationDate  the valuation date
-   * @param refData  the reference data to use
    * @return unadjusted settle date
    */
-  public default LocalDate calculateAdjustedSettleDate(LocalDate valuationDate, ReferenceData refData) {
+  public default LocalDate calculateAdjustedSettleDate(LocalDate valuationDate) {
     DaysAdjustment daysAdjustment = DaysAdjustment.ofBusinessDays(
         getSettleLagDays(), getBusinessDayAdjustment().getCalendar(), getBusinessDayAdjustment());
-    return daysAdjustment.adjust(valuationDate, refData);
+    return daysAdjustment.adjust(valuationDate);
   }
 
   /**

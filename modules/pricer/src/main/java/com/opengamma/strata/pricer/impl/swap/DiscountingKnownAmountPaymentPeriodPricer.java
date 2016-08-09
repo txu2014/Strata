@@ -18,8 +18,8 @@ import com.opengamma.strata.market.explain.ExplainMapBuilder;
 import com.opengamma.strata.market.sensitivity.PointSensitivityBuilder;
 import com.opengamma.strata.pricer.DiscountingPaymentPricer;
 import com.opengamma.strata.pricer.rate.RatesProvider;
-import com.opengamma.strata.pricer.swap.SwapPaymentPeriodPricer;
-import com.opengamma.strata.product.swap.KnownAmountSwapPaymentPeriod;
+import com.opengamma.strata.pricer.swap.PaymentPeriodPricer;
+import com.opengamma.strata.product.swap.KnownAmountPaymentPeriod;
 
 /**
  * Pricer implementation for swap payment periods based on a known amount.
@@ -27,7 +27,7 @@ import com.opengamma.strata.product.swap.KnownAmountSwapPaymentPeriod;
  * This pricer performs discounting of the known amount.
  */
 public class DiscountingKnownAmountPaymentPeriodPricer
-    implements SwapPaymentPeriodPricer<KnownAmountSwapPaymentPeriod> {
+    implements PaymentPeriodPricer<KnownAmountPaymentPeriod> {
 
   /**
    * Default implementation.
@@ -51,17 +51,20 @@ public class DiscountingKnownAmountPaymentPeriodPricer
 
   //-------------------------------------------------------------------------
   @Override
-  public double presentValue(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
-    return paymentPricer.presentValueAmount(period.getPayment(), provider);
+  public double presentValue(KnownAmountPaymentPeriod period, RatesProvider provider) {
+    return paymentPricer.presentValue(period.getPayment(), provider).getAmount();
   }
 
   @Override
-  public double forecastValue(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
-    return paymentPricer.forecastValueAmount(period.getPayment(), provider);
+  public double forecastValue(KnownAmountPaymentPeriod period, RatesProvider provider) {
+    if (period.getPaymentDate().isBefore(provider.getValuationDate())) {
+      return 0;
+    }
+    return period.getPayment().getAmount();
   }
 
   @Override
-  public double accruedInterest(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
+  public double accruedInterest(KnownAmountPaymentPeriod period, RatesProvider provider) {
     // no day count available, so return the simple day-based fraction
     LocalDate valDate = provider.getValuationDate();
     if (valDate.compareTo(period.getStartDate()) <= 0 || valDate.compareTo(period.getEndDate()) > 0) {
@@ -74,29 +77,29 @@ public class DiscountingKnownAmountPaymentPeriodPricer
   }
 
   @Override
-  public double pvbp(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
+  public double pvbp(KnownAmountPaymentPeriod period, RatesProvider provider) {
     throw new UnsupportedOperationException("Unable to calculate PVBP for KnownAmountPaymentPeriod");
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public PointSensitivityBuilder presentValueSensitivity(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
+  public PointSensitivityBuilder presentValueSensitivity(KnownAmountPaymentPeriod period, RatesProvider provider) {
     return paymentPricer.presentValueSensitivity(period.getPayment(), provider);
   }
 
   @Override
-  public PointSensitivityBuilder forecastValueSensitivity(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
+  public PointSensitivityBuilder forecastValueSensitivity(KnownAmountPaymentPeriod period, RatesProvider provider) {
     return PointSensitivityBuilder.none();
   }
 
   @Override
-  public PointSensitivityBuilder pvbpSensitivity(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
+  public PointSensitivityBuilder pvbpSensitivity(KnownAmountPaymentPeriod period, RatesProvider provider) {
     throw new UnsupportedOperationException("Unable to calculate PVBP for KnownAmountPaymentPeriod");
   }
 
   //-------------------------------------------------------------------------
   @Override
-  public void explainPresentValue(KnownAmountSwapPaymentPeriod period, RatesProvider provider, ExplainMapBuilder builder) {
+  public void explainPresentValue(KnownAmountPaymentPeriod period, RatesProvider provider, ExplainMapBuilder builder) {
     Currency currency = period.getCurrency();
     LocalDate paymentDate = period.getPaymentDate();
 
@@ -106,8 +109,8 @@ public class DiscountingKnownAmountPaymentPeriodPricer
     builder.put(ExplainKey.START_DATE, period.getStartDate());
     builder.put(ExplainKey.UNADJUSTED_START_DATE, period.getUnadjustedStartDate());
     builder.put(ExplainKey.END_DATE, period.getEndDate());
+    builder.put(ExplainKey.ACCRUAL_DAYS, (int) DAYS.between(period.getStartDate(), period.getEndDate()));
     builder.put(ExplainKey.UNADJUSTED_END_DATE, period.getUnadjustedEndDate());
-    builder.put(ExplainKey.DAYS, (int) DAYS.between(period.getStartDate(), period.getEndDate()));
     if (paymentDate.isBefore(provider.getValuationDate())) {
       builder.put(ExplainKey.FORECAST_VALUE, CurrencyAmount.zero(currency));
       builder.put(ExplainKey.PRESENT_VALUE, CurrencyAmount.zero(currency));
@@ -120,12 +123,12 @@ public class DiscountingKnownAmountPaymentPeriodPricer
 
   //-------------------------------------------------------------------------
   @Override
-  public MultiCurrencyAmount currencyExposure(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
+  public MultiCurrencyAmount currencyExposure(KnownAmountPaymentPeriod period, RatesProvider provider) {
     return MultiCurrencyAmount.of(CurrencyAmount.of(period.getCurrency(), presentValue(period, provider)));
   }
 
   @Override
-  public double currentCash(KnownAmountSwapPaymentPeriod period, RatesProvider provider) {
+  public double currentCash(KnownAmountPaymentPeriod period, RatesProvider provider) {
     if (provider.getValuationDate().isEqual(period.getPaymentDate())) {
       return forecastValue(period, provider);
     }

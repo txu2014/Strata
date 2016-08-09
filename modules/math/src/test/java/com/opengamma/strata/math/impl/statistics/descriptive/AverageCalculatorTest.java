@@ -13,7 +13,7 @@ import java.util.function.Function;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.opengamma.strata.math.MathException;
+import com.opengamma.strata.math.impl.MathException;
 
 /**
  * Test.

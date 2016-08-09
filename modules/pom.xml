@@ -13,7 +13,7 @@
   </parent>  
   <groupId>com.opengamma.strata</groupId>
   <artifactId>strata-parent</artifactId>
-  <version>1.1.0-SNAPSHOT</version>
+  <version>0.10.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Strata-Parent</name>
   <description>OpenGamma Strata Parent</description>
@@ -49,14 +49,13 @@
   <modules>
     <module>basics</module>
     <module>collect</module>
-    <module>data</module>
+    <module>calc</module>
     <module>product</module>
-    <module>market</module>
+    <module>function</module>
     <module>loader</module>
+    <module>market</module>
     <module>math</module>
     <module>pricer</module>
-    <module>calc</module>
-    <module>measure</module>
     <module>report</module>
   </modules>
 
@@ -208,11 +207,6 @@
       </dependency>
       <dependency>
         <groupId>com.opengamma.strata</groupId>
-        <artifactId>strata-data</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.opengamma.strata</groupId>
         <artifactId>strata-math</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -248,7 +242,7 @@
       </dependency>
       <dependency>
         <groupId>com.opengamma.strata</groupId>
-        <artifactId>strata-measure</artifactId>
+        <artifactId>strata-function</artifactId>
         <version>${project.version}</version>
       </dependency>
       <!-- Third party -->
@@ -513,12 +507,12 @@
   <!-- ==================================================================== -->
   <properties>
     <!-- Versions -->
-    <assertj.version>3.4.1</assertj.version>
+    <assertj.version>3.3.0</assertj.version>
     <findbugs.version>1.3.9</findbugs.version>
     <guava.version>19.0</guava.version>
     <joda-convert.version>1.8.1</joda-convert.version>
-    <joda-beans.version>1.8</joda-beans.version>
-    <slf4j.version>1.7.21</slf4j.version>
+    <joda-beans.version>1.7</joda-beans.version>
+    <slf4j.version>1.7.13</slf4j.version>
     <jcommander.version>1.48</jcommander.version>
     <testng.version>6.9.10</testng.version>
     <mockito.version>1.10.19</mockito.version>

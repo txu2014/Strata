@@ -5,15 +5,20 @@
  */
 package com.opengamma.strata.product;
 
+import com.opengamma.strata.basics.Trade;
+
 /**
  * A trade that is directly based on a product.
  * <p>
  * A product trade is a {@link Trade} that directly contains a reference to a {@link Product}.
+ * This design is typically used for Over-The-Counter (OTC) trades, where the instrument is not fungible.
  * <p>
  * Implementations of this interface must be immutable beans.
+ * 
+ * @param <P>  the type of the product
  */
-public interface ProductTrade
-    extends Trade {
+public interface ProductTrade<P extends Product>
+    extends FinanceTrade {
 
   /**
    * Gets the underlying product that was agreed when the trade occurred.
@@ -22,6 +27,6 @@ public interface ProductTrade
    * 
    * @return the product
    */
-  public abstract Product getProduct();
+  public abstract P getProduct();
 
 }

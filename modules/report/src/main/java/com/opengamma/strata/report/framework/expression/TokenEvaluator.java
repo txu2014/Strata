@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Set;
 
 import com.opengamma.strata.basics.index.IborIndex;
-import com.opengamma.strata.calc.runner.CalculationFunctions;
 import com.opengamma.strata.product.fra.Fra;
 
 /**
@@ -46,16 +45,11 @@ public abstract class TokenEvaluator<T> {
    * Evaluates a token against a given object.
    * 
    * @param target  the object against which to evaluate the token
-   * @param functions  the calculation functions
    * @param firstToken  the first token of the expression
    * @param remainingTokens  the remaining tokens in the expression, possibly empty
    * @return the result of the evaluation
    */
-  public abstract EvaluationResult evaluate(
-      T target,
-      CalculationFunctions functions,
-      String firstToken,
-      List<String> remainingTokens);
+  public abstract EvaluationResult evaluate(T target, String firstToken, List<String> remainingTokens);
 
   //-------------------------------------------------------------------------
   /**

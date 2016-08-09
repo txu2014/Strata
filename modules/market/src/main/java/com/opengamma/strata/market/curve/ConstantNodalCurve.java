@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2016 - present by OpenGamma Inc. and the OpenGamma group of companies
+ * Copyright (C) 2015 - present by OpenGamma Inc. and the OpenGamma group of companies
  * 
  * Please see distribution for license.
  */
@@ -10,11 +10,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.DoubleBinaryOperator;
 
 import org.joda.beans.Bean;
+import org.joda.beans.BeanBuilder;
 import org.joda.beans.BeanDefinition;
 import org.joda.beans.ImmutableBean;
-import org.joda.beans.ImmutableConstructor;
 import org.joda.beans.JodaBeanUtils;
 import org.joda.beans.MetaProperty;
 import org.joda.beans.Property;
@@ -24,92 +25,84 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.currency.Currency;
+import com.opengamma.strata.basics.value.ValueAdjustment;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.collect.array.DoubleArray;
-import com.opengamma.strata.market.param.CurrencyParameterSensitivity;
-import com.opengamma.strata.market.param.ParameterMetadata;
-import com.opengamma.strata.market.param.ParameterPerturbation;
-import com.opengamma.strata.market.param.UnitParameterSensitivity;
 
 /**
  * A curve based on a single constant value.
  * <p>
- * This class defines a curve in terms of a single node point. 
- * The resulting curve is a constant curve with the y-value of the node point.
+ * This class defines a curve in terms of a single parameter, the constant value.
  * When queried, {@link #yValue(double)} always returns the constant value.
  * <p>
- * The {@link #getXValues()} method returns a single x-value of the node.
- * The {@link #getYValues()} method returns a single y-value of the node.
+ * The {@link #getXValues()} method returns a single x-value of 0.
+ * The {@link #getYValues()} method returns a single y-value of the constant.
  * The sensitivity is 1 and the first derivative is 0.
  */
-@BeanDefinition
+@BeanDefinition(builderScope = "private")
 public final class ConstantNodalCurve
     implements NodalCurve, ImmutableBean, Serializable {
 
   /**
+   * X-values does not vary.
+   */
+  private static final DoubleArray X_VALUES = DoubleArray.of(0d);
+  /**
+   * Sensitivity does not vary.
+   */
+  private static final DoubleArray SENSITIVITY = DoubleArray.of(1d);
+
+  /**
    * The curve metadata.
    * <p>
-   * The metadata will have a single parameter metadata.
+   * The metadata will have not have parameter metadata.
    */
   @PropertyDefinition(validate = "notNull", overrideGet = true)
   private final CurveMetadata metadata;
   /**
-   * The single x-value.
-   */
-  @PropertyDefinition(validate = "notNull")
-  private final double xValue;
-  /**
    * The single y-value.
    */
-  @PropertyDefinition(validate = "notNull")
+  @PropertyDefinition(validate = "notNull", get = "private")
   private final double yValue;
 
-  private transient final List<ParameterMetadata> parameterMetadata;  // derived, not a property
-
   //-------------------------------------------------------------------------
   /**
-   * Creates a constant nodal curve with metadata.
+   * Creates a constant curve with a specific value.
    * 
-   * @param metadata  the curve metadata
-   * @param xValue  the x-value
-   * @param yValue  the y-value
+   * @param name  the curve name
+   * @param yValue  the constant y-value
    * @return the curve
    */
-  public static ConstantNodalCurve of(CurveMetadata metadata, double xValue, double yValue) {
-    return new ConstantNodalCurve(metadata, xValue, yValue);
+  public static ConstantNodalCurve of(String name, double yValue) {
+    return of(CurveName.of(name), yValue);
   }
 
   /**
-   * Creates a constant nodal curve with metadata.
+   * Creates a constant curve with a specific value.
    * 
-   * @param metadata  the curve metadata
-   * @param xValue  the x-value
-   * @param yValue  the y-value
+   * @param name  the curve name
+   * @param yValue  the constant y-value
    * @return the curve
    */
-  public static ConstantNodalCurve of(CurveMetadata metadata, DoubleArray xValue, DoubleArray yValue) {
-    return new ConstantNodalCurve(metadata, xValue.get(0), yValue.get(0));
+  public static ConstantNodalCurve of(CurveName name, double yValue) {
+    return new ConstantNodalCurve(DefaultCurveMetadata.of(name), yValue);
+  }
+
+  /**
+   * Creates a constant curve with a specific value.
+   * 
+   * @param metadata  the curve metadata
+   * @param yValue  the constant y-value
+   * @return the curve
+   */
+  public static ConstantNodalCurve of(CurveMetadata metadata, double yValue) {
+    return new ConstantNodalCurve(metadata, yValue);
   }
 
   //-------------------------------------------------------------------------
-  // restricted constructor
-  @ImmutableConstructor
-  private ConstantNodalCurve(
-      CurveMetadata metadata,
-      double xValue,
-      double yValue) {
-    JodaBeanUtils.notNull(metadata, "metadata");
-    metadata.getParameterMetadata().ifPresent(params -> {
-      if (params.size() != 1) {
-        throw new IllegalArgumentException("Length of parameter metadata must be 1");
-      }
-    });
-    this.metadata = metadata;
-    this.xValue = xValue;
-    this.yValue = yValue;
-    this.parameterMetadata = ImmutableList.of(getParameterMetadata(0));
+  // ensure standard constructor is invoked
+  private Object readResolve() {
+    return new ConstantNodalCurve(metadata, yValue);
   }
 
   //-------------------------------------------------------------------------
@@ -119,27 +112,8 @@ public final class ConstantNodalCurve
   }
 
   @Override
-  public double getParameter(int parameterIndex) {
-    ArgChecker.isTrue(parameterIndex == 0, "single parameter");
-    return yValue;
-  }
-
-  @Override
-  public ConstantNodalCurve withParameter(int parameterIndex, double newValue) {
-    ArgChecker.isTrue(parameterIndex == 0, "single parameter");
-    return new ConstantNodalCurve(metadata, xValue, newValue);
-  }
-
-  @Override
-  public ConstantNodalCurve withPerturbation(ParameterPerturbation perturbation) {
-    double perturbedValue = perturbation.perturbParameter(0, yValue, getParameterMetadata(0));
-    return new ConstantNodalCurve(metadata, xValue, perturbedValue);
-  }
-
-  //-------------------------------------------------------------------------
-  @Override
   public DoubleArray getXValues() {
-    return DoubleArray.of(xValue);
+    return X_VALUES;
   }
 
   @Override
@@ -154,8 +128,8 @@ public final class ConstantNodalCurve
   }
 
   @Override
-  public UnitParameterSensitivity yValueParameterSensitivity(double x) {
-    return createParameterSensitivity(DoubleArray.of(1d));
+  public CurveUnitParameterSensitivity yValueParameterSensitivity(double x) {
+    return CurveUnitParameterSensitivity.of(metadata, SENSITIVITY);
   }
 
   @Override
@@ -165,39 +139,19 @@ public final class ConstantNodalCurve
 
   //-------------------------------------------------------------------------
   @Override
-  public ConstantNodalCurve withMetadata(CurveMetadata metadata) {
-    return new ConstantNodalCurve(metadata, xValue, yValue);
-  }
-
-  @Override
   public ConstantNodalCurve withYValues(DoubleArray yValues) {
-    ArgChecker.isTrue(yValues.size() == 1, "Invalid number of parameters, only one allowed");
-    return new ConstantNodalCurve(metadata, xValue, yValues.get(0));
+    ArgChecker.isTrue(yValues.size() == 1, "YValues array must be size one");
+    return new ConstantNodalCurve(metadata, yValues.get(0));
   }
 
   @Override
-  public ConstantNodalCurve withValues(DoubleArray xValues, DoubleArray yValues) {
-    ArgChecker.isTrue(xValues.size() == 1 && yValues.size() == 1, "Invalid number of parameters, only one allowed");
-    return new ConstantNodalCurve(metadata, xValues.get(0), yValues.get(0));
-  }
-
-  //-------------------------------------------------------------------------
-  @Override
-  public ConstantNodalCurve withNode(double x, double y, ParameterMetadata paramMetadata) {
-    ArgChecker.isTrue(x == xValue, "x should be equal to the existing x-value");
-    CurveMetadata md = metadata.withParameterMetadata(ImmutableList.of(paramMetadata));
-    return new ConstantNodalCurve(md, x, y);
-  }
-
-  //-------------------------------------------------------------------------
-  @Override
-  public UnitParameterSensitivity createParameterSensitivity(DoubleArray sensitivities) {
-    return UnitParameterSensitivity.of(getName(), parameterMetadata, sensitivities);
+  public ConstantNodalCurve shiftedBy(DoubleBinaryOperator operator) {
+    return (ConstantNodalCurve) NodalCurve.super.shiftedBy(operator);
   }
 
   @Override
-  public CurrencyParameterSensitivity createParameterSensitivity(Currency currency, DoubleArray sensitivities) {
-    return CurrencyParameterSensitivity.of(getName(), parameterMetadata, currency, sensitivities);
+  public ConstantNodalCurve shiftedBy(List<ValueAdjustment> adjustments) {
+    return (ConstantNodalCurve) NodalCurve.super.shiftedBy(adjustments);
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -219,12 +173,13 @@ public final class ConstantNodalCurve
    */
   private static final long serialVersionUID = 1L;
 
-  /**
-   * Returns a builder used to create an instance of the bean.
-   * @return the builder, not null
-   */
-  public static ConstantNodalCurve.Builder builder() {
-    return new ConstantNodalCurve.Builder();
+  private ConstantNodalCurve(
+      CurveMetadata metadata,
+      double yValue) {
+    JodaBeanUtils.notNull(metadata, "metadata");
+    JodaBeanUtils.notNull(yValue, "yValue");
+    this.metadata = metadata;
+    this.yValue = yValue;
   }
 
   @Override
@@ -246,7 +201,7 @@ public final class ConstantNodalCurve
   /**
    * Gets the curve metadata.
    * <p>
-   * The metadata will have a single parameter metadata.
+   * The metadata will have not have parameter metadata.
    * @return the value of the property, not null
    */
   @Override
@@ -256,31 +211,14 @@ public final class ConstantNodalCurve
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the single x-value.
-   * @return the value of the property, not null
-   */
-  public double getXValue() {
-    return xValue;
-  }
-
-  //-----------------------------------------------------------------------
-  /**
    * Gets the single y-value.
    * @return the value of the property, not null
    */
-  public double getYValue() {
+  private double getYValue() {
     return yValue;
   }
 
   //-----------------------------------------------------------------------
-  /**
-   * Returns a builder that allows this bean to be mutated.
-   * @return the mutable builder, not null
-   */
-  public Builder toBuilder() {
-    return new Builder(this);
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (obj == this) {
@@ -289,7 +227,6 @@ public final class ConstantNodalCurve
     if (obj != null && obj.getClass() == this.getClass()) {
       ConstantNodalCurve other = (ConstantNodalCurve) obj;
       return JodaBeanUtils.equal(metadata, other.metadata) &&
-          JodaBeanUtils.equal(xValue, other.xValue) &&
           JodaBeanUtils.equal(yValue, other.yValue);
     }
     return false;
@@ -299,17 +236,15 @@ public final class ConstantNodalCurve
   public int hashCode() {
     int hash = getClass().hashCode();
     hash = hash * 31 + JodaBeanUtils.hashCode(metadata);
-    hash = hash * 31 + JodaBeanUtils.hashCode(xValue);
     hash = hash * 31 + JodaBeanUtils.hashCode(yValue);
     return hash;
   }
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(128);
+    StringBuilder buf = new StringBuilder(96);
     buf.append("ConstantNodalCurve{");
     buf.append("metadata").append('=').append(metadata).append(',').append(' ');
-    buf.append("xValue").append('=').append(xValue).append(',').append(' ');
     buf.append("yValue").append('=').append(JodaBeanUtils.toString(yValue));
     buf.append('}');
     return buf.toString();
@@ -331,11 +266,6 @@ public final class ConstantNodalCurve
     private final MetaProperty<CurveMetadata> metadata = DirectMetaProperty.ofImmutable(
         this, "metadata", ConstantNodalCurve.class, CurveMetadata.class);
     /**
-     * The meta-property for the {@code xValue} property.
-     */
-    private final MetaProperty<Double> xValue = DirectMetaProperty.ofImmutable(
-        this, "xValue", ConstantNodalCurve.class, Double.TYPE);
-    /**
      * The meta-property for the {@code yValue} property.
      */
     private final MetaProperty<Double> yValue = DirectMetaProperty.ofImmutable(
@@ -346,7 +276,6 @@ public final class ConstantNodalCurve
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
         "metadata",
-        "xValue",
         "yValue");
 
     /**
@@ -360,8 +289,6 @@ public final class ConstantNodalCurve
       switch (propertyName.hashCode()) {
         case -450004177:  // metadata
           return metadata;
-        case -777049127:  // xValue
-          return xValue;
         case -748419976:  // yValue
           return yValue;
       }
@@ -369,7 +296,7 @@ public final class ConstantNodalCurve
     }
 
     @Override
-    public ConstantNodalCurve.Builder builder() {
+    public BeanBuilder<? extends ConstantNodalCurve> builder() {
       return new ConstantNodalCurve.Builder();
     }
 
@@ -393,14 +320,6 @@ public final class ConstantNodalCurve
     }
 
     /**
-     * The meta-property for the {@code xValue} property.
-     * @return the meta-property, not null
-     */
-    public MetaProperty<Double> xValue() {
-      return xValue;
-    }
-
-    /**
      * The meta-property for the {@code yValue} property.
      * @return the meta-property, not null
      */
@@ -414,8 +333,6 @@ public final class ConstantNodalCurve
       switch (propertyName.hashCode()) {
         case -450004177:  // metadata
           return ((ConstantNodalCurve) bean).getMetadata();
-        case -777049127:  // xValue
-          return ((ConstantNodalCurve) bean).getXValue();
         case -748419976:  // yValue
           return ((ConstantNodalCurve) bean).getYValue();
       }
@@ -437,10 +354,9 @@ public final class ConstantNodalCurve
   /**
    * The bean-builder for {@code ConstantNodalCurve}.
    */
-  public static final class Builder extends DirectFieldsBeanBuilder<ConstantNodalCurve> {
+  private static final class Builder extends DirectFieldsBeanBuilder<ConstantNodalCurve> {
 
     private CurveMetadata metadata;
-    private double xValue;
     private double yValue;
 
     /**
@@ -449,24 +365,12 @@ public final class ConstantNodalCurve
     private Builder() {
     }
 
-    /**
-     * Restricted copy constructor.
-     * @param beanToCopy  the bean to copy from, not null
-     */
-    private Builder(ConstantNodalCurve beanToCopy) {
-      this.metadata = beanToCopy.getMetadata();
-      this.xValue = beanToCopy.getXValue();
-      this.yValue = beanToCopy.getYValue();
-    }
-
     //-----------------------------------------------------------------------
     @Override
     public Object get(String propertyName) {
       switch (propertyName.hashCode()) {
         case -450004177:  // metadata
           return metadata;
-        case -777049127:  // xValue
-          return xValue;
         case -748419976:  // yValue
           return yValue;
         default:
@@ -479,9 +383,6 @@ public final class ConstantNodalCurve
       switch (propertyName.hashCode()) {
         case -450004177:  // metadata
           this.metadata = (CurveMetadata) newValue;
-          break;
-        case -777049127:  // xValue
-          this.xValue = (Double) newValue;
           break;
         case -748419976:  // yValue
           this.yValue = (Double) newValue;
@@ -520,53 +421,15 @@ public final class ConstantNodalCurve
     public ConstantNodalCurve build() {
       return new ConstantNodalCurve(
           metadata,
-          xValue,
           yValue);
-    }
-
-    //-----------------------------------------------------------------------
-    /**
-     * Sets the curve metadata.
-     * <p>
-     * The metadata will have a single parameter metadata.
-     * @param metadata  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder metadata(CurveMetadata metadata) {
-      JodaBeanUtils.notNull(metadata, "metadata");
-      this.metadata = metadata;
-      return this;
-    }
-
-    /**
-     * Sets the single x-value.
-     * @param xValue  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder xValue(double xValue) {
-      JodaBeanUtils.notNull(xValue, "xValue");
-      this.xValue = xValue;
-      return this;
-    }
-
-    /**
-     * Sets the single y-value.
-     * @param yValue  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder yValue(double yValue) {
-      JodaBeanUtils.notNull(yValue, "yValue");
-      this.yValue = yValue;
-      return this;
     }
 
     //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(128);
+      StringBuilder buf = new StringBuilder(96);
       buf.append("ConstantNodalCurve.Builder{");
       buf.append("metadata").append('=').append(JodaBeanUtils.toString(metadata)).append(',').append(' ');
-      buf.append("xValue").append('=').append(JodaBeanUtils.toString(xValue)).append(',').append(' ');
       buf.append("yValue").append('=').append(JodaBeanUtils.toString(yValue));
       buf.append('}');
       return buf.toString();

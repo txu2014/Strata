@@ -10,7 +10,6 @@ import static com.opengamma.strata.collect.Guavate.toImmutableList;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.Period;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -26,8 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.StandardId;
+import com.opengamma.strata.basics.BuySell;
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.currency.Currency;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.basics.date.AdjustableDate;
@@ -35,8 +34,8 @@ import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.BusinessDayConvention;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
-import com.opengamma.strata.basics.date.HolidayCalendarId;
-import com.opengamma.strata.basics.date.HolidayCalendarIds;
+import com.opengamma.strata.basics.date.HolidayCalendar;
+import com.opengamma.strata.basics.date.HolidayCalendars;
 import com.opengamma.strata.basics.date.Tenor;
 import com.opengamma.strata.basics.index.FloatingRateName;
 import com.opengamma.strata.basics.index.Index;
@@ -44,11 +43,9 @@ import com.opengamma.strata.basics.index.PriceIndex;
 import com.opengamma.strata.basics.schedule.Frequency;
 import com.opengamma.strata.basics.schedule.RollConvention;
 import com.opengamma.strata.collect.Messages;
+import com.opengamma.strata.collect.id.StandardId;
 import com.opengamma.strata.collect.io.XmlElement;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.TradeInfoBuilder;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.common.PayReceive;
 
 /**
  * Provides data about the whole FpML document and parse helper methods.
@@ -131,20 +128,6 @@ public final class FpmlDocument {
       .build();
 
   /**
-   * The map of holiday calendar ids to zone ids.
-   */
-  private static final Map<String, ZoneId> HOLIDAY_CALENDARID_MAP = ImmutableMap.<String, ZoneId>builder()
-      .put("BEBR", ZoneId.of("Europe/Brussels"))
-      .put("CATO", ZoneId.of("America/Toronto"))
-      .put("CHZU", ZoneId.of("Europe/Zurich"))
-      .put("DEFR", ZoneId.of("Europe/Berlin"))
-      .put("FRPA", ZoneId.of("Europe/Paris"))
-      .put("GBLO", ZoneId.of("Europe/London"))
-      .put("JPTO", ZoneId.of("Asia/Tokyo"))
-      .put("USNY", ZoneId.of("America/New_York"))
-      .build();
-
-  /**
    * Constant defining the "any" selector.
    * This must be defined as a constant so that == works when comparing it.
    * FpmlPartySelector is an interface and can only define public constants, thus it is declared here.
@@ -154,7 +137,7 @@ public final class FpmlDocument {
    * Constant defining the "standard" trade info parser.
    */
   static final FpmlTradeInfoParserPlugin TRADE_INFO_STANDARD = (doc, tradeDate, allTradeIds) -> {
-    TradeInfoBuilder builder = TradeInfo.builder();
+    TradeInfo.Builder builder = TradeInfo.builder();
     builder.tradeDate(tradeDate);
     builder.id(allTradeIds.get(doc.getOurPartyHrefId()).stream().findFirst().orElse(null));
     return builder;
@@ -180,10 +163,6 @@ public final class FpmlDocument {
    * The trade info builder.
    */
   private final FpmlTradeInfoParserPlugin tradeInfoParser;
-  /**
-   * The reference data.
-   */
-  private final ReferenceData refData;
 
   //-------------------------------------------------------------------------
   /**
@@ -197,21 +176,18 @@ public final class FpmlDocument {
    * @param references  the map of id/href to referenced element
    * @param ourPartySelector  the selector used to find "our" party within the set of parties in the FpML document
    * @param tradeInfoParser  the trade info parser
-   * @param refData  the reference data to use
    */
   public FpmlDocument(
       XmlElement fpmlRootEl,
       Map<String, XmlElement> references,
       FpmlPartySelector ourPartySelector,
-      FpmlTradeInfoParserPlugin tradeInfoParser,
-      ReferenceData refData) {
+      FpmlTradeInfoParserPlugin tradeInfoParser) {
 
     this.fpmlRoot = fpmlRootEl;
     this.references = ImmutableMap.copyOf(references);
     this.parties = parseParties(fpmlRootEl);
     this.ourPartyHrefId = findOurParty(ourPartySelector);
     this.tradeInfoParser = tradeInfoParser;
-    this.refData = refData;
   }
 
   // parse all the root-level party elements
@@ -294,18 +270,6 @@ public final class FpmlDocument {
     return ourPartyHrefId;
   }
 
-  /**
-   * Gets the reference data.
-   * <p>
-   * Use of reference data is not necessary to parse most FpML documents.
-   * It is only needed to handle some edge cases, notably around relative dates.
-   * 
-   * @return the reference data
-   */
-  public ReferenceData getReferenceData() {
-    return refData;
-  }
-
   //-------------------------------------------------------------------------
   /**
    * Parses the trade header element.
@@ -316,7 +280,7 @@ public final class FpmlDocument {
    * @return the trade info builder
    * @throws RuntimeException if unable to parse
    */
-  public TradeInfoBuilder parseTradeInfo(XmlElement tradeEl) {
+  public TradeInfo.Builder parseTradeInfo(XmlElement tradeEl) {
     XmlElement tradeHeaderEl = tradeEl.getChild("tradeHeader");
     LocalDate tradeDate = parseDate(tradeHeaderEl.getChild("tradeDate"));
     return tradeInfoParser.parseTrade(this, tradeDate, parseAllTradeIds(tradeHeaderEl));
@@ -360,7 +324,7 @@ public final class FpmlDocument {
    * @return the pay/receive flag
    * @throws RuntimeException if unable to parse
    */
-  public BuySell parseBuyerSeller(XmlElement baseEl, TradeInfoBuilder tradeInfoBuilder) {
+  public BuySell parseBuyerSeller(XmlElement baseEl, TradeInfo.Builder tradeInfoBuilder) {
     String buyerPartyReference = baseEl.getChild("buyerPartyReference").getAttribute(FpmlDocument.HREF);
     String sellerPartyReference = baseEl.getChild("sellerPartyReference").getAttribute(FpmlDocument.HREF);
     if (ourPartyHrefId.isEmpty() || buyerPartyReference.equals(ourPartyHrefId)) {
@@ -385,10 +349,10 @@ public final class FpmlDocument {
    * @return the pay/receive flag
    * @throws RuntimeException if unable to parse
    */
-  public PayReceive parsePayerReceiver(XmlElement baseEl, TradeInfoBuilder tradeInfoBuilder) {
+  public PayReceive parsePayerReceiver(XmlElement baseEl, TradeInfo.Builder tradeInfoBuilder) {
     String payerPartyReference = baseEl.getChild("payerPartyReference").getAttribute(HREF);
     String receiverPartyReference = baseEl.getChild("receiverPartyReference").getAttribute(HREF);
-    Object currentCounterparty = tradeInfoBuilder.build().getCounterparty().orElse(null);
+    Object currentCounterparty = tradeInfoBuilder.get(TradeInfo.meta().counterparty());
     // determine direction and setup counterparty
     if ((ourPartyHrefId.isEmpty() && currentCounterparty == null) || payerPartyReference.equals(ourPartyHrefId)) {
       StandardId proposedCounterparty = StandardId.of(FPML_PARTY_SCHEME, parties.get(receiverPartyReference).get(0));
@@ -434,7 +398,7 @@ public final class FpmlDocument {
     if (relativeToEl.hasContent()) {
       baseDate = parseDate(relativeToEl);
     } else if (relativeToEl.getName().contains("relative")) {
-      baseDate = parseAdjustedRelativeDateOffset(relativeToEl).getUnadjusted();
+      baseDate = parseAdjustedRelativeDateOffset(relativeToEl).adjusted();
     } else {
       throw new FpmlParseException(
           "Unable to resolve 'dateRelativeTo' to a date: " + baseEl.getChild("dateRelativeTo").getAttribute(HREF));
@@ -449,10 +413,9 @@ public final class FpmlDocument {
     // interpret and resolve, simple calendar arithmetic or business days
     LocalDate resolvedDate;
     if (period.getYears() > 0 || period.getMonths() > 0 || calendarDays) {
-      resolvedDate = bda1.adjust(baseDate.plus(period), refData);
+      resolvedDate = bda2.adjust(bda1.adjust(baseDate.plus(period)));
     } else {
-      LocalDate datePlusBusDays = bda1.getCalendar().resolve(refData).shift(baseDate, period.getDays());
-      resolvedDate = bda1.adjust(datePlusBusDays, refData);
+      resolvedDate = bda2.adjust(bda1.adjust(bda1.getCalendar().shift(baseDate, period.getDays())));
     }
     return AdjustableDate.of(resolvedDate, bda2);
   }
@@ -479,7 +442,7 @@ public final class FpmlDocument {
     boolean calendarDays = period.isZero() || (dayTypeEl.isPresent() && dayTypeEl.get().getContent().equals("Calendar"));
     BusinessDayConvention fixingBdc = convertBusinessDayConvention(
         baseEl.getChild("businessDayConvention").getContent());
-    HolidayCalendarId calendar = parseBusinessCenters(baseEl);
+    HolidayCalendar calendar = parseBusinessCenters(baseEl);
     if (calendarDays) {
       return DaysAdjustment.ofCalendarDays(
           period.getDays(), BusinessDayAdjustment.of(fixingBdc, calendar));
@@ -522,8 +485,8 @@ public final class FpmlDocument {
         baseEl.getChild("businessDayConvention").getContent());
     Optional<XmlElement> centersEl = baseEl.findChild("businessCenters");
     Optional<XmlElement> centersRefEl = baseEl.findChild("businessCentersReference");
-    HolidayCalendarId calendar =
-        (centersEl.isPresent() || centersRefEl.isPresent() ? parseBusinessCenters(baseEl) : HolidayCalendarIds.NO_HOLIDAYS);
+    HolidayCalendar calendar =
+        (centersEl.isPresent() || centersRefEl.isPresent() ? parseBusinessCenters(baseEl) : HolidayCalendars.NO_HOLIDAYS);
     return BusinessDayAdjustment.of(bdc, calendar);
   }
 
@@ -535,16 +498,16 @@ public final class FpmlDocument {
    * @return the holiday calendar
    * @throws RuntimeException if unable to parse
    */
-  public HolidayCalendarId parseBusinessCenters(XmlElement baseEl) {
+  public HolidayCalendar parseBusinessCenters(XmlElement baseEl) {
     // FpML content: ('businessCentersReference' | 'businessCenters')
     // FpML 'businessCenters' content: ('businessCenter+')
     // Each 'businessCenter' is a location treated as a holiday calendar
     Optional<XmlElement> optionalBusinessCentersEl = baseEl.findChild("businessCenters");
     XmlElement businessCentersEl =
         optionalBusinessCentersEl.orElseGet(() -> lookupReference(baseEl.getChild("businessCentersReference")));
-    HolidayCalendarId calendar = HolidayCalendarIds.NO_HOLIDAYS;
+    HolidayCalendar calendar = HolidayCalendars.NO_HOLIDAYS;
     for (XmlElement businessCenterEl : businessCentersEl.getChildren("businessCenter")) {
-      calendar = calendar.combinedWith(parseBusinessCenter(businessCenterEl));
+      calendar = calendar.combineWith(parseBusinessCenter(businessCenterEl));
     }
     return calendar;
   }
@@ -557,7 +520,7 @@ public final class FpmlDocument {
    * @return the calendar
    * @throws RuntimeException if unable to parse
    */
-  public HolidayCalendarId parseBusinessCenter(XmlElement baseEl) {
+  public HolidayCalendar parseBusinessCenter(XmlElement baseEl) {
     validateScheme(baseEl, "businessCenterScheme", "http://www.fpml.org/coding-scheme/business-center");
     return convertHolidayCalendar(baseEl.getContent());
   }
@@ -775,8 +738,8 @@ public final class FpmlDocument {
    * @return the holiday calendar
    * @throws IllegalArgumentException if the holiday calendar is not known
    */
-  public HolidayCalendarId convertHolidayCalendar(String fpmlBusinessCenter) {
-    return HolidayCalendarId.of(fpmlBusinessCenter);
+  public HolidayCalendar convertHolidayCalendar(String fpmlBusinessCenter) {
+    return HolidayCalendar.of(fpmlBusinessCenter);
   }
 
   /**
@@ -816,20 +779,6 @@ public final class FpmlDocument {
    */
   public LocalDate convertDate(String dateStr) {
     return LocalDate.parse(dateStr, FPML_DATE_FORMAT);
-  }
-
-  /**
-  * Returns the {@code ZoneId} matching this string representation of a holiday calendar id.
-  * 
-  * @param holidayCalendarId  the holiday calendar id string.
-  * @return an optional zone id, an empty optional is returned if no zone id can be found for the holiday calendar id.
-  */
-  public Optional<ZoneId> getZoneId(String holidayCalendarId) {
-    ZoneId zoneId = HOLIDAY_CALENDARID_MAP.get(holidayCalendarId);
-    if (zoneId == null) {
-      return Optional.empty();
-    }
-    return Optional.of(zoneId);
   }
 
   //-------------------------------------------------------------------------

@@ -6,9 +6,9 @@
 package com.opengamma.strata.product.swap;
 
 import static com.opengamma.strata.collect.Guavate.toImmutableList;
-import static com.opengamma.strata.collect.Guavate.toImmutableSet;
 
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -31,14 +31,10 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.Resolvable;
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.currency.Currency;
-import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.index.Index;
 import com.opengamma.strata.collect.ArgChecker;
-import com.opengamma.strata.product.Product;
-import com.opengamma.strata.product.common.PayReceive;
 
 /**
  * A rate swap.
@@ -54,7 +50,7 @@ import com.opengamma.strata.product.common.PayReceive;
  */
 @BeanDefinition
 public final class Swap
-    implements Product, Resolvable<ResolvedSwap>, ImmutableBean, Serializable {
+    implements SwapProduct, ImmutableBean, Serializable {
 
   /**
    * The legs of the swap.
@@ -146,15 +142,15 @@ public final class Swap
    * Gets the accrual start date of the swap.
    * <p>
    * This is the earliest accrual date of the legs, often known as the effective date.
-   * The latest date is chosen by examining the unadjusted end date.
+   * This date has typically been adjusted to be a valid business day.
    * 
    * @return the start date of the swap
    */
   @DerivedProperty
-  public AdjustableDate getStartDate() {
+  public LocalDate getStartDate() {
     return legs.stream()
         .map(SwapLeg::getStartDate)
-        .min(Comparator.comparing(adjDate -> adjDate.getUnadjusted()))
+        .min(Comparator.naturalOrder())
         .get();  // always at least one leg, so get() is safe
   }
 
@@ -162,19 +158,18 @@ public final class Swap
    * Gets the accrual end date of the swap.
    * <p>
    * This is the latest accrual date of the legs, often known as the termination date.
-   * The latest date is chosen by examining the unadjusted end date.
+   * This date has typically been adjusted to be a valid business day.
    * 
    * @return the end date of the swap
    */
   @DerivedProperty
-  public AdjustableDate getEndDate() {
+  public LocalDate getEndDate() {
     return legs.stream()
         .map(SwapLeg::getEndDate)
-        .max(Comparator.comparing(adjDate -> adjDate.getUnadjusted()))
+        .max(Comparator.naturalOrder())
         .get();  // always at least one leg, so get() is safe
   }
 
-  //-------------------------------------------------------------------------
   /**
    * Checks if this trade is cross-currency.
    * <p>
@@ -191,22 +186,6 @@ public final class Swap
       }
     }
     return false;
-  }
-
-  /**
-   * Returns the set of payment currencies referred to by the swap.
-   * <p>
-   * This returns the complete set of payment currencies for the swap.
-   * This will typically return one or two currencies.
-   * <p>
-   * If there is an FX reset, then this set contains the currency of the payment,
-   * not the currency of the notional. Note that in many cases, the currency of
-   * the FX reset notional will be the currency of the other leg.
-   * 
-   * @return the set of payment currencies referred to by this swap
-   */
-  public ImmutableSet<Currency> allPaymentCurrencies() {
-    return legs.stream().map(leg -> leg.getCurrency()).collect(toImmutableSet());
   }
 
   //-------------------------------------------------------------------------
@@ -226,11 +205,20 @@ public final class Swap
   }
 
   //-------------------------------------------------------------------------
+  /**
+   * Expands this swap.
+   * <p>
+   * Expanding a swap causes the dates to be adjusted according to the relevant
+   * holiday calendar. Other one-off calculations may also be performed.
+   * 
+   * @return the expended swap
+   * @throws RuntimeException if unable to expand due to an invalid swap schedule or definition
+   */
   @Override
-  public ResolvedSwap resolve(ReferenceData refData) {
-    return ResolvedSwap.builder()
+  public ExpandedSwap expand() {
+    return ExpandedSwap.builder()
         .legs(legs.stream()
-            .map(leg -> leg.resolve(refData))
+            .map(SwapLeg::expand)
             .collect(toImmutableList()))
         .build();
   }
@@ -354,13 +342,13 @@ public final class Swap
     /**
      * The meta-property for the {@code startDate} property.
      */
-    private final MetaProperty<AdjustableDate> startDate = DirectMetaProperty.ofDerived(
-        this, "startDate", Swap.class, AdjustableDate.class);
+    private final MetaProperty<LocalDate> startDate = DirectMetaProperty.ofDerived(
+        this, "startDate", Swap.class, LocalDate.class);
     /**
      * The meta-property for the {@code endDate} property.
      */
-    private final MetaProperty<AdjustableDate> endDate = DirectMetaProperty.ofDerived(
-        this, "endDate", Swap.class, AdjustableDate.class);
+    private final MetaProperty<LocalDate> endDate = DirectMetaProperty.ofDerived(
+        this, "endDate", Swap.class, LocalDate.class);
     /**
      * The meta-properties.
      */
@@ -417,7 +405,7 @@ public final class Swap
      * The meta-property for the {@code startDate} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<AdjustableDate> startDate() {
+    public MetaProperty<LocalDate> startDate() {
       return startDate;
     }
 
@@ -425,7 +413,7 @@ public final class Swap
      * The meta-property for the {@code endDate} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<AdjustableDate> endDate() {
+    public MetaProperty<LocalDate> endDate() {
       return endDate;
     }
 

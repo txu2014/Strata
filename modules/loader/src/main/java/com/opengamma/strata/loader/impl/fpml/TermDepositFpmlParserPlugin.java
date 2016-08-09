@@ -5,14 +5,14 @@
  */
 package com.opengamma.strata.loader.impl.fpml;
 
+import com.opengamma.strata.basics.BuySell;
+import com.opengamma.strata.basics.PayReceive;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.currency.CurrencyAmount;
 import com.opengamma.strata.collect.io.XmlElement;
 import com.opengamma.strata.loader.fpml.FpmlDocument;
 import com.opengamma.strata.loader.fpml.FpmlParserPlugin;
-import com.opengamma.strata.product.Trade;
-import com.opengamma.strata.product.TradeInfoBuilder;
-import com.opengamma.strata.product.common.BuySell;
-import com.opengamma.strata.product.common.PayReceive;
+import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.deposit.TermDeposit;
 import com.opengamma.strata.product.deposit.TermDepositTrade;
 
@@ -54,7 +54,7 @@ final class TermDepositFpmlParserPlugin
     // rejected elements:
     // 'features?'
     // 'payment*'
-    TradeInfoBuilder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
+    TradeInfo.Builder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
     XmlElement termEl = tradeEl.getChild("termDeposit");
     document.validateNotPresent(termEl, "features");
     document.validateNotPresent(termEl, "payment");
@@ -76,7 +76,7 @@ final class TermDepositFpmlParserPlugin
     termBuilder.dayCount(document.parseDayCountFraction(termEl.getChild("dayCountFraction")));
 
     return TermDepositTrade.builder()
-        .info(tradeInfoBuilder.build())
+        .tradeInfo(tradeInfoBuilder.build())
         .product(termBuilder.build())
         .build();
   }

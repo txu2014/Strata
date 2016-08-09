@@ -6,66 +6,15 @@
 package com.opengamma.strata.pricer.swaption;
 
 import com.opengamma.strata.basics.value.ValueDerivatives;
-import com.opengamma.strata.market.ValueType;
-import com.opengamma.strata.market.param.ParameterPerturbation;
+import com.opengamma.strata.market.view.SwaptionVolatilities;
 
 /**
- * Volatility for swaptions in SABR model.
+ * Volatility for swaptions in SABR model. 
  * <p>
  * The volatility is represented in terms of SABR model parameters.
- * <p>
- * The prices are calculated using the SABR implied volatility with respect to the Black formula.
  */
 public interface SabrSwaptionVolatilities
     extends SwaptionVolatilities {
-
-  @Override
-  public default ValueType getVolatilityType() {
-    return ValueType.BLACK_VOLATILITY; // SABR implemented with Black implied volatility
-  }
-
-  @Override
-  public abstract SabrSwaptionVolatilities withParameter(int parameterIndex, double newValue);
-
-  @Override
-  public abstract SabrSwaptionVolatilities withPerturbation(ParameterPerturbation perturbation);
-
-  //-------------------------------------------------------------------------
-  /**
-   * Calculates the alpha parameter for a pair of time to expiry and instrument tenor.
-   * 
-   * @param expiry  the time to expiry as a year fraction
-   * @param tenor  the tenor of the instrument as a year fraction
-   * @return the alpha parameter
-   */
-  public abstract double alpha(double expiry, double tenor);
-
-  /**
-   * Calculates the beta parameter for a pair of time to expiry and instrument tenor.
-   * 
-   * @param expiry  the time to expiry as a year fraction
-   * @param tenor  the tenor of the instrument as a year fraction
-   * @return the beta parameter
-   */
-  public abstract double beta(double expiry, double tenor);
-
-  /**
-   * Calculates the rho parameter for a pair of time to expiry and instrument tenor.
-   * 
-   * @param expiry  the time to expiry as a year fraction
-   * @param tenor  the tenor of the instrument as a year fraction
-   * @return the rho parameter
-   */
-  public abstract double rho(double expiry, double tenor);
-
-  /**
-   * Calculates the nu parameter for a pair of time to expiry and instrument tenor.
-   * 
-   * @param expiry  the time to expiry as a year fraction
-   * @param tenor  the tenor of the instrument as a year fraction
-   * @return the nu parameter
-   */
-  public abstract double nu(double expiry, double tenor);
 
   /**
    * Calculates the shift parameter for the specified time to expiry and instrument tenor.

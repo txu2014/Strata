@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Optional;
 
 import com.google.common.collect.ImmutableList;
+import com.opengamma.strata.basics.PayReceive;
+import com.opengamma.strata.basics.Trade;
 import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DaysAdjustment;
@@ -26,22 +28,17 @@ import com.opengamma.strata.basics.schedule.StubConvention;
 import com.opengamma.strata.basics.value.ValueAdjustment;
 import com.opengamma.strata.basics.value.ValueSchedule;
 import com.opengamma.strata.basics.value.ValueStep;
-import com.opengamma.strata.basics.value.ValueStepSequence;
 import com.opengamma.strata.collect.Messages;
 import com.opengamma.strata.collect.io.XmlElement;
 import com.opengamma.strata.loader.fpml.FpmlDocument;
 import com.opengamma.strata.loader.fpml.FpmlParseException;
 import com.opengamma.strata.loader.fpml.FpmlParserPlugin;
-import com.opengamma.strata.product.Trade;
-import com.opengamma.strata.product.TradeInfoBuilder;
-import com.opengamma.strata.product.common.PayReceive;
+import com.opengamma.strata.product.TradeInfo;
 import com.opengamma.strata.product.swap.CompoundingMethod;
 import com.opengamma.strata.product.swap.FixedRateCalculation;
-import com.opengamma.strata.product.swap.FixedRateStubCalculation;
 import com.opengamma.strata.product.swap.FixingRelativeTo;
+import com.opengamma.strata.product.swap.IborRateAveragingMethod;
 import com.opengamma.strata.product.swap.IborRateCalculation;
-import com.opengamma.strata.product.swap.IborRateResetMethod;
-import com.opengamma.strata.product.swap.IborRateStubCalculation;
 import com.opengamma.strata.product.swap.InflationRateCalculation;
 import com.opengamma.strata.product.swap.KnownAmountSwapLeg;
 import com.opengamma.strata.product.swap.NegativeRateMethod;
@@ -50,10 +47,10 @@ import com.opengamma.strata.product.swap.OvernightAccrualMethod;
 import com.opengamma.strata.product.swap.OvernightRateCalculation;
 import com.opengamma.strata.product.swap.PaymentRelativeTo;
 import com.opengamma.strata.product.swap.PaymentSchedule;
-import com.opengamma.strata.product.swap.PriceIndexCalculationMethod;
 import com.opengamma.strata.product.swap.RateCalculation;
 import com.opengamma.strata.product.swap.RateCalculationSwapLeg;
 import com.opengamma.strata.product.swap.ResetSchedule;
+import com.opengamma.strata.product.swap.StubCalculation;
 import com.opengamma.strata.product.swap.Swap;
 import com.opengamma.strata.product.swap.SwapLeg;
 import com.opengamma.strata.product.swap.SwapTrade;
@@ -62,22 +59,6 @@ import com.opengamma.strata.product.swap.SwapTrade;
  * FpML parser for Swaps.
  * <p>
  * This parser handles the subset of FpML necessary to populate the trade model.
- * <p>
- * The following features are not available in the Strata trade model:
- * <ul>
- * <li>initial fixing date
- * <li>first payment date
- * <li>last regular payment date
- * <li>weekly reset frequency
- * <li>spread/gearing in a stub
- * <li>overnight leg first rate is known
- * <li>overnight leg stubs
- * <li>FRA discounting
- * <li>future value notional
- * <li>non-delivered settlement
- * <li>rate treatment
- * <li>FX reset first rate is known
- * </ul>
  */
 final class SwapFpmlParserPlugin
     implements FpmlParserPlugin {
@@ -121,16 +102,7 @@ final class SwapFpmlParserPlugin
     // rejected elements:
     //  'swapStream/calculationPeriodAmount/calculation/fxLinkedNotionalSchedule'
     //  'swapStream/calculationPeriodAmount/calculation/futureValueNotional'
-    TradeInfoBuilder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
-    Swap swap = parseSwap(document, tradeEl, tradeInfoBuilder);
-    return SwapTrade.builder()
-        .info(tradeInfoBuilder.build())
-        .product(swap)
-        .build();
-  }
-
-  // parses the swap
-  Swap parseSwap(FpmlDocument document, XmlElement tradeEl, TradeInfoBuilder tradeInfoBuilder) {
+    TradeInfo.Builder tradeInfoBuilder = document.parseTradeInfo(tradeEl);
     XmlElement swapEl = tradeEl.getChild("swap");
     ImmutableList<XmlElement> legEls = swapEl.getChildren("swapStream");
     ImmutableList.Builder<SwapLeg> legsBuilder = ImmutableList.builder();
@@ -175,7 +147,10 @@ final class SwapFpmlParserPlugin
             .build());
       }
     }
-    return Swap.of(legsBuilder.build());
+    return SwapTrade.builder()
+        .tradeInfo(tradeInfoBuilder.build())
+        .product(Swap.of(legsBuilder.build()))
+        .build();
   }
 
   // parses the accrual schedule
@@ -297,7 +272,8 @@ final class SwapFpmlParserPlugin
     //  'principalExchanges/initialExchange'
     //  'principalExchanges/finalExchange'
     //  'principalExchanges/intermediateExchange'
-    //  'calculationPeriodAmount/calculation/notionalSchedule/notionalStepSchedule'
+    //  'calculationPeriodAmount/calculation/notionalSchedule'
+    // rejected elements:
     //  'calculationPeriodAmount/calculation/notionalSchedule/notionalStepParameters'
     NotionalSchedule.Builder notionalScheduleBuilder = NotionalSchedule.builder();
     // exchanges
@@ -309,12 +285,10 @@ final class SwapFpmlParserPlugin
     });
     // notional schedule
     XmlElement notionalEl = calcEl.getChild("notionalSchedule");
-    XmlElement stepScheduleEl = notionalEl.getChild("notionalStepSchedule");
-    Optional<XmlElement> paramScheduleElOpt = notionalEl.findChild("notionalStepParameters");
-    double initialValue = document.parseDecimal(stepScheduleEl.getChild("initialValue"));
-    ValueStepSequence seq = paramScheduleElOpt.map(el -> parseAmountSchedule(el, initialValue, document)).orElse(null);
-    notionalScheduleBuilder.amount(parseSchedule(stepScheduleEl, initialValue, seq, document));
-    notionalScheduleBuilder.currency(document.parseCurrency(stepScheduleEl.getChild("currency")));
+    document.validateNotPresent(notionalEl, "notionalStepParameters");
+    XmlElement notionalScheduleEl = notionalEl.getChild("notionalStepSchedule");
+    notionalScheduleBuilder.amount(parseSchedule(notionalScheduleEl, document));
+    notionalScheduleBuilder.currency(document.parseCurrency(notionalScheduleEl.getChild("currency")));
     return notionalScheduleBuilder.build();
   }
 
@@ -352,25 +326,15 @@ final class SwapFpmlParserPlugin
     // supported elements:
     //  'calculationPeriodAmount/calculation/fixedRateSchedule'
     //  'calculationPeriodAmount/calculation/dayCountFraction'
-    //  'stubCalculationPeriodAmount'
     // rejected elements:
     //  'resetDates'
-    //  'stubCalculationPeriodAmount/initialStub/floatingRate'
-    //  'stubCalculationPeriodAmount/finalStub/floatingRate'
+    //  'stubCalculationPeriodAmount'
     document.validateNotPresent(legEl, "resetDates");
-    FixedRateCalculation.Builder fixedRateBuilder = FixedRateCalculation.builder();
-    fixedRateBuilder.rate(parseSchedule(fixedEl, document));
-    fixedRateBuilder.dayCount(document.parseDayCountFraction(calcEl.getChild("dayCountFraction")));
-    // stub
-    legEl.findChild("stubCalculationPeriodAmount").ifPresent(stubsEl -> {
-      stubsEl.findChild("initialStub").ifPresent(el -> {
-        fixedRateBuilder.initialStub(parseStubCalculationForFixed(el, document));
-      });
-      stubsEl.findChild("finalStub").ifPresent(el -> {
-        fixedRateBuilder.finalStub(parseStubCalculationForFixed(el, document));
-      });
-    });
-    return fixedRateBuilder.build();
+    document.validateNotPresent(legEl, "stubCalculationPeriodAmount");  // TODO: parse fixed stub rate
+    return FixedRateCalculation.builder()
+        .rate(parseSchedule(fixedEl, document))
+        .dayCount(document.parseDayCountFraction(calcEl.getChild("dayCountFraction")))
+        .build();
   }
 
   // Converts an FpML 'FloatingRateCalculation' to a {@code RateCalculation}.
@@ -407,6 +371,8 @@ final class SwapFpmlParserPlugin
     //  'calculationPeriodAmount/calculation/floatingRateCalculation/capRateSchedule?'
     //  'calculationPeriodAmount/calculation/floatingRateCalculation/floorRateSchedule?'
     //  'resetDates/initialFixingDate'
+    //  'stubCalculationPeriodAmount/initalStub/stubAmount'
+    //  'stubCalculationPeriodAmount/finalStub/stubAmount'
     document.validateNotPresent(floatingEl, "rateTreatment");
     document.validateNotPresent(floatingEl, "capRateSchedule");
     document.validateNotPresent(floatingEl, "floorRateSchedule");
@@ -451,7 +417,7 @@ final class SwapFpmlParserPlugin
         ResetSchedule.Builder resetScheduleBuilder = ResetSchedule.builder();
         resetScheduleBuilder.resetFrequency(resetFreq);
         floatingEl.findChild("averagingMethod").ifPresent(el -> {
-          resetScheduleBuilder.resetMethod(parseAveragingMethod(el));
+          resetScheduleBuilder.averagingMethod(parseAveragingMethod(el));
         });
         resetScheduleBuilder.businessDayAdjustment(
             document.parseBusinessDayAdjustments(resetDatesEl.getChild("resetDatesAdjustments")));
@@ -536,11 +502,11 @@ final class SwapFpmlParserPlugin
     //  'calculationPeriodAmount/calculation/inflationRateCalculation/floatingRateMultiplierSchedule?'
     //  'calculationPeriodAmount/calculation/inflationRateCalculation/inflationLag'
     //  'calculationPeriodAmount/calculation/inflationRateCalculation/interpolationMethod'
-    //  'calculationPeriodAmount/calculation/inflationRateCalculation/initialIndexLevel?'
     //  'calculationPeriodAmount/calculation/dayCountFraction'
     // ignored elements:
     // 'calculationPeriodAmount/calculation/inflationRateCalculation/indexSource'
     // 'calculationPeriodAmount/calculation/inflationRateCalculation/mainPublication'
+    // 'calculationPeriodAmount/calculation/inflationRateCalculation/initialIndexLevel'
     // 'calculationPeriodAmount/calculation/inflationRateCalculation/fallbackBondApplicable'
     //  'calculationPeriodAmount/calculation/floatingRateCalculation/initialRate?'
     //  'calculationPeriodAmount/calculation/floatingRateCalculation/finalRateRounding?'
@@ -565,12 +531,7 @@ final class SwapFpmlParserPlugin
     builder.lag(document.parsePeriod(inflationEl.getChild("inflationLag")));
     // interpolation
     String interpStr = inflationEl.getChild("interpolationMethod").getContent();
-    builder.indexCalculationMethod(interpStr.toLowerCase(Locale.ENGLISH).contains("linear") ?
-        PriceIndexCalculationMethod.INTERPOLATED : PriceIndexCalculationMethod.MONTHLY);
-    // initial index
-    inflationEl.findChild("initialIndexLevel").ifPresent(el -> {
-      builder.firstIndexValue(document.parseDecimal(el));
-    });
+    builder.interpolated(interpStr.toLowerCase(Locale.ENGLISH).contains("linear"));
     // gearing
     inflationEl.findChild("floatingRateMultiplierSchedule").ifPresent(el -> {
       builder.gearing(parseSchedule(el, document));
@@ -579,28 +540,12 @@ final class SwapFpmlParserPlugin
   }
 
   //-------------------------------------------------------------------------
-  // Converts an FpML 'StubValue' to a {@code FixedRateStubCalculation}.
-  private FixedRateStubCalculation parseStubCalculationForFixed(XmlElement baseEl, FpmlDocument document) {
+  // Converts an FpML 'StubValue' to a {@code StubCalculation}.
+  private StubCalculation parseStubCalculation(XmlElement baseEl, FpmlDocument document) {
+    document.validateNotPresent(baseEl, "stubAmount");
     Optional<XmlElement> rateOptEl = baseEl.findChild("stubRate");
     if (rateOptEl.isPresent()) {
-      return FixedRateStubCalculation.ofFixedRate(document.parseDecimal(rateOptEl.get()));
-    }
-    Optional<XmlElement> amountOptEl = baseEl.findChild("stubAmount");
-    if (amountOptEl.isPresent()) {
-      return FixedRateStubCalculation.ofKnownAmount(document.parseCurrencyAmount(amountOptEl.get()));
-    }
-    throw new FpmlParseException("Invalid stub, fixed rate leg cannot have a floating rate stub");
-  }
-
-  // Converts an FpML 'StubValue' to a {@code IborRateStubCalculation}.
-  private IborRateStubCalculation parseStubCalculation(XmlElement baseEl, FpmlDocument document) {
-    Optional<XmlElement> rateOptEl = baseEl.findChild("stubRate");
-    if (rateOptEl.isPresent()) {
-      return IborRateStubCalculation.ofFixedRate(document.parseDecimal(rateOptEl.get()));
-    }
-    Optional<XmlElement> amountOptEl = baseEl.findChild("stubAmount");
-    if (amountOptEl.isPresent()) {
-      return IborRateStubCalculation.ofKnownAmount(document.parseCurrencyAmount(amountOptEl.get()));
+      return StubCalculation.ofFixedRate(document.parseDecimal(rateOptEl.get()));
     }
     List<XmlElement> indicesEls = baseEl.getChildren("floatingRate");
     if (indicesEls.size() == 1) {
@@ -610,7 +555,7 @@ final class SwapFpmlParserPlugin
       document.validateNotPresent(indexEl, "rateTreatment");
       document.validateNotPresent(indexEl, "capRateSchedule");
       document.validateNotPresent(indexEl, "floorRateSchedule");
-      return IborRateStubCalculation.ofIborRate((IborIndex) document.parseIndex(indexEl));
+      return StubCalculation.ofIborRate((IborIndex) document.parseIndex(indexEl));
     } else if (indicesEls.size() == 2) {
       XmlElement index1El = indicesEls.get(0);
       document.validateNotPresent(index1El, "floatingRateMultiplierSchedule");
@@ -624,7 +569,7 @@ final class SwapFpmlParserPlugin
       document.validateNotPresent(index2El, "rateTreatment");
       document.validateNotPresent(index2El, "capRateSchedule");
       document.validateNotPresent(index2El, "floorRateSchedule");
-      return IborRateStubCalculation.ofIborInterpolatedRate(
+      return StubCalculation.ofIborInterpolatedRate(
           (IborIndex) document.parseIndex(index1El),
           (IborIndex) document.parseIndex(index2El));
     }
@@ -655,117 +600,76 @@ final class SwapFpmlParserPlugin
   //-------------------------------------------------------------------------
   // Converts an FpML 'StubPeriodTypeEnum' to a {@code StubConvention}.
   private StubConvention parseStubConvention(XmlElement baseEl, FpmlDocument document) {
-    String str = baseEl.getContent();
-    if (str.equals("ShortInitial")) {
+    if (baseEl.getContent().equals("ShortInitial")) {
       return StubConvention.SHORT_INITIAL;
-    } else if (str.equals("ShortFinal")) {
+    } else if (baseEl.getContent().equals("ShortFinal")) {
       return StubConvention.SHORT_FINAL;
-    } else if (str.equals("LongInitial")) {
+    } else if (baseEl.getContent().equals("LongInitial")) {
       return StubConvention.LONG_INITIAL;
-    } else if (str.equals("LongFinal")) {
+    } else if (baseEl.getContent().equals("LongFinal")) {
       return StubConvention.LONG_FINAL;
     } else {
-      throw new FpmlParseException(Messages.format(
-          "Unknown 'stubPeriodType' value '{}', expected 'ShortInitial', 'ShortFinal', 'LongInitial' or 'LongFinal'", str));
+      throw new FpmlParseException(Messages.format("Unknown 'stubPeriodType': {}", baseEl.getContent()));
     }
   }
 
   // Converts an FpML 'Schedule' to a {@code ValueSchedule}.
-  private ValueSchedule parseSchedule(XmlElement scheduleEl, FpmlDocument document) {
+  private ValueSchedule parseSchedule(XmlElement notionalScheduleEl, FpmlDocument document) {
     // FpML content: ('initialValue', 'step*')
     // FpML 'step' content: ('stepDate', 'stepValue')
-    double initialValue = document.parseDecimal(scheduleEl.getChild("initialValue"));
-    return parseSchedule(scheduleEl, initialValue, null, document);
-  }
-
-  // Converts an FpML 'Schedule' to a {@code ValueSchedule}.
-  private ValueSchedule parseSchedule(XmlElement scheduleEl, double initialValue, ValueStepSequence seq, FpmlDocument document) {
-    List<XmlElement> stepEls = scheduleEl.getChildren("step");
+    double initialValue = document.parseDecimal(notionalScheduleEl.getChild("initialValue"));
+    List<XmlElement> stepEls = notionalScheduleEl.getChildren("step");
     ImmutableList.Builder<ValueStep> stepBuilder = ImmutableList.builder();
     for (XmlElement stepEl : stepEls) {
       LocalDate stepDate = document.parseDate(stepEl.getChild("stepDate"));
       double stepValue = document.parseDecimal(stepEl.getChild("stepValue"));
       stepBuilder.add(ValueStep.of(stepDate, ValueAdjustment.ofReplace(stepValue)));
     }
-    return ValueSchedule.builder().initialValue(initialValue).steps(stepBuilder.build()).stepSequence(seq).build();
-  }
-
-  // Converts an FpML 'NonNegativeAmountSchedule' to a {@code ValueStepSequence}.
-  private ValueStepSequence parseAmountSchedule(XmlElement scheduleEl, double initialValue, FpmlDocument document) {
-    Frequency freq = document.parseFrequency(scheduleEl.getChild("stepFrequency"));
-    LocalDate start = document.parseDate(scheduleEl.getChild("firstNotionalStepDate"));
-    LocalDate end = document.parseDate(scheduleEl.getChild("lastNotionalStepDate"));
-    Optional<XmlElement> amountElOpt = scheduleEl.findChild("notionalStepAmount");
-    if (amountElOpt.isPresent()) {
-      double amount = document.parseDecimal(amountElOpt.get());
-      return ValueStepSequence.of(start, end, freq, ValueAdjustment.ofDeltaAmount(amount));
-    }
-    double rate = document.parseDecimal(scheduleEl.getChild("notionalStepRate"));
-    String relativeTo = scheduleEl.findChild("stepRelativeTo").map(el -> el.getContent()).orElse("Previous");
-    if (relativeTo.equals("Previous")) {
-      return ValueStepSequence.of(start, end, freq, ValueAdjustment.ofDeltaMultiplier(rate));
-    } else if (relativeTo.equals("Initial")) {
-      // data model does not support 'relative to initial' but can calculate amount here
-      double amount = initialValue * rate;
-      return ValueStepSequence.of(start, end, freq, ValueAdjustment.ofDeltaAmount(amount));
-    } else {
-      throw new FpmlParseException(Messages.format(
-          "Unknown 'stepRelativeTo' value '{}', expected 'Initial' or 'Previous'", relativeTo));
-    }
+    return ValueSchedule.of(initialValue, stepBuilder.build());
   }
 
   //-------------------------------------------------------------------------
   // Converts an FpML 'PayRelativeToEnum' to a {@code PaymentRelativeTo}.
   private PaymentRelativeTo parsePayRelativeTo(XmlElement baseEl) {
-    String str = baseEl.getContent();
-    if (str.equals("CalculationPeriodStartDate")) {
+    if (baseEl.getContent().equals("CalculationPeriodStartDate")) {
       return PaymentRelativeTo.PERIOD_START;
-    } else if (str.equals("CalculationPeriodEndDate")) {
+    } else if (baseEl.getContent().equals("CalculationPeriodEndDate")) {
       return PaymentRelativeTo.PERIOD_END;
     } else {
-      throw new FpmlParseException(Messages.format(
-          "Unknown 'payRelativeTo' value '{}', expected 'CalculationPeriodStartDate' or 'CalculationPeriodEndDate'", str));
+      throw new FpmlParseException(Messages.format("Unknown 'payRelativeTo': {}", baseEl.getContent()));
     }
   }
 
   // Converts and FpML 'NegativeInterestRateTreatmentEnum' to a {@code NegativeRateMethod}.
   private NegativeRateMethod parseNegativeInterestRateTreatment(XmlElement baseEl) {
-    String str = baseEl.getContent();
-    if (str.equals("NegativeInterestRateMethod")) {
+    if (baseEl.getContent().equals("NegativeInterestRateMethod")) {
       return NegativeRateMethod.ALLOW_NEGATIVE;
-    } else if (str.equals("ZeroInterestRateMethod")) {
+    } else if (baseEl.getContent().equals("ZeroInterestRateMethod")) {
       return NegativeRateMethod.NOT_NEGATIVE;
     } else {
-      throw new FpmlParseException(Messages.format(
-          "Unknown 'negativeInterestRateTreatment' value '{}', " +
-              "expected 'NegativeInterestRateMethod' or 'ZeroInterestRateMethod'",
-          str));
+      throw new FpmlParseException(Messages.format("Unknown 'negativeInterestRateTreatment': {}", baseEl.getContent()));
     }
   }
 
-  // Converts an FpML 'AveragingMethodEnum' to a {@code IborRateResetMethod}.
-  private IborRateResetMethod parseAveragingMethod(XmlElement baseEl) {
-    String str = baseEl.getContent();
-    if (str.equals("Unweighted")) {
-      return IborRateResetMethod.UNWEIGHTED;
-    } else if (str.equals("Weighted")) {
-      return IborRateResetMethod.WEIGHTED;
+  // Converts an FpML 'AveragingMethodEnum' to a {@code IborRateAveragingMethod}.
+  private IborRateAveragingMethod parseAveragingMethod(XmlElement baseEl) {
+    if (baseEl.getContent().equals("Unweighted")) {
+      return IborRateAveragingMethod.UNWEIGHTED;
+    } else if (baseEl.getContent().equals("Weighted")) {
+      return IborRateAveragingMethod.WEIGHTED;
     } else {
-      throw new FpmlParseException(Messages.format(
-          "Unknown 'resetMethod' value '{}', expected 'Unweighted' or 'Weighted'", str));
+      throw new FpmlParseException(Messages.format("Unknown 'averagingMethod': {}", baseEl.getContent()));
     }
   }
 
   // Converts an FpML 'ResetRelativeToEnum' to a {@code FixingRelativeTo}.
   private FixingRelativeTo parseResetRelativeTo(XmlElement baseEl) {
-    String str = baseEl.getContent();
-    if (str.equals("CalculationPeriodStartDate")) {
+    if (baseEl.getContent().equals("CalculationPeriodStartDate")) {
       return FixingRelativeTo.PERIOD_START;
-    } else if (str.equals("CalculationPeriodEndDate")) {
+    } else if (baseEl.getContent().equals("CalculationPeriodEndDate")) {
       return FixingRelativeTo.PERIOD_END;
     } else {
-      throw new FpmlParseException(Messages.format(
-          "Unknown 'resetRelativeTo' value '{}', expected 'CalculationPeriodStartDate' or 'CalculationPeriodEndDate'", str));
+      throw new FpmlParseException(Messages.format("Unknown 'resetRelativeTo': {}", baseEl.getContent()));
     }
   }
 

@@ -25,19 +25,17 @@ import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
 import com.google.common.collect.ImmutableSet;
 import com.opengamma.strata.basics.CalculationTarget;
-import com.opengamma.strata.basics.ReferenceData;
 import com.opengamma.strata.basics.currency.Currency;
+import com.opengamma.strata.basics.market.MarketDataId;
+import com.opengamma.strata.basics.market.ObservableId;
 import com.opengamma.strata.calc.CalculationRules;
 import com.opengamma.strata.calc.Column;
 import com.opengamma.strata.calc.runner.CalculationTasks;
-import com.opengamma.strata.data.MarketDataId;
-import com.opengamma.strata.data.ObservableId;
 
 /**
- * Requirements for market data.
+ * A collection of market data IDs defining a set of market data.
  * <p>
- * This class is used as the input to {@link MarketDataFactory}.
- * It includes the market data identifiers that the application needs.
+ * This class is used when building instances of {@link MarketEnvironment}.
  */
 @BeanDefinition(builderScope = "private", constructorScope = "package")
 public final class MarketDataRequirements implements ImmutableBean {
@@ -75,16 +73,14 @@ public final class MarketDataRequirements implements ImmutableBean {
    * @param calculationRules  the rules defining how the calculation is performed
    * @param targets  the targets for which values of the measures will be calculated
    * @param columns  the columns that will be calculated
-   * @param refData  the reference data
    * @return the market data requirements
    */
   public static MarketDataRequirements of(
       CalculationRules calculationRules,
       List<? extends CalculationTarget> targets,
-      List<Column> columns,
-      ReferenceData refData) {
+      List<Column> columns) {
 
-    return CalculationTasks.of(calculationRules, targets, columns).requirements(refData);
+    return CalculationTasks.of(calculationRules, targets, columns).getRequirements();
   }
 
   /**

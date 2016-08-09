@@ -18,7 +18,6 @@ import java.util.stream.IntStream;
 
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableList;
 import com.opengamma.strata.basics.CalculationTarget;
 import com.opengamma.strata.collect.result.FailureReason;
 import com.opengamma.strata.collect.result.Result;
@@ -35,12 +34,11 @@ public class ListenerWrapperTest {
     CountDownLatch latch = new CountDownLatch(1);
     int expectedResultCount = nThreads * resultsPerThread;
     Listener listener = new Listener(errors, latch);
-    Consumer<CalculationResults> wrapper = new ListenerWrapper(listener, expectedResultCount);
+    Consumer<CalculationResult> wrapper = new ListenerWrapper(listener, expectedResultCount);
     ExecutorService executor = Executors.newFixedThreadPool(nThreads);
-    CalculationResult result = CalculationResult.of(0, 0, Result.failure(FailureReason.ERROR, "foo"));
-    CalculationTarget target = new CalculationTarget() {};
-    CalculationResults results = CalculationResults.of(target, ImmutableList.of(result));
-    IntStream.range(0, expectedResultCount).forEach(i -> executor.submit(() -> wrapper.accept(results)));
+    CalculationTarget target = new CalculationTarget() { };
+    CalculationResult result = CalculationResult.of(target, 0, 0, Result.failure(FailureReason.ERROR, "foo"));
+    IntStream.range(0, expectedResultCount).forEach(i -> executor.submit(() -> wrapper.accept(result)));
 
     latch.await();
     executor.shutdown();
@@ -72,7 +70,7 @@ public class ListenerWrapperTest {
     }
 
     @Override
-    public void resultReceived(CalculationTarget target, CalculationResult result) {
+    public void resultReceived(CalculationResult result) {
       if (threadName != null) {
         errors.add("Expected threadName to be null but it was " + threadName);
       }

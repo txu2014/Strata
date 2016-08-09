@@ -7,9 +7,10 @@ package com.opengamma.strata.market.curve;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.Map;
 
 import com.google.common.collect.ImmutableList;
-import com.opengamma.strata.basics.ReferenceData;
+import com.google.common.collect.ImmutableMap;
 import com.opengamma.strata.collect.array.DoubleArray;
 import com.opengamma.strata.market.ValueType;
 
@@ -61,29 +62,6 @@ public interface NodalCurveDefinition {
   public abstract ImmutableList<CurveNode> getNodes();
 
   /**
-   * Returns a filtered version of this definition with no invalid nodes.
-   * <p>
-   * A curve is formed of a number of nodes, each of which has an associated date.
-   * To be valid, the curve node dates must be in order from earliest to latest.
-   * Each node has certain rules, {@link CurveNodeDateOrder}, that are used to determine
-   * what happens if the date of one curve node is equal or earlier than the date of the previous node.
-   * <p>
-   * Filtering occurs in two stages. The first stage looks at each node in turn. The previous and next
-   * nodes are checked for clash. If clash occurs, then one of the two nodes is dropped according to
-   * the {@linkplain CurveNodeClashAction clash action} "drop" values. The second stage then looks
-   * again at the nodes, and if there are still any invalid nodes, an exception is thrown.
-   * <p>
-   * This approach means that in most cases, only those nodes that have fixed dates,
-   * such as futures, need to be annotated with {@code CurveNodeDateOrder}.
-   * 
-   * @param valuationDate  the valuation date
-   * @param refData  the reference data
-   * @return the resolved definition, that should be used in preference to this one
-   * @throws IllegalArgumentException if the curve nodes are invalid
-   */
-  public abstract NodalCurveDefinition filtered(LocalDate valuationDate, ReferenceData refData);
-
-  /**
    * Creates the curve metadata.
    * <p>
    * This method returns metadata about the curve and the curve parameters.
@@ -92,14 +70,13 @@ public interface NodalCurveDefinition {
    * The parameters might represent 1 day, 1 week, 1 month, 3 months, 6 months and 12 months.
    * The metadata could be used to describe each parameter in terms of a {@link Period}.
    * <p>
-   * The optional parameter-level metadata will be populated on the resulting metadata.
-   * The size of the parameter-level metadata will match the number of parameters of this curve.
+   * The metadata includes an optional list of parameter metadata, however this must be present.
+   * If present, the size of the parameter metadata list will match the number of parameters of this curve.
    *
-   * @param valuationDate  the valuation date
-   * @param refData  the reference data
+   * @param valuationDate  the valuation date used when calibrating the curve
    * @return the metadata
    */
-  public abstract CurveMetadata metadata(LocalDate valuationDate, ReferenceData refData);
+  public abstract CurveMetadata metadata(LocalDate valuationDate);
 
   /**
    * Creates the curve from an array of parameter values.
@@ -108,11 +85,29 @@ public interface NodalCurveDefinition {
    * The size of the array must match the {@linkplain #getParameterCount() count of parameters}.
    * 
    * @param valuationDate  the valuation date
-   * @param metadata  the curve metadata
    * @param parameters  the array of parameters
    * @return the curve
    */
-  public abstract NodalCurve curve(LocalDate valuationDate, CurveMetadata metadata, DoubleArray parameters);
+  public default NodalCurve curve(LocalDate valuationDate, DoubleArray parameters) {
+    return curve(valuationDate, parameters, ImmutableMap.of());
+  }
+
+  /**
+   * Creates the curve from an array of parameter values.
+   * <p>
+   * The meaning of the parameters is determined by the implementation.
+   * The size of the array must match the {@linkplain #getParameterCount() count of parameters}.
+   * Any additional information may be added to the curve metadata.
+   * 
+   * @param valuationDate  the valuation date
+   * @param parameters  the array of parameters
+   * @param additionalInfo  the additional curve information, such as information about calibration
+   * @return the curve
+   */
+  public abstract NodalCurve curve(
+      LocalDate valuationDate,
+      DoubleArray parameters,
+      Map<CurveInfoType<?>, Object> additionalInfo);
 
   /**
    * Converts this definition to the summary form.

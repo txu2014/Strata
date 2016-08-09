@@ -5,15 +5,12 @@
  */
 package com.opengamma.strata.product.swap;
 
+import java.time.LocalDate;
+
 import com.google.common.collect.ImmutableSet;
-import com.opengamma.strata.basics.ReferenceData;
-import com.opengamma.strata.basics.ReferenceDataId;
-import com.opengamma.strata.basics.ReferenceDataNotFoundException;
-import com.opengamma.strata.basics.Resolvable;
+import com.opengamma.strata.basics.PayReceive;
 import com.opengamma.strata.basics.currency.Currency;
-import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.index.Index;
-import com.opengamma.strata.product.common.PayReceive;
 
 /**
  * A single leg of a swap.
@@ -28,12 +25,12 @@ import com.opengamma.strata.product.common.PayReceive;
  * A single swap leg must produce payments in a single currency.
  * <p>
  * In most cases, a swap will consist of a list of payment periods, but this is not
- * required by this interface. The {@link ResolvedSwapLeg} class, which this leg can
+ * required by this interface. The {@link ExpandedSwapLeg} class, which this leg can
  * be converted to, does define the swap in terms of payment periods.
  * <p>
  * Implementations must be immutable and thread-safe beans.
  */
-public interface SwapLeg extends Resolvable<ResolvedSwapLeg> {
+public interface SwapLeg {
 
   /**
    * Gets the type of the leg, such as Fixed or Ibor.
@@ -60,23 +57,21 @@ public interface SwapLeg extends Resolvable<ResolvedSwapLeg> {
    * Gets the accrual start date of the leg.
    * <p>
    * This is the first accrual date in the leg, often known as the effective date.
-   * <p>
-   * Defined as the effective date by the 2006 ISDA definitions article 3.2.
+   * This date has typically been adjusted to be a valid business day.
    * 
    * @return the start date of the leg
    */
-  public abstract AdjustableDate getStartDate();
+  public abstract LocalDate getStartDate();
 
   /**
    * Gets the accrual end date of the leg.
    * <p>
    * This is the last accrual date in the leg, often known as the termination date.
-   * <p>
-   * Defined as the termination date by the 2006 ISDA definitions article 3.3.
+   * This date has typically been adjusted to be a valid business day.
    * 
    * @return the end date of the leg
    */
-  public abstract AdjustableDate getEndDate();
+  public abstract LocalDate getEndDate();
 
   /**
    * Gets the currency of the leg.
@@ -114,22 +109,14 @@ public interface SwapLeg extends Resolvable<ResolvedSwapLeg> {
   public abstract void collectIndices(ImmutableSet.Builder<Index> builder);
 
   /**
-   * Resolves this swap leg using the specified reference data.
+   * Expands this swap leg.
    * <p>
-   * This converts the swap leg to the equivalent resolved form.
-   * All {@link ReferenceDataId} identifiers in this instance will be resolved.
-   * The resolved form will typically be a type that is optimized for pricing.
-   * <p>
-   * Resolved objects may be bound to data that changes over time, such as holiday calendars.
-   * If the data changes, such as the addition of a new holiday, the resolved form will not be updated.
-   * Care must be taken when placing the resolved form in a cache or persistence layer.
+   * Expanding a swap leg causes the dates to be adjusted according to the relevant
+   * holiday calendar. Other one-off calculations may also be performed.
    * 
-   * @param refData  the reference data to use when resolving
-   * @return the resolved instance
-   * @throws ReferenceDataNotFoundException if an identifier cannot be resolved in the reference data
-   * @throws RuntimeException if unable to resolve due to an invalid definition
+   * @return the expended swap leg
+   * @throws RuntimeException if unable to expand
    */
-  @Override
-  public abstract ResolvedSwapLeg resolve(ReferenceData refData);
+  public abstract ExpandedSwapLeg expand();
 
 }

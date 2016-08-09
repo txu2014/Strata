@@ -24,30 +24,19 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.currency.Currency;
-import com.opengamma.strata.calc.runner.CalculationParameter;
-import com.opengamma.strata.calc.runner.CalculationParameters;
+import com.opengamma.strata.calc.config.MarketDataRules;
+import com.opengamma.strata.calc.config.Measure;
+import com.opengamma.strata.calc.config.ReportingCurrency;
+import com.opengamma.strata.calc.config.pricing.PricingRules;
+import com.opengamma.strata.collect.ArgChecker;
 
 /**
- * Defines a column in a set of calculation results.
- * <p>
- * {@link CalculationRunner} provides the ability to calculate a grid of results
- * for a given set targets and columns. This class is used to define the columns.
- * <p>
- * A column is defined in terms of a unique name, measure to be calculated and
- * a set of parameters that control the calculation. The functions to invoke
- * and the default set of parameters are defined on {@link CalculationRules}.
+ * Defines a column in a set of calculation results. A column specifies a measure and may specify
+ * overrides for the pricing rules and market data rules.
  */
 @BeanDefinition
 public final class Column implements ImmutableBean {
 
-  /**
-   * The column name.
-   * <p>
-   * This is the name of the column, and should be unique in a list of columns.
-   */
-  @PropertyDefinition(validate = "notNull")
-  private final ColumnName name;
   /**
    * The measure to be calculated.
    * <p>
@@ -56,170 +45,118 @@ public final class Column implements ImmutableBean {
   @PropertyDefinition(validate = "notNull")
   private final Measure measure;
   /**
-   * The reporting currency, used to control currency conversion, optional.
+   * The column name.
    * <p>
-   * This is used to specify the currency that the result should be reporting in.
-   * If the result is not associated with a currency, such as for "par rate", then the
-   * reporting currency will effectively be ignored.
+   * This is the name of the column, and should be unique in a list of columns.
+   */
+  @PropertyDefinition(validate = "notNull")
+  private final ColumnName name;
+  /**
+   * The pricing rules that apply to this column, merged with the default rules.
    * <p>
-   * If empty, the reporting currency from {@link CalculationRules} will be used.
+   * The final set of rules for a column consist of the default rules merged with
+   * the column-specific rules, with the column-specific rules taking precedence.
+   * In most cases, there is no need to specify column-specific rules.
+   */
+  @PropertyDefinition(validate = "notNull")
+  private final PricingRules pricingRules;
+  /**
+   * The market data rules that apply to this column, merged with the default rules.
+   * <p>
+   * The final set of rules for a column consist of the default rules merged with
+   * the column-specific rules, with the column-specific rules taking precedence.
+   * In most cases, there is no need to specify column-specific rules.
+   */
+  @PropertyDefinition(validate = "notNull")
+  private final MarketDataRules marketDataRules;
+  /**
+   * The reporting currency that applies to this column, overriding the default reporting currency.
+   * <p>
+   * In most cases, there is no need to specify a column-specific reporting currency.
    */
   @PropertyDefinition(get = "optional")
   private final ReportingCurrency reportingCurrency;
-  /**
-   * The calculation parameters that apply to this column, used to control the how the calculation is performed.
-   * <p>
-   * The parameters from {@link CalculationRules} and {@code Column} are combined.
-   * If a parameter is defined here and in the rules with the same
-   * {@linkplain CalculationParameter#queryType() query type}, then the column parameter takes precedence.
-   * <p>
-   * When building, these will default to be empty.
-   */
-  @PropertyDefinition
-  private final CalculationParameters parameters;
 
   //-------------------------------------------------------------------------
   /**
    * Obtains an instance that will calculate the specified measure.
    * <p>
-   * The column name will be the same as the name of the measure.
-   * No calculation parameters are provided, thus the parameters from {@link CalculationRules} will be used.
-   * Currency conversion is controlled by the reporting currency in {@code CalculationRules}.
+   * The column name will be the name of the measure.
+   * The rules will be empty, thus the column will use the default rules.
+   * The reporting currency will be empty, thus the column will use the default reporting currency.
+   * <p>
+   * If a column is required with rules overrides, use a {@linkplain #builder() builder}.
    *
    * @param measure  the measure to be calculated
    * @return a column with the specified measure
    */
   public static Column of(Measure measure) {
-    ColumnName name = ColumnName.of(measure);
-    return new Column(name, measure, null, CalculationParameters.empty());
+    ArgChecker.notNull(measure, "measure");
+    return new Column(measure, ColumnName.of(measure.toString()), PricingRules.empty(), MarketDataRules.empty(), null);
   }
 
   /**
-   * Obtains an instance that will calculate the specified measure, converting to the specified currency.
+   * Obtains an instance that will calculate the specified measure, defining the reporting currency.
    * <p>
-   * The column name will be the same as the name of the measure.
+   * The column name will be the name of the measure.
+   * The rules will be empty, thus the column will use the default rules.
+   * <p>
+   * If a column is required with rules overrides, use a {@linkplain #builder() builder}.
    *
    * @param measure  the measure to be calculated
-   * @param currency  the currency to convert to
-   * @return a column with the specified measure
-   */
-  public static Column of(Measure measure, Currency currency) {
-    ColumnName name = ColumnName.of(measure);
-    return new Column(name, measure, ReportingCurrency.of(currency), CalculationParameters.empty());
-  }
-
-  /**
-   * Obtains an instance that will calculate the specified measure, defining additional parameters.
-   * <p>
-   * The column name will be the same as the name of the measure.
-   * The specified calculation parameters take precedence over those in {@link CalculationRules},
-   * with the combined set being used for the column.
-   * Currency conversion is controlled by the reporting currency in {@code CalculationRules}.
-   *
-   * @param measure  the measure to be calculated
-   * @param parameters  the parameters that control the calculation, may be empty
+   * @param reportingCurrency  the reporting currency to use
    * @return a column with the specified measure and reporting currency
    */
-  public static Column of(Measure measure, CalculationParameter... parameters) {
-    ColumnName name = ColumnName.of(measure);
-    return new Column(name, measure, null, CalculationParameters.of(parameters));
-  }
-
-  /**
-   * Obtains an instance that will calculate the specified measure, converting to the specified currency,
-   * defining additional parameters.
-   * <p>
-   * The column name will be the same as the name of the measure.
-   * The specified calculation parameters take precedence over those in {@link CalculationRules},
-   * with the combined set being used for the column.
-   *
-   * @param measure  the measure to be calculated
-   * @param currency  the currency to convert to
-   * @param parameters  the parameters that control the calculation, may be empty
-   * @return a column with the specified measure and reporting currency
-   */
-  public static Column of(Measure measure, Currency currency, CalculationParameter... parameters) {
-    ColumnName name = ColumnName.of(measure);
-    return new Column(name, measure, ReportingCurrency.of(currency), CalculationParameters.of(parameters));
+  public static Column of(Measure measure, ReportingCurrency reportingCurrency) {
+    ArgChecker.notNull(measure, "measure");
+    ArgChecker.notNull(reportingCurrency, "reportingCurrency");
+    return new Column(
+        measure, ColumnName.of(measure.toString()), PricingRules.empty(), MarketDataRules.empty(), reportingCurrency);
   }
 
   /**
    * Obtains an instance that will calculate the specified measure, defining the column name.
    * <p>
-   * No calculation parameters are provided, thus the parameters from {@link CalculationRules} will be used.
-   * Currency conversion is controlled by the reporting currency in {@code CalculationRules}.
+   * The rules will be empty, thus the column will use the default rules.
+   * The reporting currency will be empty, thus the column will use the default reporting currency.
+   * <p>
+   * If a column is required with rules overrides, use a {@linkplain #builder() builder}.
    *
    * @param measure  the measure to be calculated
    * @param columnName  the column name
    * @return a column with the specified measure and column name
    */
   public static Column of(Measure measure, String columnName) {
-    ColumnName name = ColumnName.of(columnName);
-    return new Column(name, measure, null, CalculationParameters.empty());
+    ArgChecker.notNull(measure, "measure");
+    ArgChecker.notNull(columnName, "columnName");
+    return new Column(measure, ColumnName.of(columnName), PricingRules.empty(), MarketDataRules.empty(), null);
   }
 
   /**
-   * Obtains an instance that will calculate the specified measure, converting to the specified currency.
+   * Obtains an instance that will calculate the specified measure, defining the column name and reporting currency.
    * <p>
-   * The specified currency will be wrapped in {@link ReportingCurrency} and added to the calculation parameters.
+   * The column name will be the name of the measure.
+   * The rules will be empty, thus the column will use the default rules.
+   * <p>
+   * If a column is required with rules overrides, use a {@linkplain #builder() builder}.
    *
    * @param measure  the measure to be calculated
    * @param columnName  the column name
-   * @param currency  the currency to convert to
-   * @return a column with the specified measure
-   */
-  public static Column of(Measure measure, String columnName, Currency currency) {
-    ColumnName name = ColumnName.of(columnName);
-    return new Column(name, measure, ReportingCurrency.of(currency), CalculationParameters.empty());
-  }
-
-  /**
-   * Obtains an instance that will calculate the specified measure, defining the column name and parameters.
-   * <p>
-   * The specified calculation parameters take precedence over those in {@link CalculationRules},
-   * with the combined set being used for the column.
-   * Currency conversion is controlled by the reporting currency in {@code CalculationRules}.
-   *
-   * @param measure  the measure to be calculated
-   * @param columnName  the column name
-   * @param parameters  the parameters that control the calculation, may be empty
+   * @param reportingCurrency  the reporting currency to use
    * @return a column with the specified measure, column name and reporting currency
    */
-  public static Column of(
-      Measure measure,
-      String columnName,
-      CalculationParameter... parameters) {
-
-    ColumnName name = ColumnName.of(columnName);
-    return new Column(name, measure, null, CalculationParameters.of(parameters));
-  }
-
-  /**
-   * Obtains an instance that will calculate the specified measure, converting to the specified currency,
-   * defining the column name and parameters.
-   * <p>
-   * The specified calculation parameters take precedence over those in {@link CalculationRules},
-   * with the combined set being used for the column.
-   *
-   * @param measure  the measure to be calculated
-   * @param columnName  the column name
-   * @param currency  the currency to convert to
-   * @param parameters  the parameters that control the calculation, may be empty
-   * @return a column with the specified measure, column name and reporting currency
-   */
-  public static Column of(
-      Measure measure,
-      String columnName,
-      Currency currency,
-      CalculationParameter... parameters) {
-
-    ColumnName name = ColumnName.of(columnName);
-    return new Column(name, measure, ReportingCurrency.of(currency), CalculationParameters.of(parameters));
+  public static Column of(Measure measure, String columnName, ReportingCurrency reportingCurrency) {
+    ArgChecker.notNull(measure, "measure");
+    ArgChecker.notNull(columnName, "columnName");
+    ArgChecker.notNull(reportingCurrency, "reportingCurrency");
+    return new Column(
+        measure, ColumnName.of(measure.toString()), PricingRules.empty(), MarketDataRules.empty(), reportingCurrency);
   }
 
   @ImmutableDefaults
   private static void applyDefaults(Builder builder) {
-    builder.parameters(CalculationParameters.empty());
+    builder.pricingRules(PricingRules.empty());
+    builder.marketDataRules(MarketDataRules.empty());
   }
 
   @ImmutablePreBuild
@@ -231,32 +168,20 @@ public final class Column implements ImmutableBean {
 
   //-------------------------------------------------------------------------
   /**
-   * Combines the parameters with another reporting currency and set of parameters.
-   * 
-   * @param reportingCurrency  the default reporting currency
-   * @param defaultParameters  the default parameters
-   * @return the combined column
+   * Returns a column whose rules are derived from the rules in this column composed with the default rules.
+   *
+   * @param defaultCalculationRules  the default rules
+   * @return a column whose rules are derived from the rules in this column composed with the default rules
    */
-  public Column combineWithDefaults(ReportingCurrency reportingCurrency, CalculationParameters defaultParameters) {
-    CalculationParameters combinedParams = parameters.combinedWith(defaultParameters);
-    return new Column(name, measure, getReportingCurrency().orElse(reportingCurrency), combinedParams);
-  }
-
-  /**
-   * Converts this column to a column header.
-   * <p>
-   * The header is a reduced form of the column used in {@link Results}.
-   * 
-   * @return the column header
-   */
-  public ColumnHeader toHeader() {
-    if (measure.isCurrencyConvertible()) {
-      ReportingCurrency reportingCurrency = getReportingCurrency().orElse(ReportingCurrency.NATURAL);
-      if (reportingCurrency.isSpecific()) {
-        return ColumnHeader.of(name, measure, reportingCurrency.getCurrency());
-      }
-    }
-    return ColumnHeader.of(name, measure);
+  public Column withDefaultRules(CalculationRules defaultCalculationRules) {
+    PricingRules pricingRules = getPricingRules().composedWith(defaultCalculationRules.getPricingRules());
+    MarketDataRules marketDataRules = getMarketDataRules().composedWith(defaultCalculationRules.getMarketDataRules());
+    ReportingCurrency reportingCurrency = getReportingCurrency().orElse(defaultCalculationRules.getReportingCurrency());
+    return toBuilder()
+        .pricingRules(pricingRules)
+        .marketDataRules(marketDataRules)
+        .reportingCurrency(reportingCurrency)
+        .build();
   }
 
   //------------------------- AUTOGENERATED START -------------------------
@@ -282,16 +207,20 @@ public final class Column implements ImmutableBean {
   }
 
   private Column(
-      ColumnName name,
       Measure measure,
-      ReportingCurrency reportingCurrency,
-      CalculationParameters parameters) {
-    JodaBeanUtils.notNull(name, "name");
+      ColumnName name,
+      PricingRules pricingRules,
+      MarketDataRules marketDataRules,
+      ReportingCurrency reportingCurrency) {
     JodaBeanUtils.notNull(measure, "measure");
-    this.name = name;
+    JodaBeanUtils.notNull(name, "name");
+    JodaBeanUtils.notNull(pricingRules, "pricingRules");
+    JodaBeanUtils.notNull(marketDataRules, "marketDataRules");
     this.measure = measure;
+    this.name = name;
+    this.pricingRules = pricingRules;
+    this.marketDataRules = marketDataRules;
     this.reportingCurrency = reportingCurrency;
-    this.parameters = parameters;
   }
 
   @Override
@@ -311,17 +240,6 @@ public final class Column implements ImmutableBean {
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the column name.
-   * <p>
-   * This is the name of the column, and should be unique in a list of columns.
-   * @return the value of the property, not null
-   */
-  public ColumnName getName() {
-    return name;
-  }
-
-  //-----------------------------------------------------------------------
-  /**
    * Gets the measure to be calculated.
    * <p>
    * This defines the calculation being performed, such as 'PresentValue' or 'ParRate'.
@@ -333,32 +251,50 @@ public final class Column implements ImmutableBean {
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the reporting currency, used to control currency conversion, optional.
+   * Gets the column name.
    * <p>
-   * This is used to specify the currency that the result should be reporting in.
-   * If the result is not associated with a currency, such as for "par rate", then the
-   * reporting currency will effectively be ignored.
-   * <p>
-   * If empty, the reporting currency from {@link CalculationRules} will be used.
-   * @return the optional value of the property, not null
+   * This is the name of the column, and should be unique in a list of columns.
+   * @return the value of the property, not null
    */
-  public Optional<ReportingCurrency> getReportingCurrency() {
-    return Optional.ofNullable(reportingCurrency);
+  public ColumnName getName() {
+    return name;
   }
 
   //-----------------------------------------------------------------------
   /**
-   * Gets the calculation parameters that apply to this column, used to control the how the calculation is performed.
+   * Gets the pricing rules that apply to this column, merged with the default rules.
    * <p>
-   * The parameters from {@link CalculationRules} and {@code Column} are combined.
-   * If a parameter is defined here and in the rules with the same
-   * {@linkplain CalculationParameter#queryType() query type}, then the column parameter takes precedence.
-   * <p>
-   * When building, these will default to be empty.
-   * @return the value of the property
+   * The final set of rules for a column consist of the default rules merged with
+   * the column-specific rules, with the column-specific rules taking precedence.
+   * In most cases, there is no need to specify column-specific rules.
+   * @return the value of the property, not null
    */
-  public CalculationParameters getParameters() {
-    return parameters;
+  public PricingRules getPricingRules() {
+    return pricingRules;
+  }
+
+  //-----------------------------------------------------------------------
+  /**
+   * Gets the market data rules that apply to this column, merged with the default rules.
+   * <p>
+   * The final set of rules for a column consist of the default rules merged with
+   * the column-specific rules, with the column-specific rules taking precedence.
+   * In most cases, there is no need to specify column-specific rules.
+   * @return the value of the property, not null
+   */
+  public MarketDataRules getMarketDataRules() {
+    return marketDataRules;
+  }
+
+  //-----------------------------------------------------------------------
+  /**
+   * Gets the reporting currency that applies to this column, overriding the default reporting currency.
+   * <p>
+   * In most cases, there is no need to specify a column-specific reporting currency.
+   * @return the optional value of the property, not null
+   */
+  public Optional<ReportingCurrency> getReportingCurrency() {
+    return Optional.ofNullable(reportingCurrency);
   }
 
   //-----------------------------------------------------------------------
@@ -377,10 +313,11 @@ public final class Column implements ImmutableBean {
     }
     if (obj != null && obj.getClass() == this.getClass()) {
       Column other = (Column) obj;
-      return JodaBeanUtils.equal(name, other.name) &&
-          JodaBeanUtils.equal(measure, other.measure) &&
-          JodaBeanUtils.equal(reportingCurrency, other.reportingCurrency) &&
-          JodaBeanUtils.equal(parameters, other.parameters);
+      return JodaBeanUtils.equal(measure, other.measure) &&
+          JodaBeanUtils.equal(name, other.name) &&
+          JodaBeanUtils.equal(pricingRules, other.pricingRules) &&
+          JodaBeanUtils.equal(marketDataRules, other.marketDataRules) &&
+          JodaBeanUtils.equal(reportingCurrency, other.reportingCurrency);
     }
     return false;
   }
@@ -388,21 +325,23 @@ public final class Column implements ImmutableBean {
   @Override
   public int hashCode() {
     int hash = getClass().hashCode();
-    hash = hash * 31 + JodaBeanUtils.hashCode(name);
     hash = hash * 31 + JodaBeanUtils.hashCode(measure);
+    hash = hash * 31 + JodaBeanUtils.hashCode(name);
+    hash = hash * 31 + JodaBeanUtils.hashCode(pricingRules);
+    hash = hash * 31 + JodaBeanUtils.hashCode(marketDataRules);
     hash = hash * 31 + JodaBeanUtils.hashCode(reportingCurrency);
-    hash = hash * 31 + JodaBeanUtils.hashCode(parameters);
     return hash;
   }
 
   @Override
   public String toString() {
-    StringBuilder buf = new StringBuilder(160);
+    StringBuilder buf = new StringBuilder(192);
     buf.append("Column{");
-    buf.append("name").append('=').append(name).append(',').append(' ');
     buf.append("measure").append('=').append(measure).append(',').append(' ');
-    buf.append("reportingCurrency").append('=').append(reportingCurrency).append(',').append(' ');
-    buf.append("parameters").append('=').append(JodaBeanUtils.toString(parameters));
+    buf.append("name").append('=').append(name).append(',').append(' ');
+    buf.append("pricingRules").append('=').append(pricingRules).append(',').append(' ');
+    buf.append("marketDataRules").append('=').append(marketDataRules).append(',').append(' ');
+    buf.append("reportingCurrency").append('=').append(JodaBeanUtils.toString(reportingCurrency));
     buf.append('}');
     return buf.toString();
   }
@@ -418,34 +357,40 @@ public final class Column implements ImmutableBean {
     static final Meta INSTANCE = new Meta();
 
     /**
+     * The meta-property for the {@code measure} property.
+     */
+    private final MetaProperty<Measure> measure = DirectMetaProperty.ofImmutable(
+        this, "measure", Column.class, Measure.class);
+    /**
      * The meta-property for the {@code name} property.
      */
     private final MetaProperty<ColumnName> name = DirectMetaProperty.ofImmutable(
         this, "name", Column.class, ColumnName.class);
     /**
-     * The meta-property for the {@code measure} property.
+     * The meta-property for the {@code pricingRules} property.
      */
-    private final MetaProperty<Measure> measure = DirectMetaProperty.ofImmutable(
-        this, "measure", Column.class, Measure.class);
+    private final MetaProperty<PricingRules> pricingRules = DirectMetaProperty.ofImmutable(
+        this, "pricingRules", Column.class, PricingRules.class);
+    /**
+     * The meta-property for the {@code marketDataRules} property.
+     */
+    private final MetaProperty<MarketDataRules> marketDataRules = DirectMetaProperty.ofImmutable(
+        this, "marketDataRules", Column.class, MarketDataRules.class);
     /**
      * The meta-property for the {@code reportingCurrency} property.
      */
     private final MetaProperty<ReportingCurrency> reportingCurrency = DirectMetaProperty.ofImmutable(
         this, "reportingCurrency", Column.class, ReportingCurrency.class);
     /**
-     * The meta-property for the {@code parameters} property.
-     */
-    private final MetaProperty<CalculationParameters> parameters = DirectMetaProperty.ofImmutable(
-        this, "parameters", Column.class, CalculationParameters.class);
-    /**
      * The meta-properties.
      */
     private final Map<String, MetaProperty<?>> metaPropertyMap$ = new DirectMetaPropertyMap(
         this, null,
-        "name",
         "measure",
-        "reportingCurrency",
-        "parameters");
+        "name",
+        "pricingRules",
+        "marketDataRules",
+        "reportingCurrency");
 
     /**
      * Restricted constructor.
@@ -456,14 +401,16 @@ public final class Column implements ImmutableBean {
     @Override
     protected MetaProperty<?> metaPropertyGet(String propertyName) {
       switch (propertyName.hashCode()) {
-        case 3373707:  // name
-          return name;
         case 938321246:  // measure
           return measure;
+        case 3373707:  // name
+          return name;
+        case 1055696081:  // pricingRules
+          return pricingRules;
+        case 363016849:  // marketDataRules
+          return marketDataRules;
         case -1287844769:  // reportingCurrency
           return reportingCurrency;
-        case 458736106:  // parameters
-          return parameters;
       }
       return super.metaPropertyGet(propertyName);
     }
@@ -485,6 +432,14 @@ public final class Column implements ImmutableBean {
 
     //-----------------------------------------------------------------------
     /**
+     * The meta-property for the {@code measure} property.
+     * @return the meta-property, not null
+     */
+    public MetaProperty<Measure> measure() {
+      return measure;
+    }
+
+    /**
      * The meta-property for the {@code name} property.
      * @return the meta-property, not null
      */
@@ -493,11 +448,19 @@ public final class Column implements ImmutableBean {
     }
 
     /**
-     * The meta-property for the {@code measure} property.
+     * The meta-property for the {@code pricingRules} property.
      * @return the meta-property, not null
      */
-    public MetaProperty<Measure> measure() {
-      return measure;
+    public MetaProperty<PricingRules> pricingRules() {
+      return pricingRules;
+    }
+
+    /**
+     * The meta-property for the {@code marketDataRules} property.
+     * @return the meta-property, not null
+     */
+    public MetaProperty<MarketDataRules> marketDataRules() {
+      return marketDataRules;
     }
 
     /**
@@ -508,26 +471,20 @@ public final class Column implements ImmutableBean {
       return reportingCurrency;
     }
 
-    /**
-     * The meta-property for the {@code parameters} property.
-     * @return the meta-property, not null
-     */
-    public MetaProperty<CalculationParameters> parameters() {
-      return parameters;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     protected Object propertyGet(Bean bean, String propertyName, boolean quiet) {
       switch (propertyName.hashCode()) {
-        case 3373707:  // name
-          return ((Column) bean).getName();
         case 938321246:  // measure
           return ((Column) bean).getMeasure();
+        case 3373707:  // name
+          return ((Column) bean).getName();
+        case 1055696081:  // pricingRules
+          return ((Column) bean).getPricingRules();
+        case 363016849:  // marketDataRules
+          return ((Column) bean).getMarketDataRules();
         case -1287844769:  // reportingCurrency
           return ((Column) bean).reportingCurrency;
-        case 458736106:  // parameters
-          return ((Column) bean).getParameters();
       }
       return super.propertyGet(bean, propertyName, quiet);
     }
@@ -549,10 +506,11 @@ public final class Column implements ImmutableBean {
    */
   public static final class Builder extends DirectFieldsBeanBuilder<Column> {
 
-    private ColumnName name;
     private Measure measure;
+    private ColumnName name;
+    private PricingRules pricingRules;
+    private MarketDataRules marketDataRules;
     private ReportingCurrency reportingCurrency;
-    private CalculationParameters parameters;
 
     /**
      * Restricted constructor.
@@ -566,24 +524,27 @@ public final class Column implements ImmutableBean {
      * @param beanToCopy  the bean to copy from, not null
      */
     private Builder(Column beanToCopy) {
-      this.name = beanToCopy.getName();
       this.measure = beanToCopy.getMeasure();
+      this.name = beanToCopy.getName();
+      this.pricingRules = beanToCopy.getPricingRules();
+      this.marketDataRules = beanToCopy.getMarketDataRules();
       this.reportingCurrency = beanToCopy.reportingCurrency;
-      this.parameters = beanToCopy.getParameters();
     }
 
     //-----------------------------------------------------------------------
     @Override
     public Object get(String propertyName) {
       switch (propertyName.hashCode()) {
-        case 3373707:  // name
-          return name;
         case 938321246:  // measure
           return measure;
+        case 3373707:  // name
+          return name;
+        case 1055696081:  // pricingRules
+          return pricingRules;
+        case 363016849:  // marketDataRules
+          return marketDataRules;
         case -1287844769:  // reportingCurrency
           return reportingCurrency;
-        case 458736106:  // parameters
-          return parameters;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
       }
@@ -592,17 +553,20 @@ public final class Column implements ImmutableBean {
     @Override
     public Builder set(String propertyName, Object newValue) {
       switch (propertyName.hashCode()) {
-        case 3373707:  // name
-          this.name = (ColumnName) newValue;
-          break;
         case 938321246:  // measure
           this.measure = (Measure) newValue;
           break;
+        case 3373707:  // name
+          this.name = (ColumnName) newValue;
+          break;
+        case 1055696081:  // pricingRules
+          this.pricingRules = (PricingRules) newValue;
+          break;
+        case 363016849:  // marketDataRules
+          this.marketDataRules = (MarketDataRules) newValue;
+          break;
         case -1287844769:  // reportingCurrency
           this.reportingCurrency = (ReportingCurrency) newValue;
-          break;
-        case 458736106:  // parameters
-          this.parameters = (CalculationParameters) newValue;
           break;
         default:
           throw new NoSuchElementException("Unknown property: " + propertyName);
@@ -638,26 +602,14 @@ public final class Column implements ImmutableBean {
     public Column build() {
       preBuild(this);
       return new Column(
-          name,
           measure,
-          reportingCurrency,
-          parameters);
+          name,
+          pricingRules,
+          marketDataRules,
+          reportingCurrency);
     }
 
     //-----------------------------------------------------------------------
-    /**
-     * Sets the column name.
-     * <p>
-     * This is the name of the column, and should be unique in a list of columns.
-     * @param name  the new value, not null
-     * @return this, for chaining, not null
-     */
-    public Builder name(ColumnName name) {
-      JodaBeanUtils.notNull(name, "name");
-      this.name = name;
-      return this;
-    }
-
     /**
      * Sets the measure to be calculated.
      * <p>
@@ -672,13 +624,52 @@ public final class Column implements ImmutableBean {
     }
 
     /**
-     * Sets the reporting currency, used to control currency conversion, optional.
+     * Sets the column name.
      * <p>
-     * This is used to specify the currency that the result should be reporting in.
-     * If the result is not associated with a currency, such as for "par rate", then the
-     * reporting currency will effectively be ignored.
+     * This is the name of the column, and should be unique in a list of columns.
+     * @param name  the new value, not null
+     * @return this, for chaining, not null
+     */
+    public Builder name(ColumnName name) {
+      JodaBeanUtils.notNull(name, "name");
+      this.name = name;
+      return this;
+    }
+
+    /**
+     * Sets the pricing rules that apply to this column, merged with the default rules.
      * <p>
-     * If empty, the reporting currency from {@link CalculationRules} will be used.
+     * The final set of rules for a column consist of the default rules merged with
+     * the column-specific rules, with the column-specific rules taking precedence.
+     * In most cases, there is no need to specify column-specific rules.
+     * @param pricingRules  the new value, not null
+     * @return this, for chaining, not null
+     */
+    public Builder pricingRules(PricingRules pricingRules) {
+      JodaBeanUtils.notNull(pricingRules, "pricingRules");
+      this.pricingRules = pricingRules;
+      return this;
+    }
+
+    /**
+     * Sets the market data rules that apply to this column, merged with the default rules.
+     * <p>
+     * The final set of rules for a column consist of the default rules merged with
+     * the column-specific rules, with the column-specific rules taking precedence.
+     * In most cases, there is no need to specify column-specific rules.
+     * @param marketDataRules  the new value, not null
+     * @return this, for chaining, not null
+     */
+    public Builder marketDataRules(MarketDataRules marketDataRules) {
+      JodaBeanUtils.notNull(marketDataRules, "marketDataRules");
+      this.marketDataRules = marketDataRules;
+      return this;
+    }
+
+    /**
+     * Sets the reporting currency that applies to this column, overriding the default reporting currency.
+     * <p>
+     * In most cases, there is no need to specify a column-specific reporting currency.
      * @param reportingCurrency  the new value
      * @return this, for chaining, not null
      */
@@ -687,31 +678,16 @@ public final class Column implements ImmutableBean {
       return this;
     }
 
-    /**
-     * Sets the calculation parameters that apply to this column, used to control the how the calculation is performed.
-     * <p>
-     * The parameters from {@link CalculationRules} and {@code Column} are combined.
-     * If a parameter is defined here and in the rules with the same
-     * {@linkplain CalculationParameter#queryType() query type}, then the column parameter takes precedence.
-     * <p>
-     * When building, these will default to be empty.
-     * @param parameters  the new value
-     * @return this, for chaining, not null
-     */
-    public Builder parameters(CalculationParameters parameters) {
-      this.parameters = parameters;
-      return this;
-    }
-
     //-----------------------------------------------------------------------
     @Override
     public String toString() {
-      StringBuilder buf = new StringBuilder(160);
+      StringBuilder buf = new StringBuilder(192);
       buf.append("Column.Builder{");
-      buf.append("name").append('=').append(JodaBeanUtils.toString(name)).append(',').append(' ');
       buf.append("measure").append('=').append(JodaBeanUtils.toString(measure)).append(',').append(' ');
-      buf.append("reportingCurrency").append('=').append(JodaBeanUtils.toString(reportingCurrency)).append(',').append(' ');
-      buf.append("parameters").append('=').append(JodaBeanUtils.toString(parameters));
+      buf.append("name").append('=').append(JodaBeanUtils.toString(name)).append(',').append(' ');
+      buf.append("pricingRules").append('=').append(JodaBeanUtils.toString(pricingRules)).append(',').append(' ');
+      buf.append("marketDataRules").append('=').append(JodaBeanUtils.toString(marketDataRules)).append(',').append(' ');
+      buf.append("reportingCurrency").append('=').append(JodaBeanUtils.toString(reportingCurrency));
       buf.append('}');
       return buf.toString();
     }

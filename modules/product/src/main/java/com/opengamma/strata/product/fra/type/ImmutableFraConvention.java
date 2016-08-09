@@ -13,7 +13,6 @@ import static com.opengamma.strata.product.fra.FraDiscountingMethod.ISDA;
 
 import java.io.Serializable;
 import java.time.LocalDate;
-import java.time.Period;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -31,16 +30,14 @@ import org.joda.beans.impl.direct.DirectMetaBean;
 import org.joda.beans.impl.direct.DirectMetaProperty;
 import org.joda.beans.impl.direct.DirectMetaPropertyMap;
 
-import com.opengamma.strata.basics.ReferenceData;
+import com.opengamma.strata.basics.BuySell;
 import com.opengamma.strata.basics.currency.Currency;
-import com.opengamma.strata.basics.date.AdjustableDate;
 import com.opengamma.strata.basics.date.BusinessDayAdjustment;
 import com.opengamma.strata.basics.date.DayCount;
 import com.opengamma.strata.basics.date.DaysAdjustment;
 import com.opengamma.strata.basics.index.IborIndex;
 import com.opengamma.strata.collect.ArgChecker;
 import com.opengamma.strata.product.TradeInfo;
-import com.opengamma.strata.product.common.BuySell;
 import com.opengamma.strata.product.fra.Fra;
 import com.opengamma.strata.product.fra.FraDiscountingMethod;
 import com.opengamma.strata.product.fra.FraTrade;
@@ -237,7 +234,6 @@ public final class ImmutableFraConvention
    * 
    * @return the spot date offset, not null
    */
-  @Override
   public DaysAdjustment getSpotDateOffset() {
     return spotDateOffset != null ? spotDateOffset : index.getEffectiveDateOffset();
   }
@@ -311,39 +307,42 @@ public final class ImmutableFraConvention
   }
 
   //-------------------------------------------------------------------------
-  @Override
-  public FraTrade createTrade(
-      LocalDate tradeDate,
-      Period periodToStart,
-      Period periodToEnd,
-      BuySell buySell,
-      double notional,
-      double fixedRate,
-      ReferenceData refData) {
-
-    LocalDate spotValue = calculateSpotDateFromTradeDate(tradeDate, refData);
-    LocalDate startDate = spotValue.plus(periodToStart);
-    LocalDate endDate = spotValue.plus(periodToEnd);
-    LocalDate paymentDate = getPaymentDateOffset().adjust(startDate, refData);
-    return toTrade(tradeDate, startDate, endDate, paymentDate, buySell, notional, fixedRate);
+  /**
+   * Expands this convention, returning an instance where all the optional fields are present.
+   * <p>
+   * This returns an equivalent instance where any empty optional have been filled in.
+   * 
+   * @return the expanded convention
+   */
+  public ImmutableFraConvention expand() {
+    return ImmutableFraConvention.builder()
+        .index(index)
+        .name(getName())
+        .currency(getCurrency())
+        .spotDateOffset(getSpotDateOffset())
+        .businessDayAdjustment(getBusinessDayAdjustment())
+        .paymentDateOffset(getPaymentDateOffset())
+        .fixingDateOffset(getFixingDateOffset())
+        .dayCount(getDayCount())
+        .discounting(getDiscounting())
+        .build();
   }
 
+  //-------------------------------------------------------------------------
   @Override
   public FraTrade toTrade(
-      TradeInfo tradeInfo,
+      LocalDate tradeDate,
       LocalDate startDate,
       LocalDate endDate,
-      LocalDate paymentDate,
       BuySell buySell,
       double notional,
       double fixedRate) {
 
-    Optional<LocalDate> tradeDate = tradeInfo.getTradeDate();
-    if (tradeDate.isPresent()) {
-      ArgChecker.inOrderOrEqual(tradeDate.get(), startDate, "tradeDate", "startDate");
-    }
+    ArgChecker.inOrderOrEqual(tradeDate, startDate, "tradeDate", "startDate");
     return FraTrade.builder()
-        .info(tradeInfo)
+        .tradeInfo(TradeInfo.builder()
+            .tradeDate(tradeDate)
+            .build())
         .product(Fra.builder()
             .buySell(buySell)
             .currency(getCurrency())
@@ -351,7 +350,7 @@ public final class ImmutableFraConvention
             .startDate(startDate)
             .endDate(endDate)
             .businessDayAdjustment(getBusinessDayAdjustment())
-            .paymentDate(AdjustableDate.of(paymentDate, getPaymentDateOffset().getAdjustment()))
+            .paymentDate(getPaymentDateOffset().toAdjustedDate(startDate))
             .fixedRate(fixedRate)
             .index(index)
             .fixingDateOffset(getFixingDateOffset())
@@ -359,6 +358,11 @@ public final class ImmutableFraConvention
             .discounting(getDiscounting())
             .build())
         .build();
+  }
+
+  @Override
+  public LocalDate calculateSpotDateFromTradeDate(LocalDate tradeDate) {
+    return getSpotDateOffset().adjust(tradeDate);
   }
 
   @Override
